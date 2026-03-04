@@ -39,6 +39,7 @@ export const CondoProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     const fetchNfeUser = async () => {
       setLoading(true);
       const { data, error } = await supabase
+        .schema('nfe_vigia')
         .from('users')
         .select('*')
         .eq('user_id', user.id)
