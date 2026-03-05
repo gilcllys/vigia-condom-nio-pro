@@ -42,7 +42,7 @@ export const CondoProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       .schema('nfe_vigia')
       .from('users')
       .select('*')
-      .eq('user_id', user.id)
+      .eq('auth_user_id', user.id)
       .maybeSingle();
 
     if (error) {
