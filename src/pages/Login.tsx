@@ -146,6 +146,17 @@ export default function Login() {
               {loading ? 'Aguarde...' : isSignUp ? 'Criar conta' : 'Entrar'}
             </Button>
           </form>
+          {!isSignUp && (
+            <div className="mt-3 text-center">
+              <button
+                type="button"
+                onClick={() => setForgotOpen(true)}
+                className="text-sm text-muted-foreground underline-offset-4 hover:underline hover:text-primary"
+              >
+                Esqueci minha senha
+              </button>
+            </div>
+          )}
           <div className="mt-4 text-center text-sm text-muted-foreground">
             {isSignUp ? 'Já tem uma conta?' : 'Não tem uma conta?'}{' '}
             <button
