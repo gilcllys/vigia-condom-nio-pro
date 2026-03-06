@@ -9,6 +9,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogD
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { Plus, Search, Pencil, Trash2, Users } from 'lucide-react';
+import { logActivity } from '@/lib/activity-log';
 
 interface Resident {
   id: string;
