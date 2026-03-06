@@ -231,7 +231,7 @@ export default function Dashboard() {
               <Activity className="h-4 w-4 text-muted-foreground" />
               Atividades recentes
             </CardTitle>
-            <CardDescription>Últimos moradores cadastrados</CardDescription>
+            <CardDescription>Últimas ações no condomínio</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
@@ -240,28 +240,26 @@ export default function Dashboard() {
                   <Skeleton className="h-10 w-full" />
                   <Skeleton className="h-10 w-full" />
                 </>
-              ) : recentResidents.length === 0 ? (
+              ) : activities.length === 0 ? (
                 <div className="flex items-center gap-3 rounded-md border border-dashed border-border p-4">
                   <Info className="h-4 w-4 shrink-0 text-muted-foreground" />
-                  <p className="text-sm text-muted-foreground">Nenhum morador cadastrado ainda.</p>
+                  <p className="text-sm text-muted-foreground">Nenhuma atividade registrada ainda.</p>
                 </div>
               ) : (
-                recentResidents.map((resident) => {
-                  const address = [resident.block, resident.unit].filter(Boolean).join(' / ');
+                activities.map((log) => {
+                  const IconComp =
+                    log.action === 'create' ? Plus :
+                    log.action === 'update' ? Pencil :
+                    log.action === 'delete' ? Trash2 : Activity;
                   return (
-                    <div key={resident.id} className="flex items-start gap-3">
+                    <div key={log.id} className="flex items-start gap-3">
                       <div className="mt-0.5 rounded-full bg-muted p-1.5">
-                        <UserPlus className="h-3 w-3 text-foreground" />
+                        <IconComp className="h-3 w-3 text-foreground" />
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm text-foreground truncate">
-                          <span className="font-medium">{resident.name}</span>
-                          {address && (
-                            <span className="text-muted-foreground"> — {address}</span>
-                          )}
-                        </p>
+                        <p className="text-sm text-foreground truncate">{log.description}</p>
                         <p className="text-xs text-muted-foreground">
-                          {formatDistanceToNow(new Date(resident.created_at), {
+                          {formatDistanceToNow(new Date(log.created_at), {
                             addSuffix: true,
                             locale: ptBR,
                           })}
