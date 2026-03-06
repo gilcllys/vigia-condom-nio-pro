@@ -138,19 +138,35 @@ export default function Moradores() {
       if (error) {
         toast({ title: 'Erro ao atualizar morador', description: error.message, variant: 'destructive' });
       } else {
+        await logActivity({
+          condoId,
+          action: 'update',
+          entity: 'resident',
+          entityId: editingResident.id,
+          description: `Morador "${form.full_name.trim()}" atualizado`,
+        });
         toast({ title: 'Morador atualizado com sucesso' });
         setModalOpen(false);
         fetchResidents();
       }
     } else {
-      const { error } = await supabase
+      const { data: inserted, error } = await supabase
         .schema('nfe_vigia')
         .from('residents')
-        .insert(payload);
+        .insert(payload)
+        .select('id')
+        .single();
 
       if (error) {
         toast({ title: 'Erro ao cadastrar morador', description: error.message, variant: 'destructive' });
       } else {
+        await logActivity({
+          condoId,
+          action: 'create',
+          entity: 'resident',
+          entityId: inserted?.id ?? '',
+          description: `Morador "${form.full_name.trim()}" cadastrado`,
+        });
         toast({ title: 'Morador cadastrado com sucesso' });
         setModalOpen(false);
         fetchResidents();
