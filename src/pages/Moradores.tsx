@@ -26,10 +26,10 @@ interface ResidentForm {
   document: string;
   email: string;
   phone: string;
-  unit_id: string;
+  unit_label: string;
 }
 
-const emptyForm: ResidentForm = { full_name: '', document: '', email: '', phone: '', unit_id: '' };
+const emptyForm: ResidentForm = { full_name: '', document: '', email: '', phone: '', unit_label: '' };
 
 export default function Moradores() {
   const { condoId } = useCondo();
