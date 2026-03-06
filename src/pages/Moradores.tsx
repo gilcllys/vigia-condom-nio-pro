@@ -121,7 +121,10 @@ export default function Moradores() {
       document: form.document.trim() || null,
       email: form.email.trim() || null,
       phone: form.phone.trim() || null,
+      block: form.block.trim() || null,
+      unit: form.unit.trim() || null,
       unit_label: form.unit_label.trim() || null,
+      unit_id: null,
     };
 
     if (editingResident) {
