@@ -13,7 +13,7 @@ import { Plus, Search, Pencil, Trash2, Users } from 'lucide-react';
 interface Resident {
   id: string;
   condo_id: string;
-  unit_id: string | null;
+  unit_label: string | null;
   full_name: string;
   document: string | null;
   email: string | null;
