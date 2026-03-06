@@ -210,7 +210,7 @@ export default function Moradores() {
                   <TableHead>Documento</TableHead>
                   <TableHead>Email</TableHead>
                   <TableHead>Telefone</TableHead>
-                  <TableHead>Unidade</TableHead>
+                  <TableHead>Bloco / Apto / Casa</TableHead>
                   <TableHead className="w-[100px]">Ações</TableHead>
                 </TableRow>
               </TableHeader>
