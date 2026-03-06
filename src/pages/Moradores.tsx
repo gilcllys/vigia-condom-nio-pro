@@ -292,7 +292,7 @@ export default function Moradores() {
               <Input id="unit_label" placeholder="Ex: Quadra B Lote 8" value={form.unit_label} onChange={(e) => updateField('unit_label', e.target.value)} />
             </div>
           </div>
-          <DialogFooter>
+          <DialogFooter className="sticky bottom-0 bg-background pt-4 border-t border-border">
             <Button variant="outline" onClick={() => setModalOpen(false)}>Cancelar</Button>
             <Button onClick={handleSave} disabled={saving}>
               {saving ? 'Salvando...' : editingResident ? 'Salvar' : 'Cadastrar'}
