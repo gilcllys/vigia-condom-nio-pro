@@ -54,7 +54,13 @@ export const CondoProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [loading, setLoading] = useState(true);
 
   const fetchFromServer = useCallback(async () => {
-    if (authLoading) return;
+    if (authLoading) {
+      setLoading(true);
+      return;
+    }
+
+    setLoading(true);
+
     if (!user) {
       const empty = { condoId: null, condoName: null, role: null };
       setState(empty);
@@ -99,8 +105,8 @@ export const CondoProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
     const newState: CondoState = {
       condoId: fallback ?? null,
-      condoName: state.condoName,
-      role: state.role,
+      condoName: null,
+      role: null,
     };
     setState(newState);
     writeCache(newState);
