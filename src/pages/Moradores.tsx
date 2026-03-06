@@ -9,6 +9,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogD
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { Plus, Search, Pencil, Trash2, Users } from 'lucide-react';
+import { logActivity } from '@/lib/activity-log';
 
 interface Resident {
   id: string;
@@ -137,19 +138,35 @@ export default function Moradores() {
       if (error) {
         toast({ title: 'Erro ao atualizar morador', description: error.message, variant: 'destructive' });
       } else {
+        await logActivity({
+          condoId,
+          action: 'update',
+          entity: 'resident',
+          entityId: editingResident.id,
+          description: `Morador "${form.full_name.trim()}" atualizado`,
+        });
         toast({ title: 'Morador atualizado com sucesso' });
         setModalOpen(false);
         fetchResidents();
       }
     } else {
-      const { error } = await supabase
+      const { data: inserted, error } = await supabase
         .schema('nfe_vigia')
         .from('residents')
-        .insert(payload);
+        .insert(payload)
+        .select('id')
+        .single();
 
       if (error) {
         toast({ title: 'Erro ao cadastrar morador', description: error.message, variant: 'destructive' });
       } else {
+        await logActivity({
+          condoId,
+          action: 'create',
+          entity: 'resident',
+          entityId: inserted?.id ?? '',
+          description: `Morador "${form.full_name.trim()}" cadastrado`,
+        });
         toast({ title: 'Morador cadastrado com sucesso' });
         setModalOpen(false);
         fetchResidents();
@@ -159,7 +176,7 @@ export default function Moradores() {
   };
 
   const handleDelete = async () => {
-    if (!deletingResident) return;
+    if (!deletingResident || !condoId) return;
     const { error } = await supabase
       .schema('nfe_vigia')
       .from('residents')
@@ -169,6 +186,13 @@ export default function Moradores() {
     if (error) {
       toast({ title: 'Erro ao excluir morador', description: error.message, variant: 'destructive' });
     } else {
+      await logActivity({
+        condoId,
+        action: 'delete',
+        entity: 'resident',
+        entityId: deletingResident.id,
+        description: `Morador "${deletingResident.full_name}" excluído`,
+      });
       toast({ title: 'Morador excluído com sucesso' });
       fetchResidents();
     }
