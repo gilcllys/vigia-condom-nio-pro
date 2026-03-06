@@ -255,14 +255,14 @@ export default function Moradores() {
 
       {/* Create / Edit Modal */}
       <Dialog open={modalOpen} onOpenChange={setModalOpen}>
-        <DialogContent>
+      <DialogContent className="max-h-[90vh] flex flex-col">
           <DialogHeader>
             <DialogTitle>{editingResident ? 'Editar Morador' : 'Novo Morador'}</DialogTitle>
             <DialogDescription>
               {editingResident ? 'Atualize os dados do morador.' : 'Preencha os dados para cadastrar um novo morador.'}
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-4 py-2">
+          <div className="space-y-4 py-2 overflow-y-auto flex-1">
             <div className="space-y-2">
               <Label htmlFor="full_name">Nome completo *</Label>
               <Input id="full_name" value={form.full_name} onChange={(e) => updateField('full_name', e.target.value)} />
