@@ -61,14 +61,14 @@ export default function Dashboard() {
           .from('invoices')
           .select('*', { count: 'exact', head: true })
           .eq('condo_id', condoId),
-        // Last 5 residents added
+        // Last 10 activity logs
         supabase
           .schema('nfe_vigia')
-          .from('residents')
-          .select('id, name, created_at, block, unit')
+          .from('activity_logs')
+          .select('id, action, entity, description, created_at')
           .eq('condo_id', condoId)
           .order('created_at', { ascending: false })
-          .limit(5),
+          .limit(10),
       ]);
 
       const condoCount = Array.isArray(condosRes.data) ? condosRes.data.length : 0;
@@ -79,7 +79,7 @@ export default function Dashboard() {
         invoices: invoicesRes.error ? 0 : (invoicesRes.count ?? 0),
       });
 
-      setRecentResidents(recentRes.data ?? []);
+      setActivities(recentRes.error ? [] : (recentRes.data ?? []));
       setLoading(false);
     };
 
