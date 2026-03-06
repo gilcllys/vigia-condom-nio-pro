@@ -2,24 +2,14 @@ import React, { createContext, useContext, useEffect, useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/lib/supabase';
 
-interface NfeVigiaUser {
-  id: string;
-  user_id: string;
-  condo_id: string | null;
-  name: string | null;
-  email: string | null;
-}
-
 interface CondoContextType {
   condoId: string | null;
-  nfeUser: NfeVigiaUser | null;
   loading: boolean;
   refresh: () => Promise<void>;
 }
 
 const CondoContext = createContext<CondoContextType>({
   condoId: null,
-  nfeUser: null,
   loading: true,
   refresh: async () => {},
 });
@@ -28,40 +18,35 @@ export const useCondo = () => useContext(CondoContext);
 
 export const CondoProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user, loading: authLoading } = useAuth();
-  const [nfeUser, setNfeUser] = useState<NfeVigiaUser | null>(null);
+  const [condoId, setCondoId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const fetchNfeUser = async () => {
-    if (authLoading) {
-      return; // Don't do anything while auth is still resolving
-    }
+  const fetchCondoId = async () => {
+    if (authLoading) return;
     if (!user) {
-      setNfeUser(null);
+      setCondoId(null);
       setLoading(false);
       return;
     }
     setLoading(true);
     const { data, error } = await supabase
       .schema('nfe_vigia')
-      .from('users')
-      .select('*')
-      .eq('auth_user_id', user.id)
-      .maybeSingle();
+      .rpc('get_my_condo_id');
 
     if (error) {
-      console.error('Error fetching nfe_vigia user:', error);
+      console.error('Error fetching condo id:', error);
     }
 
-    setNfeUser(data);
+    setCondoId(data ?? null);
     setLoading(false);
   };
 
   useEffect(() => {
-    fetchNfeUser();
+    fetchCondoId();
   }, [user, authLoading]);
 
   return (
-    <CondoContext.Provider value={{ condoId: nfeUser?.condo_id ?? null, nfeUser, loading, refresh: fetchNfeUser }}>
+    <CondoContext.Provider value={{ condoId, loading, refresh: fetchCondoId }}>
       {children}
     </CondoContext.Provider>
   );
