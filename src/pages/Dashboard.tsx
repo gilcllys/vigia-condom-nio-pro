@@ -11,11 +11,13 @@ import {
   FileText,
   ShieldCheck,
   Activity,
-  AlertTriangle,
   Bell,
   CheckCircle2,
   Info,
   UserPlus,
+  Pencil,
+  Trash2,
+  Plus,
 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
