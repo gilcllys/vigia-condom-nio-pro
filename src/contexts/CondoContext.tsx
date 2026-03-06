@@ -140,8 +140,14 @@ export const CondoProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     if (cached.condoId && loading) {
       setState(cached);
     }
+
+    if (authLoading) {
+      setLoading(true);
+      return;
+    }
+
     fetchFromServer();
-  }, [user, authLoading]);
+  }, [user, authLoading, fetchFromServer]);
 
   return (
     <CondoContext.Provider value={{ ...state, loading, refresh: fetchFromServer, switchCondo }}>
