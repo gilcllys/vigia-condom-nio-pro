@@ -280,8 +280,16 @@ export default function Moradores() {
               <Input id="phone" value={form.phone} onChange={(e) => updateField('phone', e.target.value)} />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="unit_label">Bloco / Apto / Casa (opcional)</Label>
-              <Input id="unit_label" placeholder="Ex: Bloco 26 Apto 203" value={form.unit_label} onChange={(e) => updateField('unit_label', e.target.value)} />
+              <Label htmlFor="block">Bloco (opcional)</Label>
+              <Input id="block" placeholder="Ex: Bloco 26" value={form.block} onChange={(e) => updateField('block', e.target.value)} />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="unit">Unidade / Apto / Casa (opcional)</Label>
+              <Input id="unit" placeholder="Ex: Apto 203" value={form.unit} onChange={(e) => updateField('unit', e.target.value)} />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="unit_label">Complemento (opcional)</Label>
+              <Input id="unit_label" placeholder="Ex: Quadra B Lote 8" value={form.unit_label} onChange={(e) => updateField('unit_label', e.target.value)} />
             </div>
           </div>
           <DialogFooter>
