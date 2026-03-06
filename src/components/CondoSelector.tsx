@@ -40,19 +40,31 @@ export function CondoSelector() {
   }, [condoId]);
 
   const handleSelect = async (condo: Condo) => {
-    if (condo.condo_id === condoId || switching) return;
-    setSwitching(true);
-    const { error } = await supabase
-      .schema('nfe_vigia')
-      .rpc('switch_active_condo', { p_condo_id: condo.condo_id });
-    if (error) {
-      console.error('[CondoSelector] Error switching condo:', error);
-      setSwitching(false);
+    console.log('[CondoSelector] Clicked condo:', condo.condo_id, condo.condo_name);
+    console.log('[CondoSelector] Current condoId:', condoId, '| switching:', switching);
+    if (condo.condo_id === condoId || switching) {
+      console.log('[CondoSelector] Skipped: same condo or already switching');
       return;
     }
-    await refresh();
-    setSwitching(false);
-    setOpen(false);
+    setSwitching(true);
+    try {
+      const { data, error } = await supabase
+        .schema('nfe_vigia')
+        .rpc('switch_active_condo', { p_condo_id: condo.condo_id });
+      console.log('[CondoSelector] switch_active_condo result:', data, '| error:', error);
+      if (error) {
+        console.error('[CondoSelector] Error switching condo:', error);
+        setSwitching(false);
+        return;
+      }
+      await refresh();
+      console.log('[CondoSelector] Refresh complete');
+    } catch (e) {
+      console.error('[CondoSelector] Exception:', e);
+    } finally {
+      setSwitching(false);
+      setOpen(false);
+    }
   };
 
   if (loading) return null;
