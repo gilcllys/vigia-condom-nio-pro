@@ -57,44 +57,46 @@ export default function Login() {
         const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
 
-        // Clear any stale PWA cache before deciding redirect
+        // Evita uso de contexto/cache antigo na decisão de redirect
         localStorage.removeItem('nfe_vigia_active_condo');
 
-        // Always fetch fresh from server after login
-        const { data: ctxData, error: ctxError } = await supabase
+        // 1) Restaurar sessão
+        const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+        if (sessionError) throw sessionError;
+
+        const userId = sessionData.session?.user?.id ?? null;
+        console.log('[post-login] session.user.id:', userId);
+
+        if (!userId) {
+          console.log('[post-login] redirect:', '/login');
+          navigate('/login', { replace: true });
+          return;
+        }
+
+        // 2) Buscar usuário no banco por auth_user_id
+        const { data: userRow, error: userError } = await supabase
           .schema('nfe_vigia')
-          .rpc('get_active_condo_context');
+          .from('users')
+          .select('condo_id')
+          .eq('auth_user_id', userId)
+          .maybeSingle();
 
-        const row = !ctxError && ctxData
-          ? (Array.isArray(ctxData) ? ctxData[0] : ctxData)
-          : null;
+        if (userError) throw userError;
 
-        if (row?.condo_id) {
-          localStorage.setItem('nfe_vigia_active_condo', JSON.stringify({
-            condoId: row.condo_id,
-            condoName: row.condo_name ?? null,
-            role: row.role ?? null,
-          }));
+        // 3) Fonte da verdade: users.condo_id
+        const condoId = userRow?.condo_id ?? null;
+        console.log('[post-login] users.condo_id:', condoId);
+
+        if (condoId) {
+          localStorage.setItem(
+            'nfe_vigia_active_condo',
+            JSON.stringify({ condoId, condoName: null, role: null })
+          );
+          console.log('[post-login] redirect:', '/dashboard');
           navigate('/dashboard', { replace: true });
         } else {
-          // Fallback: check users table directly
-          const { data: sessionData } = await supabase.auth.getSession();
-          const userId = sessionData.session?.user?.id;
-          if (userId) {
-            const { data: profile } = await supabase
-              .schema('nfe_vigia')
-              .from('users')
-              .select('condo_id')
-              .eq('auth_user_id', userId)
-              .maybeSingle();
-            if (profile?.condo_id) {
-              navigate('/dashboard', { replace: true });
-            } else {
-              navigate('/no-condo', { replace: true });
-            }
-          } else {
-            navigate('/no-condo', { replace: true });
-          }
+          console.log('[post-login] redirect:', '/no-condo');
+          navigate('/no-condo', { replace: true });
         }
       }
     } catch (error: any) {
