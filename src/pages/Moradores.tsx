@@ -176,7 +176,7 @@ export default function Moradores() {
   };
 
   const handleDelete = async () => {
-    if (!deletingResident) return;
+    if (!deletingResident || !condoId) return;
     const { error } = await supabase
       .schema('nfe_vigia')
       .from('residents')
@@ -186,6 +186,13 @@ export default function Moradores() {
     if (error) {
       toast({ title: 'Erro ao excluir morador', description: error.message, variant: 'destructive' });
     } else {
+      await logActivity({
+        condoId,
+        action: 'delete',
+        entity: 'resident',
+        entityId: deletingResident.id,
+        description: `Morador "${deletingResident.full_name}" excluído`,
+      });
       toast({ title: 'Morador excluído com sucesso' });
       fetchResidents();
     }
