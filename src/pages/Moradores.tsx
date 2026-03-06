@@ -95,6 +95,8 @@ export default function Moradores() {
       document: resident.document ?? '',
       email: resident.email ?? '',
       phone: resident.phone ?? '',
+      block: resident.block ?? '',
+      unit: resident.unit ?? '',
       unit_label: resident.unit_label ?? '',
     });
     setModalOpen(true);
