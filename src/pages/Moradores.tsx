@@ -255,7 +255,7 @@ export default function Moradores() {
 
       {/* Create / Edit Modal */}
       <Dialog open={modalOpen} onOpenChange={setModalOpen}>
-      <DialogContent className="max-h-[90vh] flex flex-col">
+      <DialogContent className="max-h-[calc(100vh-32px)] w-full max-w-[min(720px,calc(100vw-32px))] overflow-hidden flex flex-col px-4 sm:px-6">
           <DialogHeader>
             <DialogTitle>{editingResident ? 'Editar Morador' : 'Novo Morador'}</DialogTitle>
             <DialogDescription>
