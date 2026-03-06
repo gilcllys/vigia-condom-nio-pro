@@ -29,6 +29,15 @@ export const CondoProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       return;
     }
     setLoading(true);
+
+    // Ensure Supabase client has the session token before calling RPC
+    const { data: sessionData } = await supabase.auth.getSession();
+    if (!sessionData.session) {
+      setCondoId(null);
+      setLoading(false);
+      return;
+    }
+
     const { data, error } = await supabase
       .schema('nfe_vigia')
       .rpc('get_my_condo_id');
