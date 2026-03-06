@@ -41,6 +41,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   const signOut = async () => {
+    try { localStorage.removeItem('nfe_vigia_active_condo'); } catch {}
     await supabase.auth.signOut();
   };
 
