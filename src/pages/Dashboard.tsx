@@ -22,19 +22,19 @@ import {
 import { formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
-interface RecentResident {
+interface ActivityLog {
   id: string;
-  name: string;
+  action: string;
+  entity: string;
+  description: string;
   created_at: string;
-  block: string | null;
-  unit: string | null;
 }
 
 export default function Dashboard() {
   const { user } = useAuth();
   const { condoId, condoName, role } = useCondo();
   const [counts, setCounts] = useState({ condos: 0, residents: 0, invoices: 0 });
-  const [recentResidents, setRecentResidents] = useState<RecentResident[]>([]);
+  const [activities, setActivities] = useState<ActivityLog[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
