@@ -13,6 +13,8 @@ import { Plus, Search, Pencil, Trash2, Users } from 'lucide-react';
 interface Resident {
   id: string;
   condo_id: string;
+  block: string | null;
+  unit: string | null;
   unit_label: string | null;
   full_name: string;
   document: string | null;
@@ -26,10 +28,16 @@ interface ResidentForm {
   document: string;
   email: string;
   phone: string;
+  block: string;
+  unit: string;
   unit_label: string;
 }
 
-const emptyForm: ResidentForm = { full_name: '', document: '', email: '', phone: '', unit_label: '' };
+const emptyForm: ResidentForm = { full_name: '', document: '', email: '', phone: '', block: '', unit: '', unit_label: '' };
+
+const formatAddress = (r: Resident) => {
+  return [r.block, r.unit, r.unit_label].filter(Boolean).join(' · ') || '—';
+};
 
 export default function Moradores() {
   const { condoId } = useCondo();
