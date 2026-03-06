@@ -13,6 +13,8 @@ import { Plus, Search, Pencil, Trash2, Users } from 'lucide-react';
 interface Resident {
   id: string;
   condo_id: string;
+  block: string | null;
+  unit: string | null;
   unit_label: string | null;
   full_name: string;
   document: string | null;
@@ -26,10 +28,16 @@ interface ResidentForm {
   document: string;
   email: string;
   phone: string;
+  block: string;
+  unit: string;
   unit_label: string;
 }
 
-const emptyForm: ResidentForm = { full_name: '', document: '', email: '', phone: '', unit_label: '' };
+const emptyForm: ResidentForm = { full_name: '', document: '', email: '', phone: '', block: '', unit: '', unit_label: '' };
+
+const formatAddress = (r: Resident) => {
+  return [r.block, r.unit, r.unit_label].filter(Boolean).join(' · ') || '—';
+};
 
 export default function Moradores() {
   const { condoId } = useCondo();
@@ -87,6 +95,8 @@ export default function Moradores() {
       document: resident.document ?? '',
       email: resident.email ?? '',
       phone: resident.phone ?? '',
+      block: resident.block ?? '',
+      unit: resident.unit ?? '',
       unit_label: resident.unit_label ?? '',
     });
     setModalOpen(true);
@@ -111,7 +121,10 @@ export default function Moradores() {
       document: form.document.trim() || null,
       email: form.email.trim() || null,
       phone: form.phone.trim() || null,
+      block: form.block.trim() || null,
+      unit: form.unit.trim() || null,
       unit_label: form.unit_label.trim() || null,
+      unit_id: null,
     };
 
     if (editingResident) {
@@ -210,8 +223,8 @@ export default function Moradores() {
                   <TableHead>Documento</TableHead>
                   <TableHead>Email</TableHead>
                   <TableHead>Telefone</TableHead>
-                  <TableHead>Bloco / Apto / Casa</TableHead>
-                  <TableHead className="w-[100px]">Ações</TableHead>
+                   <TableHead>Endereço</TableHead>
+                   <TableHead className="w-[100px]">Ações</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -221,7 +234,7 @@ export default function Moradores() {
                     <TableCell>{resident.document ?? '—'}</TableCell>
                     <TableCell>{resident.email ?? '—'}</TableCell>
                     <TableCell>{resident.phone ?? '—'}</TableCell>
-                    <TableCell>{resident.unit_label ?? '—'}</TableCell>
+                    <TableCell>{formatAddress(resident)}</TableCell>
                     <TableCell>
                       <div className="flex items-center gap-1">
                         <Button variant="ghost" size="icon" onClick={() => openEdit(resident)}>
@@ -267,8 +280,16 @@ export default function Moradores() {
               <Input id="phone" value={form.phone} onChange={(e) => updateField('phone', e.target.value)} />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="unit_label">Bloco / Apto / Casa (opcional)</Label>
-              <Input id="unit_label" placeholder="Ex: Bloco 26 Apto 203" value={form.unit_label} onChange={(e) => updateField('unit_label', e.target.value)} />
+              <Label htmlFor="block">Bloco (opcional)</Label>
+              <Input id="block" placeholder="Ex: Bloco 26" value={form.block} onChange={(e) => updateField('block', e.target.value)} />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="unit">Unidade / Apto / Casa (opcional)</Label>
+              <Input id="unit" placeholder="Ex: Apto 203" value={form.unit} onChange={(e) => updateField('unit', e.target.value)} />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="unit_label">Complemento (opcional)</Label>
+              <Input id="unit_label" placeholder="Ex: Quadra B Lote 8" value={form.unit_label} onChange={(e) => updateField('unit_label', e.target.value)} />
             </div>
           </div>
           <DialogFooter>
