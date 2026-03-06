@@ -27,11 +27,14 @@ const CondoContext = createContext<CondoContextType>({
 export const useCondo = () => useContext(CondoContext);
 
 export const CondoProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const [nfeUser, setNfeUser] = useState<NfeVigiaUser | null>(null);
   const [loading, setLoading] = useState(true);
 
   const fetchNfeUser = async () => {
+    if (authLoading) {
+      return; // Don't do anything while auth is still resolving
+    }
     if (!user) {
       setNfeUser(null);
       setLoading(false);
@@ -55,7 +58,7 @@ export const CondoProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   useEffect(() => {
     fetchNfeUser();
-  }, [user]);
+  }, [user, authLoading]);
 
   return (
     <CondoContext.Provider value={{ condoId: nfeUser?.condo_id ?? null, nfeUser, loading, refresh: fetchNfeUser }}>
