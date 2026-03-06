@@ -221,7 +221,7 @@ export default function Moradores() {
                     <TableCell>{resident.document ?? '—'}</TableCell>
                     <TableCell>{resident.email ?? '—'}</TableCell>
                     <TableCell>{resident.phone ?? '—'}</TableCell>
-                    <TableCell>{resident.unit_id ?? '—'}</TableCell>
+                    <TableCell>{resident.unit_label ?? '—'}</TableCell>
                     <TableCell>
                       <div className="flex items-center gap-1">
                         <Button variant="ghost" size="icon" onClick={() => openEdit(resident)}>
