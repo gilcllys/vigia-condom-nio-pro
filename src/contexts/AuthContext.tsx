@@ -23,12 +23,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    let initialized = false;
+
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setSession(session);
-      setLoading(false);
+      if (initialized) {
+        setSession(session);
+      }
     });
 
     supabase.auth.getSession().then(({ data: { session } }) => {
+      initialized = true;
       setSession(session);
       setLoading(false);
     });
