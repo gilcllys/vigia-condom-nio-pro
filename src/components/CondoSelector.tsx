@@ -18,7 +18,7 @@ interface Condo {
 }
 
 export function CondoSelector() {
-  const { condoId, refresh } = useCondo();
+  const { condoId, condoName, switchCondo } = useCondo();
   const [condos, setCondos] = useState<Condo[]>([]);
   const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState(false);
@@ -40,27 +40,13 @@ export function CondoSelector() {
   }, [condoId]);
 
   const handleSelect = async (condo: Condo) => {
-    console.log('[CondoSelector] Clicked condo:', condo.condo_id, condo.condo_name);
-    console.log('[CondoSelector] Current condoId:', condoId, '| switching:', switching);
-    if (condo.condo_id === condoId || switching) {
-      console.log('[CondoSelector] Skipped: same condo or already switching');
-      return;
-    }
+    if (condo.condo_id === condoId || switching) return;
     setSwitching(true);
     try {
-      const { data, error } = await supabase
-        .schema('nfe_vigia')
-        .rpc('switch_active_condo', { p_condo_id: condo.condo_id });
-      console.log('[CondoSelector] switch_active_condo result:', data, '| error:', error);
-      if (error) {
-        console.error('[CondoSelector] Error switching condo:', error);
-        setSwitching(false);
-        return;
+      const success = await switchCondo(condo.condo_id);
+      if (!success) {
+        console.error('[CondoSelector] Switch failed');
       }
-      await refresh();
-      console.log('[CondoSelector] Refresh complete');
-    } catch (e) {
-      console.error('[CondoSelector] Exception:', e);
     } finally {
       setSwitching(false);
       setOpen(false);
@@ -68,8 +54,6 @@ export function CondoSelector() {
   };
 
   if (loading) return null;
-
-  const activeCondo = condos.find((c) => c.is_default) ?? condos[0];
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -79,7 +63,7 @@ export function CondoSelector() {
           className="h-9 gap-2 px-3 font-medium cursor-pointer"
         >
           <Building2 className="h-4 w-4 text-muted-foreground" />
-          <span className="text-sm">{activeCondo?.condo_name ?? 'Selecionar'}</span>
+          <span className="text-sm">{condoName ?? condos.find(c => c.condo_id === condoId)?.condo_name ?? 'Selecionar'}</span>
           <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
         </Button>
       </PopoverTrigger>

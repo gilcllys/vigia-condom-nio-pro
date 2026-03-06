@@ -1,76 +1,144 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/lib/supabase';
 
-interface CondoContextType {
+const STORAGE_KEY = 'nfe_vigia_active_condo';
+
+interface CondoState {
   condoId: string | null;
+  condoName: string | null;
+  role: string | null;
+}
+
+interface CondoContextType extends CondoState {
   loading: boolean;
   refresh: () => Promise<void>;
+  switchCondo: (condoId: string) => Promise<boolean>;
 }
 
 const CondoContext = createContext<CondoContextType>({
   condoId: null,
+  condoName: null,
+  role: null,
   loading: true,
   refresh: async () => {},
+  switchCondo: async () => false,
 });
 
 export const useCondo = () => useContext(CondoContext);
 
+function readCache(): CondoState {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (parsed.condoId) return parsed;
+    }
+  } catch {}
+  return { condoId: null, condoName: null, role: null };
+}
+
+function writeCache(state: CondoState) {
+  try {
+    if (state.condoId) {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    } else {
+      localStorage.removeItem(STORAGE_KEY);
+    }
+  } catch {}
+}
+
 export const CondoProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user, loading: authLoading } = useAuth();
-  const [condoId, setCondoId] = useState<string | null>(null);
+  const [state, setState] = useState<CondoState>(() => readCache());
   const [loading, setLoading] = useState(true);
 
-  const fetchCondoId = async () => {
-    console.log('[CondoContext] authLoading:', authLoading, '| user:', user?.id ?? null);
+  const fetchFromServer = useCallback(async () => {
     if (authLoading) return;
     if (!user) {
-      console.log('[CondoContext] No user, setting condoId=null');
-      setCondoId(null);
-      setLoading(false);
-      return;
-    }
-    setLoading(true);
-
-    const { data: sessionData } = await supabase.auth.getSession();
-    console.log('[CondoContext] session user id:', sessionData.session?.user?.id ?? null);
-    if (!sessionData.session) {
-      console.log('[CondoContext] No session, setting condoId=null');
-      setCondoId(null);
+      const empty = { condoId: null, condoName: null, role: null };
+      setState(empty);
+      writeCache(empty);
       setLoading(false);
       return;
     }
 
-    // Fetch profile from nfe_vigia.users for debug
-    const { data: profileData, error: profileError } = await supabase
-      .schema('nfe_vigia')
-      .from('users')
-      .select('id, condo_id, auth_user_id')
-      .eq('auth_user_id', sessionData.session.user.id)
-      .maybeSingle();
-    console.log('[CondoContext] nfe_vigia.users profile:', profileData, '| error:', profileError);
+    const { data: session } = await supabase.auth.getSession();
+    if (!session.session) {
+      const empty = { condoId: null, condoName: null, role: null };
+      setState(empty);
+      writeCache(empty);
+      setLoading(false);
+      return;
+    }
 
+    // Try get_active_condo_context first, fallback to get_my_condo_id
     const { data, error } = await supabase
       .schema('nfe_vigia')
-      .rpc('get_my_condo_id');
-    console.log('[CondoContext] get_my_condo_id result:', data, '| error:', error);
+      .rpc('get_active_condo_context');
 
-    if (error) {
-      console.error('Error fetching condo id:', error);
+    if (!error && data) {
+      const row = Array.isArray(data) ? data[0] : data;
+      if (row?.condo_id) {
+        const newState: CondoState = {
+          condoId: row.condo_id,
+          condoName: row.condo_name ?? null,
+          role: row.role ?? null,
+        };
+        setState(newState);
+        writeCache(newState);
+        setLoading(false);
+        return;
+      }
     }
 
-    const finalCondoId = data ?? null;
-    console.log('[CondoContext] Decision:', finalCondoId ? '/dashboard' : '/no-condo', '| condoId:', finalCondoId);
-    setCondoId(finalCondoId);
+    // Fallback
+    const { data: fallback } = await supabase
+      .schema('nfe_vigia')
+      .rpc('get_my_condo_id');
+
+    const newState: CondoState = {
+      condoId: fallback ?? null,
+      condoName: state.condoName,
+      role: state.role,
+    };
+    setState(newState);
+    writeCache(newState);
     setLoading(false);
-  };
+  }, [user, authLoading]);
+
+  const switchCondo = useCallback(async (targetCondoId: string): Promise<boolean> => {
+    const { data, error } = await supabase
+      .schema('nfe_vigia')
+      .rpc('switch_active_condo', { p_condo_id: targetCondoId });
+
+    if (error) {
+      console.error('[CondoContext] switch error:', error);
+      return false;
+    }
+
+    const row = Array.isArray(data) ? data[0] : data;
+    const newState: CondoState = {
+      condoId: row?.out_condo_id ?? row?.condo_id ?? targetCondoId,
+      condoName: row?.out_condo_name ?? row?.condo_name ?? null,
+      role: row?.out_role ?? row?.role ?? null,
+    };
+    setState(newState);
+    writeCache(newState);
+    return true;
+  }, []);
 
   useEffect(() => {
-    fetchCondoId();
+    // Load cache immediately, then validate with server
+    const cached = readCache();
+    if (cached.condoId && loading) {
+      setState(cached);
+    }
+    fetchFromServer();
   }, [user, authLoading]);
 
   return (
-    <CondoContext.Provider value={{ condoId, loading, refresh: fetchCondoId }}>
+    <CondoContext.Provider value={{ ...state, loading, refresh: fetchFromServer, switchCondo }}>
       {children}
     </CondoContext.Provider>
   );
