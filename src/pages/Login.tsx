@@ -35,27 +35,44 @@ export default function Login() {
         const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
 
-        // Wait for session to be fully available
-        const { data: sessionData } = await supabase.auth.getSession();
-        const userId = sessionData.session?.user?.id;
-        console.log('[Login] session user id:', userId);
+        // Clear any stale PWA cache before deciding redirect
+        localStorage.removeItem('nfe_vigia_active_condo');
 
-        if (userId) {
-          const { data: profile } = await supabase
-            .schema('nfe_vigia')
-            .from('users')
-            .select('condo_id')
-            .eq('auth_user_id', userId)
-            .maybeSingle();
-          console.log('[Login] profile condo_id:', profile?.condo_id);
+        // Always fetch fresh from server after login
+        const { data: ctxData, error: ctxError } = await supabase
+          .schema('nfe_vigia')
+          .rpc('get_active_condo_context');
 
-          if (profile?.condo_id) {
-            navigate('/dashboard', { replace: true });
+        const row = !ctxError && ctxData
+          ? (Array.isArray(ctxData) ? ctxData[0] : ctxData)
+          : null;
+
+        if (row?.condo_id) {
+          localStorage.setItem('nfe_vigia_active_condo', JSON.stringify({
+            condoId: row.condo_id,
+            condoName: row.condo_name ?? null,
+            role: row.role ?? null,
+          }));
+          navigate('/dashboard', { replace: true });
+        } else {
+          // Fallback: check users table directly
+          const { data: sessionData } = await supabase.auth.getSession();
+          const userId = sessionData.session?.user?.id;
+          if (userId) {
+            const { data: profile } = await supabase
+              .schema('nfe_vigia')
+              .from('users')
+              .select('condo_id')
+              .eq('auth_user_id', userId)
+              .maybeSingle();
+            if (profile?.condo_id) {
+              navigate('/dashboard', { replace: true });
+            } else {
+              navigate('/no-condo', { replace: true });
+            }
           } else {
             navigate('/no-condo', { replace: true });
           }
-        } else {
-          navigate('/no-condo', { replace: true });
         }
       }
     } catch (error: any) {
