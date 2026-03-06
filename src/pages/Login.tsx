@@ -34,7 +34,29 @@ export default function Login() {
       } else {
         const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
-        navigate('/dashboard', { replace: true });
+
+        // Wait for session to be fully available
+        const { data: sessionData } = await supabase.auth.getSession();
+        const userId = sessionData.session?.user?.id;
+        console.log('[Login] session user id:', userId);
+
+        if (userId) {
+          const { data: profile } = await supabase
+            .schema('nfe_vigia')
+            .from('users')
+            .select('condo_id')
+            .eq('auth_user_id', userId)
+            .maybeSingle();
+          console.log('[Login] profile condo_id:', profile?.condo_id);
+
+          if (profile?.condo_id) {
+            navigate('/dashboard', { replace: true });
+          } else {
+            navigate('/no-condo', { replace: true });
+          }
+        } else {
+          navigate('/no-condo', { replace: true });
+        }
       }
     } catch (error: any) {
       toast({
