@@ -38,9 +38,9 @@ export function CondoSelector() {
 
   const handleChange = async (newCondoId: string) => {
     if (newCondoId === condoId) return;
-    const { error } = await supabase
+    const { data, error } = await supabase
       .schema('nfe_vigia')
-      .rpc('set_active_condo', { p_condo_id: newCondoId });
+      .rpc('switch_active_condo', { p_condo_id: newCondoId });
     if (error) {
       console.error('[CondoSelector] Error setting active condo:', error);
       return;
