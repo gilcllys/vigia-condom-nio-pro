@@ -87,7 +87,7 @@ export default function Moradores() {
       document: resident.document ?? '',
       email: resident.email ?? '',
       phone: resident.phone ?? '',
-      unit_id: resident.unit_id ?? '',
+      unit_label: resident.unit_label ?? '',
     });
     setModalOpen(true);
   };
