@@ -5,7 +5,6 @@ import { supabase } from '@/lib/supabase';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
-import { Separator } from '@/components/ui/separator';
 import {
   Building2,
   Users,
@@ -14,15 +13,26 @@ import {
   Activity,
   AlertTriangle,
   Bell,
-  Clock,
   CheckCircle2,
   Info,
+  UserPlus,
 } from 'lucide-react';
+import { formatDistanceToNow } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
+
+interface RecentResident {
+  id: string;
+  name: string;
+  created_at: string;
+  block: string | null;
+  unit: string | null;
+}
 
 export default function Dashboard() {
   const { user } = useAuth();
   const { condoId, condoName, role } = useCondo();
   const [counts, setCounts] = useState({ condos: 0, residents: 0, invoices: 0 });
+  const [recentResidents, setRecentResidents] = useState<RecentResident[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -31,38 +41,51 @@ export default function Dashboard() {
       return;
     }
 
-    const fetchCounts = async () => {
+    const fetchData = async () => {
       setLoading(true);
-      const [condosRes, residentsRes, invoicesRes] = await Promise.all([
-        supabase
-          .schema('nfe_vigia')
-          .from('condos')
-          .select('*', { count: 'exact', head: true })
-          .eq('id', condoId),
+
+      const [condosRes, residentsRes, invoicesRes, recentRes] = await Promise.all([
+        // Count condos the user has access to via get_my_condos
+        supabase.schema('nfe_vigia').rpc('get_my_condos'),
+        // Count residents for active condo
         supabase
           .schema('nfe_vigia')
           .from('residents')
           .select('*', { count: 'exact', head: true })
           .eq('condo_id', condoId),
+        // Count invoices for active condo (table may not exist yet)
         supabase
           .schema('nfe_vigia')
           .from('invoices')
           .select('*', { count: 'exact', head: true })
           .eq('condo_id', condoId),
+        // Last 5 residents added
+        supabase
+          .schema('nfe_vigia')
+          .from('residents')
+          .select('id, name, created_at, block, unit')
+          .eq('condo_id', condoId)
+          .order('created_at', { ascending: false })
+          .limit(5),
       ]);
+
+      const condoCount = Array.isArray(condosRes.data) ? condosRes.data.length : 0;
+
       setCounts({
-        condos: condosRes.count ?? 0,
+        condos: condoCount,
         residents: residentsRes.count ?? 0,
-        invoices: invoicesRes.count ?? 0,
+        invoices: invoicesRes.error ? 0 : (invoicesRes.count ?? 0),
       });
+
+      setRecentResidents(recentRes.data ?? []);
       setLoading(false);
     };
 
-    fetchCounts();
+    fetchData();
   }, [condoId]);
 
   const roleLabel = (r: string | null) => {
-    switch (r) {
+    switch (r?.toLowerCase()) {
       case 'admin':
         return 'Administrador';
       case 'manager':
@@ -100,14 +123,6 @@ export default function Dashboard() {
       description: 'função no condomínio ativo',
       isText: true,
     },
-  ];
-
-  const recentActivities = [
-    { text: 'Nenhuma atividade recente registrada.', time: '', icon: Info, empty: true },
-  ];
-
-  const alerts = [
-    { text: 'Nenhum alerta no momento.', type: 'info' as const, empty: true },
   ];
 
   return (
@@ -175,12 +190,18 @@ export default function Dashboard() {
           ) : !condoId ? (
             <p className="text-sm text-muted-foreground">Nenhum condomínio selecionado.</p>
           ) : (
-            <div className="grid gap-4 sm:grid-cols-3">
+            <div className="grid gap-4 sm:grid-cols-4">
               <div className="space-y-1">
                 <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
                   Condomínio
                 </p>
                 <p className="text-sm font-semibold text-foreground">{condoName ?? '—'}</p>
+              </div>
+              <div className="space-y-1">
+                <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                  Sua função
+                </p>
+                <p className="text-sm font-semibold text-foreground">{roleLabel(role)}</p>
               </div>
               <div className="space-y-1">
                 <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
@@ -208,27 +229,45 @@ export default function Dashboard() {
               <Activity className="h-4 w-4 text-muted-foreground" />
               Atividades recentes
             </CardTitle>
-            <CardDescription>Últimas ações realizadas no condomínio</CardDescription>
+            <CardDescription>Últimos moradores cadastrados</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              {recentActivities.map((item, i) =>
-                item.empty ? (
-                  <div key={i} className="flex items-center gap-3 rounded-md border border-dashed border-border p-4">
-                    <Info className="h-4 w-4 shrink-0 text-muted-foreground" />
-                    <p className="text-sm text-muted-foreground">{item.text}</p>
-                  </div>
-                ) : (
-                  <div key={i} className="flex items-start gap-3">
-                    <div className="mt-0.5 rounded-full bg-muted p-1.5">
-                      <item.icon className="h-3 w-3 text-foreground" />
+              {loading ? (
+                <>
+                  <Skeleton className="h-10 w-full" />
+                  <Skeleton className="h-10 w-full" />
+                </>
+              ) : recentResidents.length === 0 ? (
+                <div className="flex items-center gap-3 rounded-md border border-dashed border-border p-4">
+                  <Info className="h-4 w-4 shrink-0 text-muted-foreground" />
+                  <p className="text-sm text-muted-foreground">Nenhum morador cadastrado ainda.</p>
+                </div>
+              ) : (
+                recentResidents.map((resident) => {
+                  const address = [resident.block, resident.unit].filter(Boolean).join(' / ');
+                  return (
+                    <div key={resident.id} className="flex items-start gap-3">
+                      <div className="mt-0.5 rounded-full bg-muted p-1.5">
+                        <UserPlus className="h-3 w-3 text-foreground" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm text-foreground truncate">
+                          <span className="font-medium">{resident.name}</span>
+                          {address && (
+                            <span className="text-muted-foreground"> — {address}</span>
+                          )}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          {formatDistanceToNow(new Date(resident.created_at), {
+                            addSuffix: true,
+                            locale: ptBR,
+                          })}
+                        </p>
+                      </div>
                     </div>
-                    <div className="flex-1">
-                      <p className="text-sm text-foreground">{item.text}</p>
-                      <p className="text-xs text-muted-foreground">{item.time}</p>
-                    </div>
-                  </div>
-                ),
+                  );
+                })
               )}
             </div>
           </CardContent>
@@ -245,21 +284,13 @@ export default function Dashboard() {
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              {alerts.map((alert, i) =>
-                alert.empty ? (
-                  <div key={i} className="flex items-center gap-3 rounded-md border border-dashed border-border p-4">
-                    <CheckCircle2 className="h-4 w-4 shrink-0 text-muted-foreground" />
-                    <p className="text-sm text-muted-foreground">{alert.text}</p>
-                  </div>
-                ) : (
-                  <div
-                    key={i}
-                    className="flex items-start gap-3 rounded-md border border-border bg-muted/50 p-3"
-                  >
-                    <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-destructive" />
-                    <p className="text-sm text-foreground">{alert.text}</p>
-                  </div>
-                ),
+              {loading ? (
+                <Skeleton className="h-10 w-full" />
+              ) : (
+                <div className="flex items-center gap-3 rounded-md border border-dashed border-border p-4">
+                  <CheckCircle2 className="h-4 w-4 shrink-0 text-muted-foreground" />
+                  <p className="text-sm text-muted-foreground">Nenhum alerta no momento.</p>
+                </div>
               )}
             </div>
           </CardContent>
