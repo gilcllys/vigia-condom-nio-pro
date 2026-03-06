@@ -13,6 +13,7 @@ import Dashboard from "./pages/Dashboard";
 import Condominios from "./pages/Condominios";
 import Moradores from "./pages/Moradores";
 import Configuracoes from "./pages/Configuracoes";
+import ResetPassword from "./pages/ResetPassword";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -27,6 +28,7 @@ const App = () => (
           <CondoProvider>
             <Routes>
               <Route path="/login" element={<Login />} />
+              <Route path="/reset-password" element={<ResetPassword />} />
               <Route path="/no-condo" element={<NoCondo />} />
               <Route
                 element={
