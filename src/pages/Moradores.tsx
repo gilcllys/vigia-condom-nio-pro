@@ -223,8 +223,8 @@ export default function Moradores() {
                   <TableHead>Documento</TableHead>
                   <TableHead>Email</TableHead>
                   <TableHead>Telefone</TableHead>
-                  <TableHead>Bloco / Apto / Casa</TableHead>
-                  <TableHead className="w-[100px]">Ações</TableHead>
+                   <TableHead>Endereço</TableHead>
+                   <TableHead className="w-[100px]">Ações</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
