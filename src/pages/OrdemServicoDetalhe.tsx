@@ -41,9 +41,9 @@ interface ServiceOrderDetail {
 
 interface SOActivity {
   id: string;
-  action: string;
+  activity_type: string;
   description: string | null;
-  created_by: string;
+  user_id: string;
   created_at: string;
 }
 
