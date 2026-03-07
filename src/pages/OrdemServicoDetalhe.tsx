@@ -242,7 +242,7 @@ export default function OrdemServicoDetalhe() {
       {/* Status Actions */}
       {order.status !== 'FINALIZADA' && order.status !== 'CANCELADA' && (
         <div className="flex flex-wrap gap-2">
-          {order.status === 'ABERTA' && isSindicoOrZelador && (
+          {order.status === 'ABERTA' && isSindico && (
             <Button size="sm" variant="outline" onClick={() => changeStatus('EM_EXECUCAO')} disabled={actionLoading}>
               <Play className="h-4 w-4 mr-1" /> Iniciar Execução
             </Button>
