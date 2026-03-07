@@ -199,15 +199,15 @@ export default function OrdemServicoDetalhe() {
     setActionLoading(false);
   };
 
-  const [isSindicoRPC, setIsSindicoRPC] = useState(false);
+  const [canCriticalActions, setCanCriticalActions] = useState(false);
   const isSindicoOrZelador = role && ['SINDICO', 'SUB_SINDICO', 'CONSELHO_FISCAL', 'ZELADOR'].includes(role);
 
   useEffect(() => {
-    const checkSindico = async () => {
-      const { data } = await supabase.schema('nfe_vigia').rpc('is_current_user_sindico');
-      setIsSindicoRPC(!!data);
+    const checkCritical = async () => {
+      const { data } = await supabase.schema('nfe_vigia').rpc('can_current_user_do_sindico_critical_actions');
+      setCanCriticalActions(!!data);
     };
-    checkSindico();
+    checkCritical();
   }, [condoId]);
   const [photoUrls, setPhotoUrls] = useState<Record<string, string>>({});
   const photos = documents;
@@ -263,12 +263,12 @@ export default function OrdemServicoDetalhe() {
       {/* Status Actions */}
       {order.status !== 'FINALIZADA' && order.status !== 'CANCELADA' && (
         <div className="flex flex-wrap gap-2">
-          {order.status === 'ABERTA' && isSindicoRPC && (
+          {order.status === 'ABERTA' && canCriticalActions && (
             <Button size="sm" variant="outline" onClick={() => changeStatus('EM_EXECUCAO')} disabled={actionLoading}>
               <Play className="h-4 w-4 mr-1" /> Iniciar Execução
             </Button>
           )}
-          {order.status === 'EM_EXECUCAO' && isSindicoRPC && (
+          {order.status === 'EM_EXECUCAO' && canCriticalActions && (
             <Button size="sm" variant="outline" onClick={() => changeStatus('AGUARDANDO_APROVACAO')} disabled={actionLoading}>
               <Clock className="h-4 w-4 mr-1" /> Enviar p/ Aprovação
             </Button>
