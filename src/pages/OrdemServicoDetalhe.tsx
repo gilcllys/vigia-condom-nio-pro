@@ -378,7 +378,7 @@ export default function OrdemServicoDetalhe() {
                   <div key={a.id} className="flex gap-3 items-start">
                     <div className="mt-1 h-2 w-2 rounded-full bg-primary shrink-0" />
                     <div>
-                      <p className="text-sm text-foreground">{a.description ?? a.action}</p>
+                      <p className="text-sm text-foreground">{a.description ?? a.activity_type}</p>
                       <p className="text-xs text-muted-foreground">
                         {formatDistanceToNow(new Date(a.created_at), { addSuffix: true, locale: ptBR })}
                       </p>

@@ -48,7 +48,7 @@ export async function logSOActivity({ serviceOrderId, action, description }: Log
     .insert({
       service_order_id: serviceOrderId,
       user_id: internalUser.id,
-      action,
+      activity_type: action,
       description: description ?? actionDescriptions[action],
     });
 
