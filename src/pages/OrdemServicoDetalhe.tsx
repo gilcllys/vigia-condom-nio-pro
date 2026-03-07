@@ -199,8 +199,8 @@ export default function OrdemServicoDetalhe() {
     setActionLoading(false);
   };
 
-  const isSindico = role && ['admin', 'sindico'].includes(role.toLowerCase());
-  const isSindicoOrZelador = role && ['admin', 'manager', 'sindico', 'zelador'].includes(role.toLowerCase());
+  const isSindico = role && ['SINDICO', 'SUB_SINDICO'].includes(role);
+  const isSindicoOrZelador = role && ['SINDICO', 'SUB_SINDICO', 'CONSELHO_FISCAL', 'ZELADOR'].includes(role);
   const [photoUrls, setPhotoUrls] = useState<Record<string, string>>({});
   const photos = documents;
   const otherDocs: SODocument[] = [];
