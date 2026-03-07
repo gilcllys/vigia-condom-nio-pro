@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
 import { logActivity } from '@/lib/activity-log';
+import { logSOActivity } from '@/lib/so-activity-log';
 import {
   ArrowLeft,
   MapPin,
@@ -117,7 +118,7 @@ export default function OrdemServicoDetalhe() {
         .from('service_order_activities')
         .select('*')
         .eq('service_order_id', id)
-        .order('created_at', { ascending: true }),
+        .order('created_at', { ascending: false }),
       supabase
         .schema('nfe_vigia')
         .from('service_order_materials')
@@ -173,6 +174,18 @@ export default function OrdemServicoDetalhe() {
     if (error) {
       toast({ title: 'Erro ao alterar status', description: error.message, variant: 'destructive' });
     } else {
+      // Log service_order_activities
+      const soActionMap: Record<string, import('@/lib/so-activity-log').SOAction> = {
+        EM_EXECUCAO: 'EXECUCAO_INICIADA',
+        AGUARDANDO_APROVACAO: 'ENVIADA_APROVACAO',
+        FINALIZADA: 'OS_FINALIZADA',
+        CANCELADA: 'OS_CANCELADA',
+      };
+      const soAction = soActionMap[newStatus];
+      if (soAction) {
+        await logSOActivity({ serviceOrderId: order.id, action: soAction });
+      }
+
       await logActivity({
         condoId,
         action: 'update',
