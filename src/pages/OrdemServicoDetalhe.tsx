@@ -199,15 +199,15 @@ export default function OrdemServicoDetalhe() {
     setActionLoading(false);
   };
 
-  const [isSindicoRPC, setIsSindicoRPC] = useState(false);
+  const [canCriticalActions, setCanCriticalActions] = useState(false);
   const isSindicoOrZelador = role && ['SINDICO', 'SUB_SINDICO', 'CONSELHO_FISCAL', 'ZELADOR'].includes(role);
 
   useEffect(() => {
-    const checkSindico = async () => {
-      const { data } = await supabase.schema('nfe_vigia').rpc('is_current_user_sindico');
-      setIsSindicoRPC(!!data);
+    const checkCritical = async () => {
+      const { data } = await supabase.schema('nfe_vigia').rpc('can_current_user_do_sindico_critical_actions');
+      setCanCriticalActions(!!data);
     };
-    checkSindico();
+    checkCritical();
   }, [condoId]);
   const [photoUrls, setPhotoUrls] = useState<Record<string, string>>({});
   const photos = documents;
