@@ -56,9 +56,9 @@ interface SOMaterial {
 
 interface SODocument {
   id: string;
-  doc_type: string;
+  photo_type: string;
   file_url: string;
-  file_name: string | null;
+  file_name?: string | null;
   created_at: string;
 }
 
@@ -125,7 +125,7 @@ export default function OrdemServicoDetalhe() {
         .eq('service_order_id', id),
       supabase
         .schema('nfe_vigia')
-        .from('service_order_documents')
+        .from('service_order_photos')
         .select('*')
         .eq('service_order_id', id)
         .order('created_at', { ascending: false }),
@@ -187,8 +187,8 @@ export default function OrdemServicoDetalhe() {
   };
 
   const isSindicoOrZelador = role && ['admin', 'manager', 'sindico', 'zelador'].includes(role.toLowerCase());
-  const photos = documents.filter((d) => d.doc_type === 'photo');
-  const otherDocs = documents.filter((d) => d.doc_type !== 'photo');
+  const photos = documents;
+  const otherDocs: SODocument[] = [];
 
   if (loading) {
     return (

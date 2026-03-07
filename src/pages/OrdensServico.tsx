@@ -101,15 +101,14 @@ export default function OrdensServico() {
         photo_count: 0,
       }));
 
-      // Batch photo count
+      // Batch photo count from service_order_photos
       if (ordersWithPhotos.length > 0) {
         const ids = ordersWithPhotos.map((o) => o.id);
         const { data: docs } = await supabase
           .schema('nfe_vigia')
-          .from('service_order_documents')
+          .from('service_order_photos')
           .select('service_order_id')
-          .in('service_order_id', ids)
-          .eq('doc_type', 'photo');
+          .in('service_order_id', ids);
 
         if (docs) {
           const countMap: Record<string, number> = {};
@@ -200,31 +199,43 @@ export default function OrdensServico() {
 
     const soId = inserted.id;
 
-    // Upload photos to storage and register in service_order_documents
+    // Upload photos to storage and register in service_order_photos
     for (const photo of photos) {
       const ext = photo.name.split('.').pop() ?? 'jpg';
-      const path = `${condoId}/${soId}/${crypto.randomUUID()}.${ext}`;
+      const path = `service-orders/${soId}/${crypto.randomUUID()}.${ext}`;
+
+      console.log('[OS upload] Uploading photo to path:', path);
 
       const { error: uploadError } = await supabase.storage
         .from('service-order-photos')
-        .upload(path, photo);
+        .upload(path, photo, { contentType: photo.type });
 
-      if (!uploadError) {
+      if (uploadError) {
+        console.error('[OS upload] Upload error:', uploadError);
+      } else {
         const { data: urlData } = supabase.storage
           .from('service-order-photos')
           .getPublicUrl(path);
 
-        await supabase
+        const fileUrl = urlData.publicUrl;
+        console.log('[OS upload] file_url:', fileUrl);
+
+        const { error: photoDbError } = await supabase
           .schema('nfe_vigia')
-          .from('service_order_documents')
+          .from('service_order_photos')
           .insert({
             service_order_id: soId,
-            doc_type: 'photo',
-            file_url: urlData.publicUrl,
-            file_name: photo.name,
+            photo_type: 'PROBLEMA',
+            file_url: fileUrl,
           });
+
+        if (photoDbError) {
+          console.error('[OS upload] Error saving photo record:', photoDbError);
+        }
       }
     }
+
+    console.log('[OS] service_order_id created:', soId);
 
     await logActivity({
       condoId,
