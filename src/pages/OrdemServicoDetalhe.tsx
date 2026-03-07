@@ -199,8 +199,16 @@ export default function OrdemServicoDetalhe() {
     setActionLoading(false);
   };
 
-  const isSindico = role && ['SINDICO', 'SUB_SINDICO'].includes(role);
+  const [isSindicoRPC, setIsSindicoRPC] = useState(false);
   const isSindicoOrZelador = role && ['SINDICO', 'SUB_SINDICO', 'CONSELHO_FISCAL', 'ZELADOR'].includes(role);
+
+  useEffect(() => {
+    const checkSindico = async () => {
+      const { data } = await supabase.schema('nfe_vigia').rpc('is_current_user_sindico');
+      setIsSindicoRPC(!!data);
+    };
+    checkSindico();
+  }, [condoId]);
   const [photoUrls, setPhotoUrls] = useState<Record<string, string>>({});
   const photos = documents;
   const otherDocs: SODocument[] = [];
