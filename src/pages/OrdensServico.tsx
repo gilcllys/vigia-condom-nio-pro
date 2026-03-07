@@ -357,19 +357,6 @@ export default function OrdensServico() {
               <Input id="so_location" placeholder="Ex: Bloco A, 2º andar" value={form.location} onChange={(e) => updateField('location', e.target.value)} />
             </div>
             <div className="space-y-2">
-              <Label>Prioridade</Label>
-              <Select value={form.priority} onValueChange={(v) => updateField('priority', v)}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="BAIXA">Baixa</SelectItem>
-                  <SelectItem value="MEDIA">Média</SelectItem>
-                  <SelectItem value="ALTA">Alta</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
               <Label>Fotos do problema (até 3)</Label>
               <Input type="file" accept="image/*" multiple onChange={handlePhotoChange} disabled={photos.length >= 3} />
               {photos.length > 0 && (
