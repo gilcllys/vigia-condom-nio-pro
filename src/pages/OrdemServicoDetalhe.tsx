@@ -56,9 +56,9 @@ interface SOMaterial {
 
 interface SODocument {
   id: string;
-  doc_type: string;
+  photo_type: string;
   file_url: string;
-  file_name: string | null;
+  file_name?: string | null;
   created_at: string;
 }
 
