@@ -13,6 +13,8 @@ import Dashboard from "./pages/Dashboard";
 import Condominios from "./pages/Condominios";
 import Moradores from "./pages/Moradores";
 import Configuracoes from "./pages/Configuracoes";
+import OrdensServico from "./pages/OrdensServico";
+import OrdemServicoDetalhe from "./pages/OrdemServicoDetalhe";
 import ResetPassword from "./pages/ResetPassword";
 import NotFound from "./pages/NotFound";
 
