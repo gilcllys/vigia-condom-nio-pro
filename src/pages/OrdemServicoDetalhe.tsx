@@ -186,9 +186,31 @@ export default function OrdemServicoDetalhe() {
     setActionLoading(false);
   };
 
+  const isSindico = role && ['admin', 'sindico'].includes(role.toLowerCase());
   const isSindicoOrZelador = role && ['admin', 'manager', 'sindico', 'zelador'].includes(role.toLowerCase());
+  const [photoUrls, setPhotoUrls] = useState<Record<string, string>>({});
   const photos = documents;
   const otherDocs: SODocument[] = [];
+
+  // Generate signed URLs for photos
+  useEffect(() => {
+    const generateSignedUrls = async () => {
+      const urls: Record<string, string> = {};
+      for (const doc of documents) {
+        if (!doc.file_url) continue;
+        const { data, error } = await supabase.storage
+          .from('service-order-photos')
+          .createSignedUrl(doc.file_url, 3600);
+        if (data && !error) {
+          urls[doc.id] = data.signedUrl;
+        }
+      }
+      setPhotoUrls(urls);
+    };
+    if (documents.length > 0) {
+      generateSignedUrls();
+    }
+  }, [documents]);
 
   if (loading) {
     return (
