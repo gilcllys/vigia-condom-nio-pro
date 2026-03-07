@@ -163,6 +163,20 @@ export default function OrdensServico() {
 
     setSaving(true);
 
+    // Buscar o id interno em nfe_vigia.users (FK exige este id, não o auth id)
+    const { data: internalUser, error: userError } = await supabase
+      .schema('nfe_vigia')
+      .from('users')
+      .select('id')
+      .eq('auth_user_id', user.id)
+      .maybeSingle();
+
+    if (userError || !internalUser) {
+      toast({ title: 'Erro ao identificar usuário interno', description: userError?.message ?? 'Usuário não encontrado', variant: 'destructive' });
+      setSaving(false);
+      return;
+    }
+
     const { data: inserted, error } = await supabase
       .schema('nfe_vigia')
       .from('service_orders')
@@ -173,7 +187,7 @@ export default function OrdensServico() {
         location: form.location.trim() || null,
         priority: form.priority,
         status: 'ABERTA',
-        created_by: user.id,
+        created_by: internalUser.id,
       })
       .select('id')
       .single();
