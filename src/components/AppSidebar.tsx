@@ -1,4 +1,4 @@
-import { LayoutDashboard, Building2, Users, Settings, LogOut } from 'lucide-react';
+import { LayoutDashboard, Building2, Users, Settings, LogOut, ClipboardList } from 'lucide-react';
 import { NavLink } from '@/components/NavLink';
 import { useLocation } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
@@ -21,6 +21,7 @@ const menuItems = [
   { title: 'Dashboard', url: '/dashboard', icon: LayoutDashboard },
   { title: 'Condomínios', url: '/condominios', icon: Building2 },
   { title: 'Moradores', url: '/moradores', icon: Users },
+  { title: 'Ordens de Serviço', url: '/ordens-servico', icon: ClipboardList },
   { title: 'Configurações', url: '/configuracoes', icon: Settings },
 ];
 

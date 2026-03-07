@@ -13,6 +13,8 @@ import Dashboard from "./pages/Dashboard";
 import Condominios from "./pages/Condominios";
 import Moradores from "./pages/Moradores";
 import Configuracoes from "./pages/Configuracoes";
+import OrdensServico from "./pages/OrdensServico";
+import OrdemServicoDetalhe from "./pages/OrdemServicoDetalhe";
 import ResetPassword from "./pages/ResetPassword";
 import NotFound from "./pages/NotFound";
 
@@ -40,6 +42,8 @@ const App = () => (
                 <Route path="/dashboard" element={<Dashboard />} />
                 <Route path="/condominios" element={<Condominios />} />
                 <Route path="/moradores" element={<Moradores />} />
+                <Route path="/ordens-servico" element={<OrdensServico />} />
+                <Route path="/ordens-servico/:id" element={<OrdemServicoDetalhe />} />
                 <Route path="/configuracoes" element={<Configuracoes />} />
               </Route>
               <Route path="/" element={<Navigate to="/dashboard" replace />} />
