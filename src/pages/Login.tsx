@@ -6,7 +6,9 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
+import { InputOTP, InputOTPGroup, InputOTPSlot } from '@/components/ui/input-otp';
 import { useToast } from '@/hooks/use-toast';
+import { Loader2 } from 'lucide-react';
 
 export default function Login() {
   const [email, setEmail] = useState('');
@@ -16,6 +18,13 @@ export default function Login() {
   const [forgotOpen, setForgotOpen] = useState(false);
   const [forgotEmail, setForgotEmail] = useState('');
   const [forgotLoading, setForgotLoading] = useState(false);
+
+  // MFA state
+  const [mfaRequired, setMfaRequired] = useState(false);
+  const [mfaFactorId, setMfaFactorId] = useState('');
+  const [mfaCode, setMfaCode] = useState('');
+  const [mfaLoading, setMfaLoading] = useState(false);
+
   const navigate = useNavigate();
   const { toast } = useToast();
 
@@ -37,6 +46,41 @@ export default function Login() {
     }
   };
 
+  const navigateAfterLogin = async () => {
+    localStorage.removeItem('nfe_vigia_active_condo');
+
+    const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+    if (sessionError) throw sessionError;
+
+    const userId = sessionData.session?.user?.id ?? null;
+
+    if (!userId) {
+      navigate('/login', { replace: true });
+      return;
+    }
+
+    const { data: userRow, error: userError } = await supabase
+      .schema('nfe_vigia')
+      .from('users')
+      .select('condo_id')
+      .eq('auth_user_id', userId)
+      .maybeSingle();
+
+    if (userError) throw userError;
+
+    const condoId = userRow?.condo_id ?? null;
+
+    if (condoId) {
+      localStorage.setItem(
+        'nfe_vigia_active_condo',
+        JSON.stringify({ condoId, condoName: null, role: null })
+      );
+      navigate('/dashboard', { replace: true });
+    } else {
+      navigate('/no-condo', { replace: true });
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -54,50 +98,24 @@ export default function Login() {
           description: 'Verifique seu e-mail para confirmar a conta.',
         });
       } else {
-        const { error } = await supabase.auth.signInWithPassword({ email, password });
+        const { data, error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
 
-        // Evita uso de contexto/cache antigo na decisão de redirect
-        localStorage.removeItem('nfe_vigia_active_condo');
+        // Check if MFA is required
+        const { data: factorsData } = await supabase.auth.mfa.listFactors();
+        const verifiedFactors = factorsData?.totp?.filter((f) => f.status === 'verified') ?? [];
 
-        // 1) Restaurar sessão
-        const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
-        if (sessionError) throw sessionError;
-
-        const userId = sessionData.session?.user?.id ?? null;
-        console.log('[post-login] session.user.id:', userId);
-
-        if (!userId) {
-          console.log('[post-login] redirect:', '/login');
-          navigate('/login', { replace: true });
+        if (verifiedFactors.length > 0) {
+          // User has MFA — require challenge
+          setMfaFactorId(verifiedFactors[0].id);
+          setMfaRequired(true);
+          setMfaCode('');
+          setLoading(false);
           return;
         }
 
-        // 2) Buscar usuário no banco por auth_user_id
-        const { data: userRow, error: userError } = await supabase
-          .schema('nfe_vigia')
-          .from('users')
-          .select('condo_id')
-          .eq('auth_user_id', userId)
-          .maybeSingle();
-
-        if (userError) throw userError;
-
-        // 3) Fonte da verdade: users.condo_id
-        const condoId = userRow?.condo_id ?? null;
-        console.log('[post-login] users.condo_id:', condoId);
-
-        if (condoId) {
-          localStorage.setItem(
-            'nfe_vigia_active_condo',
-            JSON.stringify({ condoId, condoName: null, role: null })
-          );
-          console.log('[post-login] redirect:', '/dashboard');
-          navigate('/dashboard', { replace: true });
-        } else {
-          console.log('[post-login] redirect:', '/no-condo');
-          navigate('/no-condo', { replace: true });
-        }
+        // No MFA — proceed directly
+        await navigateAfterLogin();
       }
     } catch (error: any) {
       toast({
@@ -109,6 +127,90 @@ export default function Login() {
       setLoading(false);
     }
   };
+
+  const handleMfaVerify = async () => {
+    if (mfaCode.length !== 6) return;
+    setMfaLoading(true);
+
+    try {
+      const { data: challengeData, error: challengeError } = await supabase.auth.mfa.challenge({
+        factorId: mfaFactorId,
+      });
+
+      if (challengeError) throw challengeError;
+
+      const { error: verifyError } = await supabase.auth.mfa.verify({
+        factorId: mfaFactorId,
+        challengeId: challengeData.id,
+        code: mfaCode,
+      });
+
+      if (verifyError) throw verifyError;
+
+      // MFA verified — session is now AAL2
+      await navigateAfterLogin();
+    } catch (error: any) {
+      toast({
+        title: 'Código inválido',
+        description: 'Verifique o código no seu app autenticador e tente novamente.',
+        variant: 'destructive',
+      });
+      setMfaCode('');
+    } finally {
+      setMfaLoading(false);
+    }
+  };
+
+  // MFA Challenge screen
+  if (mfaRequired) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-muted/30 px-4">
+        <Card className="w-full max-w-md">
+          <CardHeader className="text-center">
+            <CardTitle className="text-2xl font-bold tracking-tight">Verificação em 2 etapas</CardTitle>
+            <CardDescription>
+              Digite o código de 6 dígitos do seu app autenticador.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex justify-center">
+              <InputOTP maxLength={6} value={mfaCode} onChange={setMfaCode}>
+                <InputOTPGroup>
+                  <InputOTPSlot index={0} />
+                  <InputOTPSlot index={1} />
+                  <InputOTPSlot index={2} />
+                  <InputOTPSlot index={3} />
+                  <InputOTPSlot index={4} />
+                  <InputOTPSlot index={5} />
+                </InputOTPGroup>
+              </InputOTP>
+            </div>
+            <Button
+              onClick={handleMfaVerify}
+              disabled={mfaCode.length !== 6 || mfaLoading}
+              className="w-full"
+            >
+              {mfaLoading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+              Verificar
+            </Button>
+            <div className="text-center">
+              <button
+                type="button"
+                onClick={() => {
+                  setMfaRequired(false);
+                  setMfaCode('');
+                  supabase.auth.signOut();
+                }}
+                className="text-sm text-muted-foreground underline-offset-4 hover:underline hover:text-primary"
+              >
+                Voltar ao login
+              </button>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-muted/30 px-4">
