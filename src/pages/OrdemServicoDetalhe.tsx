@@ -187,8 +187,8 @@ export default function OrdemServicoDetalhe() {
   };
 
   const isSindicoOrZelador = role && ['admin', 'manager', 'sindico', 'zelador'].includes(role.toLowerCase());
-  const photos = documents.filter((d) => d.doc_type === 'photo');
-  const otherDocs = documents.filter((d) => d.doc_type !== 'photo');
+  const photos = documents;
+  const otherDocs: SODocument[] = [];
 
   if (loading) {
     return (
