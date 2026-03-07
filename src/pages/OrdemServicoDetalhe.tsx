@@ -327,15 +327,19 @@ export default function OrdemServicoDetalhe() {
               <p className="text-sm text-muted-foreground">Nenhuma foto anexada.</p>
             ) : (
               <div className="grid grid-cols-3 gap-2">
-                {photos.map((doc) => (
-                  <a key={doc.id} href={doc.file_url} target="_blank" rel="noopener noreferrer">
-                    <img
-                      src={doc.file_url}
-                      alt={doc.file_name ?? 'Foto'}
-                      className="h-24 w-full rounded-md object-cover border border-border hover:opacity-80 transition-opacity"
-                    />
-                  </a>
-                ))}
+                {photos.map((doc) => {
+                  const signedUrl = photoUrls[doc.id];
+                  if (!signedUrl) return null;
+                  return (
+                    <a key={doc.id} href={signedUrl} target="_blank" rel="noopener noreferrer">
+                      <img
+                        src={signedUrl}
+                        alt={doc.file_name ?? 'Foto'}
+                        className="h-24 w-full rounded-md object-cover border border-border hover:opacity-80 transition-opacity"
+                      />
+                    </a>
+                  );
+                })}
               </div>
             )}
           </CardContent>
