@@ -118,7 +118,7 @@ export default function OrdemServicoDetalhe() {
         .from('service_order_activities')
         .select('*')
         .eq('service_order_id', id)
-        .order('created_at', { ascending: true }),
+        .order('created_at', { ascending: false }),
       supabase
         .schema('nfe_vigia')
         .from('service_order_materials')
