@@ -233,6 +233,14 @@ export default function OrdensServico() {
 
     console.log('[OS] service_order_id created:', soId);
 
+    // Log OS activity: criação
+    await logSOActivity({ serviceOrderId: soId, action: 'OS_CRIADA' });
+
+    // Log OS activity: fotos adicionadas
+    for (let i = 0; i < photos.length; i++) {
+      await logSOActivity({ serviceOrderId: soId, action: 'FOTO_ADICIONADA', description: `Foto ${i + 1} adicionada` });
+    }
+
     await logActivity({
       condoId,
       action: 'create',

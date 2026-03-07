@@ -174,6 +174,18 @@ export default function OrdemServicoDetalhe() {
     if (error) {
       toast({ title: 'Erro ao alterar status', description: error.message, variant: 'destructive' });
     } else {
+      // Log service_order_activities
+      const soActionMap: Record<string, import('@/lib/so-activity-log').SOAction> = {
+        EM_EXECUCAO: 'EXECUCAO_INICIADA',
+        AGUARDANDO_APROVACAO: 'ENVIADA_APROVACAO',
+        FINALIZADA: 'OS_FINALIZADA',
+        CANCELADA: 'OS_CANCELADA',
+      };
+      const soAction = soActionMap[newStatus];
+      if (soAction) {
+        await logSOActivity({ serviceOrderId: order.id, action: soAction });
+      }
+
       await logActivity({
         condoId,
         action: 'update',
