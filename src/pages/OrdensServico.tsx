@@ -101,15 +101,14 @@ export default function OrdensServico() {
         photo_count: 0,
       }));
 
-      // Batch photo count
+      // Batch photo count from service_order_photos
       if (ordersWithPhotos.length > 0) {
         const ids = ordersWithPhotos.map((o) => o.id);
         const { data: docs } = await supabase
           .schema('nfe_vigia')
-          .from('service_order_documents')
+          .from('service_order_photos')
           .select('service_order_id')
-          .in('service_order_id', ids)
-          .eq('doc_type', 'photo');
+          .in('service_order_id', ids);
 
         if (docs) {
           const countMap: Record<string, number> = {};
