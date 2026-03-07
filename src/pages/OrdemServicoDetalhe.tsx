@@ -260,7 +260,7 @@ export default function OrdemServicoDetalhe() {
               <Play className="h-4 w-4 mr-1" /> Iniciar Execução
             </Button>
           )}
-          {order.status === 'EM_EXECUCAO' && (
+          {order.status === 'EM_EXECUCAO' && isSindico && (
             <Button size="sm" variant="outline" onClick={() => changeStatus('AGUARDANDO_APROVACAO')} disabled={actionLoading}>
               <Clock className="h-4 w-4 mr-1" /> Enviar p/ Aprovação
             </Button>
