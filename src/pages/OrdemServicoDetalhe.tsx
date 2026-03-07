@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
 import { logActivity } from '@/lib/activity-log';
+import { logSOActivity } from '@/lib/so-activity-log';
 import {
   ArrowLeft,
   MapPin,

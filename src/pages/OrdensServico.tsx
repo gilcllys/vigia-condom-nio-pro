@@ -15,6 +15,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { useToast } from '@/hooks/use-toast';
 import { Plus, Search, ClipboardList, Image, X } from 'lucide-react';
 import { logActivity } from '@/lib/activity-log';
+import { logSOActivity } from '@/lib/so-activity-log';
 import { formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
