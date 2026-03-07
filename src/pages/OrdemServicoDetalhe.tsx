@@ -186,9 +186,31 @@ export default function OrdemServicoDetalhe() {
     setActionLoading(false);
   };
 
+  const isSindico = role && ['admin', 'sindico'].includes(role.toLowerCase());
   const isSindicoOrZelador = role && ['admin', 'manager', 'sindico', 'zelador'].includes(role.toLowerCase());
+  const [photoUrls, setPhotoUrls] = useState<Record<string, string>>({});
   const photos = documents;
   const otherDocs: SODocument[] = [];
+
+  // Generate signed URLs for photos
+  useEffect(() => {
+    const generateSignedUrls = async () => {
+      const urls: Record<string, string> = {};
+      for (const doc of documents) {
+        if (!doc.file_url) continue;
+        const { data, error } = await supabase.storage
+          .from('service-order-photos')
+          .createSignedUrl(doc.file_url, 3600);
+        if (data && !error) {
+          urls[doc.id] = data.signedUrl;
+        }
+      }
+      setPhotoUrls(urls);
+    };
+    if (documents.length > 0) {
+      generateSignedUrls();
+    }
+  }, [documents]);
 
   if (loading) {
     return (
@@ -220,7 +242,7 @@ export default function OrdemServicoDetalhe() {
       {/* Status Actions */}
       {order.status !== 'FINALIZADA' && order.status !== 'CANCELADA' && (
         <div className="flex flex-wrap gap-2">
-          {order.status === 'ABERTA' && isSindicoOrZelador && (
+          {order.status === 'ABERTA' && isSindico && (
             <Button size="sm" variant="outline" onClick={() => changeStatus('EM_EXECUCAO')} disabled={actionLoading}>
               <Play className="h-4 w-4 mr-1" /> Iniciar Execução
             </Button>
@@ -305,15 +327,19 @@ export default function OrdemServicoDetalhe() {
               <p className="text-sm text-muted-foreground">Nenhuma foto anexada.</p>
             ) : (
               <div className="grid grid-cols-3 gap-2">
-                {photos.map((doc) => (
-                  <a key={doc.id} href={doc.file_url} target="_blank" rel="noopener noreferrer">
-                    <img
-                      src={doc.file_url}
-                      alt={doc.file_name ?? 'Foto'}
-                      className="h-24 w-full rounded-md object-cover border border-border hover:opacity-80 transition-opacity"
-                    />
-                  </a>
-                ))}
+                {photos.map((doc) => {
+                  const signedUrl = photoUrls[doc.id];
+                  if (!signedUrl) return null;
+                  return (
+                    <a key={doc.id} href={signedUrl} target="_blank" rel="noopener noreferrer">
+                      <img
+                        src={signedUrl}
+                        alt={doc.file_name ?? 'Foto'}
+                        className="h-24 w-full rounded-md object-cover border border-border hover:opacity-80 transition-opacity"
+                      />
+                    </a>
+                  );
+                })}
               </div>
             )}
           </CardContent>

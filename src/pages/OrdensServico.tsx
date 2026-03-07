@@ -213,12 +213,7 @@ export default function OrdensServico() {
       if (uploadError) {
         console.error('[OS upload] Upload error:', uploadError);
       } else {
-        const { data: urlData } = supabase.storage
-          .from('service-order-photos')
-          .getPublicUrl(path);
-
-        const fileUrl = urlData.publicUrl;
-        console.log('[OS upload] file_url:', fileUrl);
+        console.log('[OS upload] file_url (path):', path);
 
         const { error: photoDbError } = await supabase
           .schema('nfe_vigia')
@@ -226,7 +221,7 @@ export default function OrdensServico() {
           .insert({
             service_order_id: soId,
             photo_type: 'PROBLEMA',
-            file_url: fileUrl,
+            file_url: path,
           });
 
         if (photoDbError) {
