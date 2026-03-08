@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useCondo } from '@/contexts/CondoContext';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -14,17 +14,18 @@ import { logActivity } from '@/lib/activity-log';
 import RoleChangeDialog from '@/components/moradores/RoleChangeDialog';
 import AddEmployeeDialog from '@/components/moradores/AddEmployeeDialog';
 
-interface Resident {
-  id: string;
+interface ResidentRow {
+  resident_id: string;
   condo_id: string;
   block: string | null;
   unit: string | null;
   unit_label: string | null;
   full_name: string;
-  document: string | null;
   email: string | null;
   phone: string | null;
-  created_at: string;
+  matched_user_id: string | null;
+  matched_user_email: string | null;
+  matched_role: string | null;
 }
 
 interface ResidentForm {
@@ -35,12 +36,6 @@ interface ResidentForm {
   block: string;
   unit: string;
   unit_label: string;
-}
-
-interface UserCondoInfo {
-  userId: string; // nfe_vigia.users.id
-  email: string;
-  role: string;
 }
 
 const ROLE_LABELS: Record<string, string> = {
@@ -63,7 +58,7 @@ const ROLE_VARIANTS: Record<string, 'default' | 'secondary' | 'destructive' | 'o
 
 const emptyForm: ResidentForm = { full_name: '', document: '', email: '', phone: '', block: '', unit: '', unit_label: '' };
 
-const formatAddress = (r: Resident) => {
+const formatAddress = (r: ResidentRow) => {
   return [r.block, r.unit, r.unit_label].filter(Boolean).join(' · ') || '—';
 };
 
@@ -73,20 +68,19 @@ export default function Moradores() {
 
   const canManageRoles = currentUserRole === 'SINDICO' || currentUserRole === 'ADMIN';
 
-  const [residents, setResidents] = useState<Resident[]>([]);
+  const [residents, setResidents] = useState<ResidentRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
 
   const [modalOpen, setModalOpen] = useState(false);
-  const [editingResident, setEditingResident] = useState<Resident | null>(null);
+  const [editingResident, setEditingResident] = useState<ResidentRow | null>(null);
   const [form, setForm] = useState<ResidentForm>(emptyForm);
   const [saving, setSaving] = useState(false);
 
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const [deletingResident, setDeletingResident] = useState<Resident | null>(null);
+  const [deletingResident, setDeletingResident] = useState<ResidentRow | null>(null);
 
   // Role management
-  const [userCondos, setUserCondos] = useState<UserCondoInfo[]>([]);
   const [roleDialogOpen, setRoleDialogOpen] = useState(false);
   const [roleTarget, setRoleTarget] = useState<{ name: string; role: string | null; userId: string | null } | null>(null);
   const [employeeDialogOpen, setEmployeeDialogOpen] = useState(false);
@@ -96,55 +90,20 @@ export default function Moradores() {
     setLoading(true);
     const { data, error } = await supabase
       .schema('nfe_vigia')
-      .from('residents')
-      .select('*')
-      .eq('condo_id', condoId)
-      .order('full_name');
+      .rpc('list_residents_with_user_match', { _condo_id: condoId });
 
     if (error) {
       console.error('Error fetching residents:', error);
       toast({ title: 'Erro ao carregar moradores', description: error.message, variant: 'destructive' });
     } else {
-      setResidents(data ?? []);
+      setResidents((data as ResidentRow[]) ?? []);
     }
     setLoading(false);
   };
 
-  const fetchUserCondos = async () => {
-    if (!condoId) return;
-    // Join user_condos with users to get email for matching
-    const { data, error } = await supabase
-      .schema('nfe_vigia')
-      .from('user_condos')
-      .select('user_id, role, users!inner(email)')
-      .eq('condo_id', condoId);
-
-    if (error) {
-      console.error('Error fetching user_condos:', error);
-      return;
-    }
-
-    const mapped: UserCondoInfo[] = (data ?? []).map((row: any) => ({
-      userId: row.user_id,
-      email: row.users?.email ?? '',
-      role: row.role,
-    }));
-    setUserCondos(mapped);
-  };
-
   useEffect(() => {
     fetchResidents();
-    fetchUserCondos();
   }, [condoId]);
-
-  // Map resident email -> user_condo info
-  const emailToUserCondo = useMemo(() => {
-    const map = new Map<string, UserCondoInfo>();
-    for (const uc of userCondos) {
-      if (uc.email) map.set(uc.email.toLowerCase(), uc);
-    }
-    return map;
-  }, [userCondos]);
 
   const filtered = residents.filter((r) =>
     r.full_name.toLowerCase().includes(search.toLowerCase())
@@ -156,11 +115,11 @@ export default function Moradores() {
     setModalOpen(true);
   };
 
-  const openEdit = (resident: Resident) => {
+  const openEdit = (resident: ResidentRow) => {
     setEditingResident(resident);
     setForm({
       full_name: resident.full_name,
-      document: resident.document ?? '',
+      document: '',
       email: resident.email ?? '',
       phone: resident.phone ?? '',
       block: resident.block ?? '',
@@ -170,17 +129,16 @@ export default function Moradores() {
     setModalOpen(true);
   };
 
-  const openDelete = (resident: Resident) => {
+  const openDelete = (resident: ResidentRow) => {
     setDeletingResident(resident);
     setDeleteDialogOpen(true);
   };
 
-  const openRoleChange = (resident: Resident) => {
-    const uc = resident.email ? emailToUserCondo.get(resident.email.toLowerCase()) : undefined;
+  const openRoleChange = (resident: ResidentRow) => {
     setRoleTarget({
       name: resident.full_name,
-      role: uc?.role ?? null,
-      userId: uc?.userId ?? null,
+      role: resident.matched_role ?? null,
+      userId: resident.matched_user_id ?? null,
     });
     setRoleDialogOpen(true);
   };
@@ -210,7 +168,7 @@ export default function Moradores() {
         .schema('nfe_vigia')
         .from('residents')
         .update(payload)
-        .eq('id', editingResident.id);
+        .eq('id', editingResident.resident_id);
 
       if (error) {
         toast({ title: 'Erro ao atualizar morador', description: error.message, variant: 'destructive' });
@@ -219,7 +177,7 @@ export default function Moradores() {
           condoId,
           action: 'update',
           entity: 'resident',
-          entityId: editingResident.id,
+          entityId: editingResident.resident_id,
           description: `Morador "${form.full_name.trim()}" atualizado`,
         });
         toast({ title: 'Morador atualizado com sucesso' });
@@ -258,7 +216,7 @@ export default function Moradores() {
       .schema('nfe_vigia')
       .from('residents')
       .delete()
-      .eq('id', deletingResident.id);
+      .eq('id', deletingResident.resident_id);
 
     if (error) {
       toast({ title: 'Erro ao excluir morador', description: error.message, variant: 'destructive' });
@@ -267,7 +225,7 @@ export default function Moradores() {
         condoId,
         action: 'delete',
         entity: 'resident',
-        entityId: deletingResident.id,
+        entityId: deletingResident.resident_id,
         description: `Morador "${deletingResident.full_name}" excluído`,
       });
       toast({ title: 'Morador excluído com sucesso' });
@@ -282,12 +240,11 @@ export default function Moradores() {
   };
 
   const handleRoleSaved = () => {
-    fetchUserCondos();
+    fetchResidents();
   };
 
   const handleEmployeeSaved = () => {
     fetchResidents();
-    fetchUserCondos();
   };
 
   return (
@@ -340,7 +297,7 @@ export default function Moradores() {
                   <TableRow>
                     <TableHead>Nome</TableHead>
                     <TableHead>Papel</TableHead>
-                    <TableHead>Documento</TableHead>
+                    
                     <TableHead>Email</TableHead>
                     <TableHead>Telefone</TableHead>
                     <TableHead>Endereço</TableHead>
@@ -349,29 +306,27 @@ export default function Moradores() {
                 </TableHeader>
                 <TableBody>
                   {filtered.map((resident) => {
-                    const uc = resident.email ? emailToUserCondo.get(resident.email.toLowerCase()) : undefined;
-                    const role = uc?.role ?? null;
+                    const hasAccount = !!resident.matched_user_id;
                     return (
-                      <TableRow key={resident.id}>
+                      <TableRow key={resident.resident_id}>
                         <TableCell className="font-medium">{resident.full_name}</TableCell>
                         <TableCell>
-                          {role ? (
-                            <Badge variant={ROLE_VARIANTS[role] ?? 'outline'}>
-                              {ROLE_LABELS[role] ?? role}
+                          {resident.matched_role ? (
+                            <Badge variant={ROLE_VARIANTS[resident.matched_role] ?? 'outline'}>
+                              {ROLE_LABELS[resident.matched_role] ?? resident.matched_role}
                             </Badge>
                           ) : (
                             <span className="text-muted-foreground text-xs">—</span>
                           )}
                         </TableCell>
-                        <TableCell>{resident.document ?? '—'}</TableCell>
                         <TableCell>{resident.email ?? '—'}</TableCell>
                         <TableCell>{resident.phone ?? '—'}</TableCell>
                         <TableCell>{formatAddress(resident)}</TableCell>
                         <TableCell>
                           <div className="flex items-center gap-1">
                             {canManageRoles && (
-                              <Button variant="ghost" size="icon" onClick={() => openRoleChange(resident)} title={uc ? "Alterar papel" : "Este morador não possui conta vinculada"}>
-                                <Shield className={`h-4 w-4 ${!uc ? 'opacity-50' : ''}`} />
+                              <Button variant="ghost" size="icon" onClick={() => openRoleChange(resident)} title={hasAccount ? "Alterar papel" : "Este morador não possui conta vinculada"}>
+                                <Shield className={`h-4 w-4 ${!hasAccount ? 'opacity-50' : ''}`} />
                               </Button>
                             )}
                             <Button variant="ghost" size="icon" onClick={() => openEdit(resident)}>
