@@ -121,10 +121,12 @@ export default function OrdemServicoDetalhe() {
   // Permissions
   const [canCriticalActions, setCanCriticalActions] = useState(false);
   const isSindico = role === 'SINDICO';
+  const isAdmin = role === 'ADMIN';
   const isZelador = role === 'ZELADOR';
-  const isSubSindico = role === 'SUB_SINDICO';
-  const isConselho = role === 'CONSELHO_FISCAL';
-  const canApprove = isSindico || isSubSindico || isConselho;
+  const isSubSindico = role === 'SUBSINDICO';
+  const isConselho = role === 'CONSELHO';
+  const canApprove = isSindico || isAdmin || isSubSindico || isConselho;
+  const canFinalize = isSindico || isAdmin || isSubSindico;
   const canCancel = canCriticalActions;
 
   useEffect(() => {
@@ -251,6 +253,7 @@ export default function OrdemServicoDetalhe() {
         canCriticalActions={canCriticalActions}
         isZelador={isZelador}
         canApprove={canApprove}
+        canFinalize={canFinalize}
         canCancel={canCancel}
         actionLoading={actionLoading}
         onChangeStatus={changeStatus}

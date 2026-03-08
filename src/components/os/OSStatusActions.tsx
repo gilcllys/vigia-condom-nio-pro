@@ -1,11 +1,12 @@
 import { Button } from '@/components/ui/button';
-import { Play, CheckCircle2, XCircle, Clock } from 'lucide-react';
+import { Play, CheckCircle2, XCircle, Clock, ThumbsUp } from 'lucide-react';
 
 interface Props {
   status: string;
   canCriticalActions: boolean;
   isZelador: boolean;
   canApprove: boolean;
+  canFinalize: boolean;
   canCancel: boolean;
   actionLoading: boolean;
   onChangeStatus: (status: string) => void;
@@ -16,6 +17,7 @@ export function OSStatusActions({
   canCriticalActions,
   isZelador,
   canApprove,
+  canFinalize,
   canCancel,
   actionLoading,
   onChangeStatus,
@@ -34,7 +36,12 @@ export function OSStatusActions({
           <Clock className="h-4 w-4 mr-1" /> Enviar p/ Aprovação
         </Button>
       )}
-      {status === 'AGUARDANDO_APROVACAO' && canApprove && (
+      {status === 'AGUARDANDO_APROVACAO' && canApprove && !canFinalize && (
+        <Button size="sm" variant="secondary" onClick={() => onChangeStatus('APROVADA')} disabled={actionLoading}>
+          <ThumbsUp className="h-4 w-4 mr-1" /> Aprovar
+        </Button>
+      )}
+      {(status === 'AGUARDANDO_APROVACAO' || status === 'APROVADA') && canFinalize && (
         <Button size="sm" onClick={() => onChangeStatus('FINALIZADA')} disabled={actionLoading}>
           <CheckCircle2 className="h-4 w-4 mr-1" /> Finalizar
         </Button>
