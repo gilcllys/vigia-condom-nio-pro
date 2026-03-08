@@ -240,12 +240,11 @@ export default function Moradores() {
   };
 
   const handleRoleSaved = () => {
-    fetchUserCondos();
+    fetchResidents();
   };
 
   const handleEmployeeSaved = () => {
     fetchResidents();
-    fetchUserCondos();
   };
 
   return (
