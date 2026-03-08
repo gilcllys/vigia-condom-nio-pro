@@ -104,16 +104,18 @@ export default function Login() {
         const userId = data.session?.user?.id;
         console.log('[Login] userId:', userId);
 
-        // Check if user is SINDICO
+        // Check if user is SINDICO via user_condos (fonte oficial do papel)
         let isSindico = false;
         if (userId) {
-          const { data: userRow } = await supabase
+          const { data: condoRow } = await supabase
             .schema('nfe_vigia')
-            .from('users')
+            .from('user_condos')
             .select('role')
-            .eq('auth_user_id', userId)
+            .eq('user_id', userId)
+            .eq('is_default', true)
             .maybeSingle();
-          isSindico = userRow?.role === 'SINDICO';
+          isSindico = condoRow?.role === 'SINDICO';
+          console.log('[Login] role do condomínio ativo (user_condos):', condoRow?.role);
         }
         console.log('[Login] isSindico:', isSindico);
 
