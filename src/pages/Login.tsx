@@ -177,6 +177,8 @@ export default function Login() {
       if (verifyError) throw verifyError;
 
       // MFA verified — session is now AAL2
+      const { data: aalData } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+      console.log('[Login] Challenge verificado — sessão AAL:', aalData?.currentLevel);
       await navigateAfterLogin();
     } catch (error: any) {
       toast({
