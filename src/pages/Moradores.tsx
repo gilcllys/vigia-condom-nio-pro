@@ -68,20 +68,19 @@ export default function Moradores() {
 
   const canManageRoles = currentUserRole === 'SINDICO' || currentUserRole === 'ADMIN';
 
-  const [residents, setResidents] = useState<Resident[]>([]);
+  const [residents, setResidents] = useState<ResidentRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
 
   const [modalOpen, setModalOpen] = useState(false);
-  const [editingResident, setEditingResident] = useState<Resident | null>(null);
+  const [editingResident, setEditingResident] = useState<ResidentRow | null>(null);
   const [form, setForm] = useState<ResidentForm>(emptyForm);
   const [saving, setSaving] = useState(false);
 
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const [deletingResident, setDeletingResident] = useState<Resident | null>(null);
+  const [deletingResident, setDeletingResident] = useState<ResidentRow | null>(null);
 
   // Role management
-  const [userCondos, setUserCondos] = useState<UserCondoInfo[]>([]);
   const [roleDialogOpen, setRoleDialogOpen] = useState(false);
   const [roleTarget, setRoleTarget] = useState<{ name: string; role: string | null; userId: string | null } | null>(null);
   const [employeeDialogOpen, setEmployeeDialogOpen] = useState(false);
