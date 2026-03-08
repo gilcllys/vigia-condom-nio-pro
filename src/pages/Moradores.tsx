@@ -168,7 +168,7 @@ export default function Moradores() {
         .schema('nfe_vigia')
         .from('residents')
         .update(payload)
-        .eq('id', editingResident.id);
+        .eq('id', editingResident.resident_id);
 
       if (error) {
         toast({ title: 'Erro ao atualizar morador', description: error.message, variant: 'destructive' });
