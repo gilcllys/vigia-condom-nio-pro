@@ -297,7 +297,7 @@ export default function Moradores() {
                   <TableRow>
                     <TableHead>Nome</TableHead>
                     <TableHead>Papel</TableHead>
-                    <TableHead>Documento</TableHead>
+                    
                     <TableHead>Email</TableHead>
                     <TableHead>Telefone</TableHead>
                     <TableHead>Endereço</TableHead>
