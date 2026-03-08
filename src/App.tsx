@@ -15,7 +15,11 @@ import Moradores from "./pages/Moradores";
 import Configuracoes from "./pages/Configuracoes";
 import OrdensServico from "./pages/OrdensServico";
 import OrdemServicoDetalhe from "./pages/OrdemServicoDetalhe";
+import NotasFiscais from "./pages/NotasFiscais";
+import Almoxarifado from "./pages/Almoxarifado";
+import Transparencia from "./pages/Transparencia";
 import ResetPassword from "./pages/ResetPassword";
+import NotFound from "./pages/NotFound";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
