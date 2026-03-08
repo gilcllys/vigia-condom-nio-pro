@@ -273,24 +273,30 @@ export default function OrdemServicoDetalhe() {
       {/* Status Actions */}
       {order.status !== 'FINALIZADA' && order.status !== 'CANCELADA' && (
         <div className="flex flex-wrap gap-2">
+          {/* Iniciar Execução: SINDICO com AAL2 */}
           {order.status === 'ABERTA' && canCriticalActions && (
             <Button size="sm" variant="outline" onClick={() => changeStatus('EM_EXECUCAO')} disabled={actionLoading}>
               <Play className="h-4 w-4 mr-1" /> Iniciar Execução
             </Button>
           )}
-          {order.status === 'EM_EXECUCAO' && canCriticalActions && (
+          {/* Enviar p/ Aprovação: SINDICO com AAL2 ou ZELADOR */}
+          {order.status === 'EM_EXECUCAO' && (canCriticalActions || isZelador) && (
             <Button size="sm" variant="outline" onClick={() => changeStatus('AGUARDANDO_APROVACAO')} disabled={actionLoading}>
               <Clock className="h-4 w-4 mr-1" /> Enviar p/ Aprovação
             </Button>
           )}
-          {order.status === 'AGUARDANDO_APROVACAO' && isSindicoOrZelador && (
+          {/* Aprovar/Finalizar: SINDICO, SUB_SINDICO, CONSELHO_FISCAL */}
+          {order.status === 'AGUARDANDO_APROVACAO' && canApprove && (
             <Button size="sm" onClick={() => changeStatus('FINALIZADA')} disabled={actionLoading}>
               <CheckCircle2 className="h-4 w-4 mr-1" /> Finalizar
             </Button>
           )}
-          <Button size="sm" variant="destructive" onClick={() => changeStatus('CANCELADA')} disabled={actionLoading}>
-            <XCircle className="h-4 w-4 mr-1" /> Cancelar
-          </Button>
+          {/* Cancelar: apenas SINDICO com AAL2 */}
+          {canCancel && (
+            <Button size="sm" variant="destructive" onClick={() => changeStatus('CANCELADA')} disabled={actionLoading}>
+              <XCircle className="h-4 w-4 mr-1" /> Cancelar
+            </Button>
+          )}
         </div>
       )}
 
