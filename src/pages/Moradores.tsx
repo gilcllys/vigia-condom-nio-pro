@@ -216,7 +216,7 @@ export default function Moradores() {
       .schema('nfe_vigia')
       .from('residents')
       .delete()
-      .eq('id', deletingResident.id);
+      .eq('id', deletingResident.resident_id);
 
     if (error) {
       toast({ title: 'Erro ao excluir morador', description: error.message, variant: 'destructive' });
