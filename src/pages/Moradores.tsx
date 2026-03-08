@@ -14,17 +14,18 @@ import { logActivity } from '@/lib/activity-log';
 import RoleChangeDialog from '@/components/moradores/RoleChangeDialog';
 import AddEmployeeDialog from '@/components/moradores/AddEmployeeDialog';
 
-interface Resident {
-  id: string;
+interface ResidentRow {
+  resident_id: string;
   condo_id: string;
   block: string | null;
   unit: string | null;
   unit_label: string | null;
   full_name: string;
-  document: string | null;
   email: string | null;
   phone: string | null;
-  created_at: string;
+  matched_user_id: string | null;
+  matched_user_email: string | null;
+  matched_role: string | null;
 }
 
 interface ResidentForm {
@@ -35,12 +36,6 @@ interface ResidentForm {
   block: string;
   unit: string;
   unit_label: string;
-}
-
-interface UserCondoInfo {
-  userId: string; // nfe_vigia.users.id
-  email: string;
-  role: string;
 }
 
 const ROLE_LABELS: Record<string, string> = {
