@@ -369,9 +369,9 @@ export default function Moradores() {
                         <TableCell>{formatAddress(resident)}</TableCell>
                         <TableCell>
                           <div className="flex items-center gap-1">
-                            {canManageRoles && uc && (
-                              <Button variant="ghost" size="icon" onClick={() => openRoleChange(resident)} title="Alterar papel">
-                                <Shield className="h-4 w-4" />
+                            {canManageRoles && (
+                              <Button variant="ghost" size="icon" onClick={() => openRoleChange(resident)} title={uc ? "Alterar papel" : "Este morador não possui conta vinculada"}>
+                                <Shield className={`h-4 w-4 ${!uc ? 'opacity-50' : ''}`} />
                               </Button>
                             )}
                             <Button variant="ghost" size="icon" onClick={() => openEdit(resident)}>
