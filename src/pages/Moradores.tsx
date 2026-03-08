@@ -115,11 +115,11 @@ export default function Moradores() {
     setModalOpen(true);
   };
 
-  const openEdit = (resident: Resident) => {
+  const openEdit = (resident: ResidentRow) => {
     setEditingResident(resident);
     setForm({
       full_name: resident.full_name,
-      document: resident.document ?? '',
+      document: '',
       email: resident.email ?? '',
       phone: resident.phone ?? '',
       block: resident.block ?? '',
@@ -129,17 +129,16 @@ export default function Moradores() {
     setModalOpen(true);
   };
 
-  const openDelete = (resident: Resident) => {
+  const openDelete = (resident: ResidentRow) => {
     setDeletingResident(resident);
     setDeleteDialogOpen(true);
   };
 
-  const openRoleChange = (resident: Resident) => {
-    const uc = resident.email ? emailToUserCondo.get(resident.email.toLowerCase()) : undefined;
+  const openRoleChange = (resident: ResidentRow) => {
     setRoleTarget({
       name: resident.full_name,
-      role: uc?.role ?? null,
-      userId: uc?.userId ?? null,
+      role: resident.matched_role ?? null,
+      userId: resident.matched_user_id ?? null,
     });
     setRoleDialogOpen(true);
   };
