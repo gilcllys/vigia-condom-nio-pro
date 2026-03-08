@@ -200,7 +200,17 @@ export default function OrdemServicoDetalhe() {
   };
 
   const [canCriticalActions, setCanCriticalActions] = useState(false);
-  const isSindicoOrZelador = role && ['SINDICO', 'SUB_SINDICO', 'CONSELHO_FISCAL', 'ZELADOR'].includes(role);
+
+  // Permissões por papel do condomínio ativo (via CondoContext → user_condos)
+  const isSindico = role === 'SINDICO';
+  const isZelador = role === 'ZELADOR';
+  const isSubSindico = role === 'SUB_SINDICO';
+  const isConselho = role === 'CONSELHO_FISCAL';
+
+  // Quem pode aprovar/finalizar: SINDICO, SUB_SINDICO, CONSELHO_FISCAL
+  const canApprove = isSindico || isSubSindico || isConselho;
+  // Quem pode cancelar: apenas SINDICO com ações críticas
+  const canCancel = canCriticalActions;
 
   useEffect(() => {
     const checkCritical = async () => {
