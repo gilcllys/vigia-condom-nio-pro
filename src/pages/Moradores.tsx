@@ -90,55 +90,20 @@ export default function Moradores() {
     setLoading(true);
     const { data, error } = await supabase
       .schema('nfe_vigia')
-      .from('residents')
-      .select('*')
-      .eq('condo_id', condoId)
-      .order('full_name');
+      .rpc('list_residents_with_user_match', { _condo_id: condoId });
 
     if (error) {
       console.error('Error fetching residents:', error);
       toast({ title: 'Erro ao carregar moradores', description: error.message, variant: 'destructive' });
     } else {
-      setResidents(data ?? []);
+      setResidents((data as ResidentRow[]) ?? []);
     }
     setLoading(false);
   };
 
-  const fetchUserCondos = async () => {
-    if (!condoId) return;
-    // Join user_condos with users to get email for matching
-    const { data, error } = await supabase
-      .schema('nfe_vigia')
-      .from('user_condos')
-      .select('user_id, role, users!inner(email)')
-      .eq('condo_id', condoId);
-
-    if (error) {
-      console.error('Error fetching user_condos:', error);
-      return;
-    }
-
-    const mapped: UserCondoInfo[] = (data ?? []).map((row: any) => ({
-      userId: row.user_id,
-      email: row.users?.email ?? '',
-      role: row.role,
-    }));
-    setUserCondos(mapped);
-  };
-
   useEffect(() => {
     fetchResidents();
-    fetchUserCondos();
   }, [condoId]);
-
-  // Map resident email -> user_condo info
-  const emailToUserCondo = useMemo(() => {
-    const map = new Map<string, UserCondoInfo>();
-    for (const uc of userCondos) {
-      if (uc.email) map.set(uc.email.toLowerCase(), uc);
-    }
-    return map;
-  }, [userCondos]);
 
   const filtered = residents.filter((r) =>
     r.full_name.toLowerCase().includes(search.toLowerCase())
