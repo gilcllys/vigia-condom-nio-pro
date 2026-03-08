@@ -15,6 +15,9 @@ import Moradores from "./pages/Moradores";
 import Configuracoes from "./pages/Configuracoes";
 import OrdensServico from "./pages/OrdensServico";
 import OrdemServicoDetalhe from "./pages/OrdemServicoDetalhe";
+import NotasFiscais from "./pages/NotasFiscais";
+import Almoxarifado from "./pages/Almoxarifado";
+import Transparencia from "./pages/Transparencia";
 import ResetPassword from "./pages/ResetPassword";
 import NotFound from "./pages/NotFound";
 
@@ -44,6 +47,9 @@ const App = () => (
                 <Route path="/moradores" element={<Moradores />} />
                 <Route path="/ordens-servico" element={<OrdensServico />} />
                 <Route path="/ordens-servico/:id" element={<OrdemServicoDetalhe />} />
+                <Route path="/notas-fiscais" element={<NotasFiscais />} />
+                <Route path="/almoxarifado" element={<Almoxarifado />} />
+                <Route path="/transparencia" element={<Transparencia />} />
                 <Route path="/configuracoes" element={<Configuracoes />} />
               </Route>
               <Route path="/" element={<Navigate to="/dashboard" replace />} />

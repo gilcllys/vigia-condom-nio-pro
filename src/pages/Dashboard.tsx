@@ -87,13 +87,19 @@ export default function Dashboard() {
   }, [condoId]);
 
   const roleLabel = (r: string | null) => {
-    switch (r?.toLowerCase()) {
-      case 'admin':
-        return 'Administrador';
-      case 'manager':
+    switch (r) {
+      case 'SINDICO':
         return 'Síndico';
-      case 'user':
-        return 'Usuário';
+      case 'SUB_SINDICO':
+        return 'Subsíndico';
+      case 'CONSELHO_FISCAL':
+        return 'Conselho Fiscal';
+      case 'ZELADOR':
+        return 'Zelador';
+      case 'MORADOR':
+        return 'Morador';
+      case 'ADMIN':
+        return 'Administrador do Sistema';
       default:
         return r ?? '—';
     }
