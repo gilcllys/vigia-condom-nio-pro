@@ -177,7 +177,7 @@ export default function Moradores() {
           condoId,
           action: 'update',
           entity: 'resident',
-          entityId: editingResident.id,
+          entityId: editingResident.resident_id,
           description: `Morador "${form.full_name.trim()}" atualizado`,
         });
         toast({ title: 'Morador atualizado com sucesso' });
