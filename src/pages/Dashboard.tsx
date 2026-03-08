@@ -90,10 +90,10 @@ export default function Dashboard() {
     switch (r) {
       case 'SINDICO':
         return 'Síndico';
-      case 'SUB_SINDICO':
+      case 'SUBSINDICO':
         return 'Subsíndico';
-      case 'CONSELHO_FISCAL':
-        return 'Conselho Fiscal';
+      case 'CONSELHO':
+        return 'Conselho';
       case 'ZELADOR':
         return 'Zelador';
       case 'MORADOR':
