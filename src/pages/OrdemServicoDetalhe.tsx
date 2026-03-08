@@ -253,6 +253,7 @@ export default function OrdemServicoDetalhe() {
         canCriticalActions={canCriticalActions}
         isZelador={isZelador}
         canApprove={canApprove}
+        canFinalize={canFinalize}
         canCancel={canCancel}
         actionLoading={actionLoading}
         onChangeStatus={changeStatus}
