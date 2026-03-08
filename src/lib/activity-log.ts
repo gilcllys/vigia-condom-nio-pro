@@ -3,7 +3,7 @@ import { supabase } from '@/lib/supabase';
 interface LogActivityParams {
   condoId: string;
   action: 'create' | 'update' | 'delete';
-  entity: 'resident' | 'condo' | 'invoice';
+  entity: 'resident' | 'condo' | 'invoice' | 'user' | 'user_condo';
   entityId: string;
   description: string;
 }

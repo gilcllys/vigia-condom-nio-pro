@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useCondo } from '@/contexts/CondoContext';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -7,9 +7,12 @@ import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
+import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
-import { Plus, Search, Pencil, Trash2, Users } from 'lucide-react';
+import { Plus, Search, Pencil, Trash2, Users, Shield, UserPlus } from 'lucide-react';
 import { logActivity } from '@/lib/activity-log';
+import RoleChangeDialog from '@/components/moradores/RoleChangeDialog';
+import AddEmployeeDialog from '@/components/moradores/AddEmployeeDialog';
 
 interface Resident {
   id: string;
@@ -34,6 +37,30 @@ interface ResidentForm {
   unit_label: string;
 }
 
+interface UserCondoInfo {
+  userId: string; // nfe_vigia.users.id
+  email: string;
+  role: string;
+}
+
+const ROLE_LABELS: Record<string, string> = {
+  MORADOR: 'Morador',
+  ZELADOR: 'Zelador',
+  SINDICO: 'Síndico',
+  SUBSINDICO: 'Subsíndico',
+  CONSELHO: 'Conselho',
+  ADMIN: 'Admin',
+};
+
+const ROLE_VARIANTS: Record<string, 'default' | 'secondary' | 'destructive' | 'outline'> = {
+  SINDICO: 'default',
+  ADMIN: 'default',
+  SUBSINDICO: 'secondary',
+  CONSELHO: 'secondary',
+  ZELADOR: 'outline',
+  MORADOR: 'outline',
+};
+
 const emptyForm: ResidentForm = { full_name: '', document: '', email: '', phone: '', block: '', unit: '', unit_label: '' };
 
 const formatAddress = (r: Resident) => {
@@ -41,8 +68,10 @@ const formatAddress = (r: Resident) => {
 };
 
 export default function Moradores() {
-  const { condoId } = useCondo();
+  const { condoId, role: currentUserRole } = useCondo();
   const { toast } = useToast();
+
+  const canManageRoles = currentUserRole === 'SINDICO' || currentUserRole === 'ADMIN';
 
   const [residents, setResidents] = useState<Resident[]>([]);
   const [loading, setLoading] = useState(true);
@@ -55,6 +84,12 @@ export default function Moradores() {
 
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [deletingResident, setDeletingResident] = useState<Resident | null>(null);
+
+  // Role management
+  const [userCondos, setUserCondos] = useState<UserCondoInfo[]>([]);
+  const [roleDialogOpen, setRoleDialogOpen] = useState(false);
+  const [roleTarget, setRoleTarget] = useState<{ name: string; role: string | null; userId: string | null } | null>(null);
+  const [employeeDialogOpen, setEmployeeDialogOpen] = useState(false);
 
   const fetchResidents = async () => {
     if (!condoId) return;
@@ -75,9 +110,41 @@ export default function Moradores() {
     setLoading(false);
   };
 
+  const fetchUserCondos = async () => {
+    if (!condoId) return;
+    // Join user_condos with users to get email for matching
+    const { data, error } = await supabase
+      .schema('nfe_vigia')
+      .from('user_condos')
+      .select('user_id, role, users!inner(email)')
+      .eq('condo_id', condoId);
+
+    if (error) {
+      console.error('Error fetching user_condos:', error);
+      return;
+    }
+
+    const mapped: UserCondoInfo[] = (data ?? []).map((row: any) => ({
+      userId: row.user_id,
+      email: row.users?.email ?? '',
+      role: row.role,
+    }));
+    setUserCondos(mapped);
+  };
+
   useEffect(() => {
     fetchResidents();
+    fetchUserCondos();
   }, [condoId]);
+
+  // Map resident email -> user_condo info
+  const emailToUserCondo = useMemo(() => {
+    const map = new Map<string, UserCondoInfo>();
+    for (const uc of userCondos) {
+      if (uc.email) map.set(uc.email.toLowerCase(), uc);
+    }
+    return map;
+  }, [userCondos]);
 
   const filtered = residents.filter((r) =>
     r.full_name.toLowerCase().includes(search.toLowerCase())
@@ -106,6 +173,16 @@ export default function Moradores() {
   const openDelete = (resident: Resident) => {
     setDeletingResident(resident);
     setDeleteDialogOpen(true);
+  };
+
+  const openRoleChange = (resident: Resident) => {
+    const uc = resident.email ? emailToUserCondo.get(resident.email.toLowerCase()) : undefined;
+    setRoleTarget({
+      name: resident.full_name,
+      role: uc?.role ?? null,
+      userId: uc?.userId ?? null,
+    });
+    setRoleDialogOpen(true);
   };
 
   const handleSave = async () => {
@@ -204,6 +281,15 @@ export default function Moradores() {
     setForm((prev) => ({ ...prev, [field]: value }));
   };
 
+  const handleRoleSaved = () => {
+    fetchUserCondos();
+  };
+
+  const handleEmployeeSaved = () => {
+    fetchResidents();
+    fetchUserCondos();
+  };
+
   return (
     <div className="space-y-6">
       <div>
@@ -212,15 +298,23 @@ export default function Moradores() {
       </div>
 
       <Card>
-        <CardHeader className="flex flex-row items-center justify-between pb-2">
+        <CardHeader className="flex flex-row items-center justify-between pb-2 gap-2 flex-wrap">
           <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
             <Users className="h-4 w-4" />
             Lista de Moradores
           </CardTitle>
-          <Button size="sm" onClick={openCreate}>
-            <Plus className="h-4 w-4 mr-1" />
-            Novo Morador
-          </Button>
+          <div className="flex items-center gap-2">
+            {canManageRoles && (
+              <Button size="sm" variant="outline" onClick={() => setEmployeeDialogOpen(true)}>
+                <UserPlus className="h-4 w-4 mr-1" />
+                Adicionar Funcionário
+              </Button>
+            )}
+            <Button size="sm" onClick={openCreate}>
+              <Plus className="h-4 w-4 mr-1" />
+              Novo Morador
+            </Button>
+          </div>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="relative">
@@ -240,46 +334,67 @@ export default function Moradores() {
               {search ? 'Nenhum morador encontrado.' : 'Nenhum morador cadastrado.'}
             </p>
           ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Nome</TableHead>
-                  <TableHead>Documento</TableHead>
-                  <TableHead>Email</TableHead>
-                  <TableHead>Telefone</TableHead>
-                   <TableHead>Endereço</TableHead>
-                   <TableHead className="w-[100px]">Ações</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filtered.map((resident) => (
-                  <TableRow key={resident.id}>
-                    <TableCell className="font-medium">{resident.full_name}</TableCell>
-                    <TableCell>{resident.document ?? '—'}</TableCell>
-                    <TableCell>{resident.email ?? '—'}</TableCell>
-                    <TableCell>{resident.phone ?? '—'}</TableCell>
-                    <TableCell>{formatAddress(resident)}</TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-1">
-                        <Button variant="ghost" size="icon" onClick={() => openEdit(resident)}>
-                          <Pencil className="h-4 w-4" />
-                        </Button>
-                        <Button variant="ghost" size="icon" onClick={() => openDelete(resident)}>
-                          <Trash2 className="h-4 w-4 text-destructive" />
-                        </Button>
-                      </div>
-                    </TableCell>
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Nome</TableHead>
+                    <TableHead>Papel</TableHead>
+                    <TableHead>Documento</TableHead>
+                    <TableHead>Email</TableHead>
+                    <TableHead>Telefone</TableHead>
+                    <TableHead>Endereço</TableHead>
+                    <TableHead className="w-[130px]">Ações</TableHead>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+                </TableHeader>
+                <TableBody>
+                  {filtered.map((resident) => {
+                    const uc = resident.email ? emailToUserCondo.get(resident.email.toLowerCase()) : undefined;
+                    const role = uc?.role ?? null;
+                    return (
+                      <TableRow key={resident.id}>
+                        <TableCell className="font-medium">{resident.full_name}</TableCell>
+                        <TableCell>
+                          {role ? (
+                            <Badge variant={ROLE_VARIANTS[role] ?? 'outline'}>
+                              {ROLE_LABELS[role] ?? role}
+                            </Badge>
+                          ) : (
+                            <span className="text-muted-foreground text-xs">—</span>
+                          )}
+                        </TableCell>
+                        <TableCell>{resident.document ?? '—'}</TableCell>
+                        <TableCell>{resident.email ?? '—'}</TableCell>
+                        <TableCell>{resident.phone ?? '—'}</TableCell>
+                        <TableCell>{formatAddress(resident)}</TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-1">
+                            {canManageRoles && uc && (
+                              <Button variant="ghost" size="icon" onClick={() => openRoleChange(resident)} title="Alterar papel">
+                                <Shield className="h-4 w-4" />
+                              </Button>
+                            )}
+                            <Button variant="ghost" size="icon" onClick={() => openEdit(resident)}>
+                              <Pencil className="h-4 w-4" />
+                            </Button>
+                            <Button variant="ghost" size="icon" onClick={() => openDelete(resident)}>
+                              <Trash2 className="h-4 w-4 text-destructive" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            </div>
           )}
         </CardContent>
       </Card>
 
       {/* Create / Edit Modal */}
       <Dialog open={modalOpen} onOpenChange={setModalOpen}>
-      <DialogContent className="max-h-[calc(100vh-32px)] w-full max-w-[min(720px,calc(100vw-32px))] flex flex-col px-4 sm:px-6 overflow-y-auto">
+        <DialogContent className="max-h-[calc(100vh-32px)] w-full max-w-[min(720px,calc(100vw-32px))] flex flex-col px-4 sm:px-6 overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{editingResident ? 'Editar Morador' : 'Novo Morador'}</DialogTitle>
             <DialogDescription>
@@ -340,6 +455,29 @@ export default function Moradores() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Role Change Dialog */}
+      {roleTarget && condoId && (
+        <RoleChangeDialog
+          open={roleDialogOpen}
+          onOpenChange={setRoleDialogOpen}
+          residentName={roleTarget.name}
+          currentRole={roleTarget.role}
+          userCondoUserId={roleTarget.userId}
+          condoId={condoId}
+          onSaved={handleRoleSaved}
+        />
+      )}
+
+      {/* Add Employee Dialog */}
+      {condoId && (
+        <AddEmployeeDialog
+          open={employeeDialogOpen}
+          onOpenChange={setEmployeeDialogOpen}
+          condoId={condoId}
+          onSaved={handleEmployeeSaved}
+        />
+      )}
     </div>
   );
 }
