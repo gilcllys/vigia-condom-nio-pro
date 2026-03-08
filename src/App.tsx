@@ -20,7 +20,6 @@ import Almoxarifado from "./pages/Almoxarifado";
 import Transparencia from "./pages/Transparencia";
 import ResetPassword from "./pages/ResetPassword";
 import NotFound from "./pages/NotFound";
-import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
 
