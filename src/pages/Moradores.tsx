@@ -306,29 +306,27 @@ export default function Moradores() {
                 </TableHeader>
                 <TableBody>
                   {filtered.map((resident) => {
-                    const uc = resident.email ? emailToUserCondo.get(resident.email.toLowerCase()) : undefined;
-                    const role = uc?.role ?? null;
+                    const hasAccount = !!resident.matched_user_id;
                     return (
-                      <TableRow key={resident.id}>
+                      <TableRow key={resident.resident_id}>
                         <TableCell className="font-medium">{resident.full_name}</TableCell>
                         <TableCell>
-                          {role ? (
-                            <Badge variant={ROLE_VARIANTS[role] ?? 'outline'}>
-                              {ROLE_LABELS[role] ?? role}
+                          {resident.matched_role ? (
+                            <Badge variant={ROLE_VARIANTS[resident.matched_role] ?? 'outline'}>
+                              {ROLE_LABELS[resident.matched_role] ?? resident.matched_role}
                             </Badge>
                           ) : (
                             <span className="text-muted-foreground text-xs">—</span>
                           )}
                         </TableCell>
-                        <TableCell>{resident.document ?? '—'}</TableCell>
                         <TableCell>{resident.email ?? '—'}</TableCell>
                         <TableCell>{resident.phone ?? '—'}</TableCell>
                         <TableCell>{formatAddress(resident)}</TableCell>
                         <TableCell>
                           <div className="flex items-center gap-1">
                             {canManageRoles && (
-                              <Button variant="ghost" size="icon" onClick={() => openRoleChange(resident)} title={uc ? "Alterar papel" : "Este morador não possui conta vinculada"}>
-                                <Shield className={`h-4 w-4 ${!uc ? 'opacity-50' : ''}`} />
+                              <Button variant="ghost" size="icon" onClick={() => openRoleChange(resident)} title={hasAccount ? "Alterar papel" : "Este morador não possui conta vinculada"}>
+                                <Shield className={`h-4 w-4 ${!hasAccount ? 'opacity-50' : ''}`} />
                               </Button>
                             )}
                             <Button variant="ghost" size="icon" onClick={() => openEdit(resident)}>
