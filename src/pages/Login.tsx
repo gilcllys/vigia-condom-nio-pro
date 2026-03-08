@@ -101,12 +101,30 @@ export default function Login() {
         const { data, error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
 
-        // Check if MFA is required
+        const userId = data.session?.user?.id;
+        console.log('[Login] userId:', userId);
+
+        // Check if user is SINDICO
+        let isSindico = false;
+        if (userId) {
+          const { data: userRow } = await supabase
+            .schema('nfe_vigia')
+            .from('users')
+            .select('role')
+            .eq('auth_user_id', userId)
+            .maybeSingle();
+          isSindico = userRow?.role === 'SINDICO';
+        }
+        console.log('[Login] isSindico:', isSindico);
+
+        // Check MFA factors
         const { data: factorsData } = await supabase.auth.mfa.listFactors();
         const verifiedFactors = factorsData?.totp?.filter((f) => f.status === 'verified') ?? [];
+        console.log('[Login] MFA factors encontrados:', verifiedFactors.length);
 
-        if (verifiedFactors.length > 0) {
-          // User has MFA — require challenge
+        if (isSindico && verifiedFactors.length > 0) {
+          // Síndico com MFA — exigir challenge
+          console.log('[Login] Síndico com MFA — redirecionando para challenge');
           setMfaFactorId(verifiedFactors[0].id);
           setMfaRequired(true);
           setMfaCode('');
@@ -114,7 +132,18 @@ export default function Login() {
           return;
         }
 
-        // No MFA — proceed directly
+        if (isSindico && verifiedFactors.length === 0) {
+          console.log('[Login] Síndico SEM MFA — entrada permitida, ações críticas bloqueadas');
+        }
+
+        if (!isSindico) {
+          console.log('[Login] Usuário não é síndico — login normal');
+        }
+
+        // Proceed — session stays AAL1
+        const { data: sessionCheck } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+        console.log('[Login] Sessão final AAL:', sessionCheck?.currentLevel);
+
         await navigateAfterLogin();
       }
     } catch (error: any) {
@@ -148,6 +177,8 @@ export default function Login() {
       if (verifyError) throw verifyError;
 
       // MFA verified — session is now AAL2
+      const { data: aalData } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+      console.log('[Login] Challenge verificado — sessão AAL:', aalData?.currentLevel);
       await navigateAfterLogin();
     } catch (error: any) {
       toast({
