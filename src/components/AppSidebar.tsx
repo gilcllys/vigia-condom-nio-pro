@@ -1,4 +1,4 @@
-import { LayoutDashboard, Building2, Users, Settings, LogOut, ClipboardList } from 'lucide-react';
+import { LayoutDashboard, Building2, Users, Settings, LogOut, ClipboardList, FileText, Warehouse, Eye } from 'lucide-react';
 import { NavLink } from '@/components/NavLink';
 import { useLocation } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
@@ -19,9 +19,12 @@ import { Button } from '@/components/ui/button';
 
 const menuItems = [
   { title: 'Dashboard', url: '/dashboard', icon: LayoutDashboard },
-  { title: 'Condomínios', url: '/condominios', icon: Building2 },
-  { title: 'Moradores', url: '/moradores', icon: Users },
   { title: 'Ordens de Serviço', url: '/ordens-servico', icon: ClipboardList },
+  { title: 'Notas Fiscais', url: '/notas-fiscais', icon: FileText },
+  { title: 'Almoxarifado', url: '/almoxarifado', icon: Warehouse },
+  { title: 'Portal da Transparência', url: '/transparencia', icon: Eye },
+  { title: 'Moradores', url: '/moradores', icon: Users },
+  { title: 'Condomínios', url: '/condominios', icon: Building2 },
   { title: 'Configurações', url: '/configuracoes', icon: Settings },
 ];
 
