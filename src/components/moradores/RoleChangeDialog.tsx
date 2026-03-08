@@ -7,13 +7,14 @@ import { supabase } from '@/lib/supabase';
 import { useToast } from '@/hooks/use-toast';
 import { logActivity } from '@/lib/activity-log';
 
-const ASSIGNABLE_ROLES = ['MORADOR', 'ZELADOR', 'SUBSINDICO', 'CONSELHO'] as const;
+const ASSIGNABLE_ROLES = ['MORADOR', 'ZELADOR', 'SUBSINDICO', 'CONSELHO', 'SINDICO'] as const;
 
 const ROLE_LABELS: Record<string, string> = {
   MORADOR: 'Morador',
   ZELADOR: 'Zelador',
   SUBSINDICO: 'Subsíndico',
-  CONSELHO: 'Conselho',
+  CONSELHO: 'Conselheiro(a)',
+  SINDICO: 'Síndico',
 };
 
 interface RoleChangeDialogProps {
