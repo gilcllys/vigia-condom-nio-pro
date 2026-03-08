@@ -225,7 +225,7 @@ export default function Moradores() {
         condoId,
         action: 'delete',
         entity: 'resident',
-        entityId: deletingResident.id,
+        entityId: deletingResident.resident_id,
         description: `Morador "${deletingResident.full_name}" excluído`,
       });
       toast({ title: 'Morador excluído com sucesso' });
