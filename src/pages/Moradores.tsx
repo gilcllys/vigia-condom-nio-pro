@@ -58,7 +58,7 @@ const ROLE_VARIANTS: Record<string, 'default' | 'secondary' | 'destructive' | 'o
 
 const emptyForm: ResidentForm = { full_name: '', document: '', email: '', phone: '', block: '', unit: '', unit_label: '' };
 
-const formatAddress = (r: Resident) => {
+const formatAddress = (r: ResidentRow) => {
   return [r.block, r.unit, r.unit_label].filter(Boolean).join(' · ') || '—';
 };
 
