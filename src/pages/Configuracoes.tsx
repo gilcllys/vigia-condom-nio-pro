@@ -189,6 +189,17 @@ export default function Configuracoes() {
                 </Badge>
               </div>
 
+              {/* AAL Level */}
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Shield className="h-4 w-4 text-muted-foreground" />
+                  <span className="text-sm text-foreground">Nível da sessão</span>
+                </div>
+                <Badge variant={aalLevel === 'aal2' ? 'secondary' : 'outline'}>
+                  {aalLevel?.toUpperCase() ?? '—'}
+                </Badge>
+              </div>
+
               {/* Factor list */}
               {factors.length > 0 && (
                 <div className="space-y-2">
