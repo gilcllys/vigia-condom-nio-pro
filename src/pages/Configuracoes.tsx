@@ -61,6 +61,13 @@ export default function Configuracoes() {
     setOtpCode('');
     setQrCode('');
 
+    // Clean up any stuck unverified factors first
+    const { data: existingFactors } = await supabase.auth.mfa.listFactors();
+    const unverified = existingFactors?.totp?.filter((f) => f.status === 'unverified') ?? [];
+    for (const f of unverified) {
+      await supabase.auth.mfa.unenroll({ factorId: f.id });
+    }
+
     const { data, error } = await supabase.auth.mfa.enroll({ factorType: 'totp' });
 
     if (error || !data) {
