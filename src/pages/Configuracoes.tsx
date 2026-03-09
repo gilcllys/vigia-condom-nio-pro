@@ -35,16 +35,24 @@ export default function Configuracoes() {
   const [unenrollId, setUnenrollId] = useState<string | null>(null);
   const [unenrollLoading, setUnenrollLoading] = useState(false);
 
+  // AAL level state
+  const [aalLevel, setAalLevel] = useState<string | null>(null);
+
   const loadSecurity = useCallback(async () => {
     setLoading(true);
 
-    const [critRes, factorsRes] = await Promise.all([
+    const [critRes, factorsRes, aalRes] = await Promise.all([
       supabase.schema('nfe_vigia').rpc('can_current_user_do_sindico_critical_actions'),
       supabase.auth.mfa.listFactors(),
+      supabase.auth.mfa.getAuthenticatorAssuranceLevel(),
     ]);
+
+    console.log('[Configuracoes] Factors:', factorsRes.data?.totp);
+    console.log('[Configuracoes] AAL:', aalRes.data);
 
     setCanCritical(!!critRes.data);
     setFactors((factorsRes.data?.totp as TOTPFactor[]) ?? []);
+    setAalLevel(aalRes.data?.currentLevel ?? null);
     setLoading(false);
   }, []);
 
@@ -178,6 +186,17 @@ export default function Configuracoes() {
                 </div>
                 <Badge variant={canCritical ? 'secondary' : 'outline'}>
                   {canCritical ? 'Habilitadas' : 'Não disponíveis'}
+                </Badge>
+              </div>
+
+              {/* AAL Level */}
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Shield className="h-4 w-4 text-muted-foreground" />
+                  <span className="text-sm text-foreground">Nível da sessão</span>
+                </div>
+                <Badge variant={aalLevel === 'aal2' ? 'secondary' : 'outline'}>
+                  {aalLevel?.toUpperCase() ?? '—'}
                 </Badge>
               </div>
 

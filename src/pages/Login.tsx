@@ -129,14 +129,14 @@ export default function Login() {
         }
         console.log('[Login] isSindico:', isSindico);
 
-        // Check MFA factors
+        // Check MFA factors — challenge for ANY user with verified TOTP
         const { data: factorsData } = await supabase.auth.mfa.listFactors();
         const verifiedFactors = factorsData?.totp?.filter((f) => f.status === 'verified') ?? [];
-        console.log('[Login] MFA factors encontrados:', verifiedFactors.length);
+        console.log('[Login] MFA factors verificados:', verifiedFactors.length, verifiedFactors.map(f => ({ id: f.id, status: f.status })));
 
-        if (isSindico && verifiedFactors.length > 0) {
-          // Síndico com MFA — exigir challenge
-          console.log('[Login] Síndico com MFA — redirecionando para challenge');
+        if (verifiedFactors.length > 0) {
+          // User has MFA — require challenge to elevate to AAL2
+          console.log('[Login] Usuário com MFA ativo — redirecionando para challenge');
           setMfaFactorId(verifiedFactors[0].id);
           setMfaRequired(true);
           setMfaCode('');
@@ -144,13 +144,7 @@ export default function Login() {
           return;
         }
 
-        if (isSindico && verifiedFactors.length === 0) {
-          console.log('[Login] Síndico SEM MFA — entrada permitida, ações críticas bloqueadas');
-        }
-
-        if (!isSindico) {
-          console.log('[Login] Usuário não é síndico — login normal');
-        }
+        console.log('[Login] Usuário sem MFA — login normal (AAL1)');
 
         // Proceed — session stays AAL1
         const { data: sessionCheck } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
