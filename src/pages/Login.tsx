@@ -53,7 +53,6 @@ export default function Login() {
     if (sessionError) throw sessionError;
 
     const userId = sessionData.session?.user?.id ?? null;
-
     if (!userId) {
       navigate('/login', { replace: true });
       return;
@@ -69,12 +68,8 @@ export default function Login() {
     if (userError) throw userError;
 
     const condoId = userRow?.condo_id ?? null;
-
     if (condoId) {
-      localStorage.setItem(
-        'nfe_vigia_active_condo',
-        JSON.stringify({ condoId, condoName: null, role: null })
-      );
+      localStorage.setItem('nfe_vigia_active_condo', JSON.stringify({ condoId, condoName: null, role: null }));
       navigate('/dashboard', { replace: true });
     } else {
       navigate('/no-condo', { replace: true });
@@ -98,45 +93,14 @@ export default function Login() {
           description: 'Verifique seu e-mail para confirmar a conta.',
         });
       } else {
-        const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+        const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
 
-        const userId = data.session?.user?.id;
-        console.log('[Login] userId (auth):', userId);
-
-        // Check if user is SINDICO via user_condos (fonte oficial do papel)
-        let isSindico = false;
-        if (userId) {
-          // First get the nfe_vigia.users.id from auth_user_id
-          const { data: nfeUser } = await supabase
-            .schema('nfe_vigia')
-            .from('users')
-            .select('id')
-            .eq('auth_user_id', userId)
-            .maybeSingle();
-
-          if (nfeUser?.id) {
-            const { data: condoRow } = await supabase
-              .schema('nfe_vigia')
-              .from('user_condos')
-              .select('role')
-              .eq('user_id', nfeUser.id)
-              .eq('is_default', true)
-              .maybeSingle();
-            isSindico = condoRow?.role === 'SINDICO';
-            console.log('[Login] role do condomínio ativo (user_condos):', condoRow?.role);
-          }
-        }
-        console.log('[Login] isSindico:', isSindico);
-
-        // Check MFA factors — challenge for ANY user with verified TOTP
+        // Check for verified TOTP factors → require MFA challenge
         const { data: factorsData } = await supabase.auth.mfa.listFactors();
         const verifiedFactors = factorsData?.totp?.filter((f) => f.status === 'verified') ?? [];
-        console.log('[Login] MFA factors verificados:', verifiedFactors.length, verifiedFactors.map(f => ({ id: f.id, status: f.status })));
 
         if (verifiedFactors.length > 0) {
-          // User has MFA — require challenge to elevate to AAL2
-          console.log('[Login] Usuário com MFA ativo — redirecionando para challenge');
           setMfaFactorId(verifiedFactors[0].id);
           setMfaRequired(true);
           setMfaCode('');
@@ -144,12 +108,7 @@ export default function Login() {
           return;
         }
 
-        console.log('[Login] Usuário sem MFA — login normal (AAL1)');
-
-        // Proceed — session stays AAL1
-        const { data: sessionCheck } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
-        console.log('[Login] Sessão final AAL:', sessionCheck?.currentLevel);
-
+        // No MFA → proceed with AAL1
         await navigateAfterLogin();
       }
     } catch (error: any) {
@@ -171,7 +130,6 @@ export default function Login() {
       const { data: challengeData, error: challengeError } = await supabase.auth.mfa.challenge({
         factorId: mfaFactorId,
       });
-
       if (challengeError) throw challengeError;
 
       const { error: verifyError } = await supabase.auth.mfa.verify({
@@ -179,12 +137,8 @@ export default function Login() {
         challengeId: challengeData.id,
         code: mfaCode,
       });
-
       if (verifyError) throw verifyError;
 
-      // MFA verified — session is now AAL2
-      const { data: aalData } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
-      console.log('[Login] Challenge verificado — sessão AAL:', aalData?.currentLevel);
       await navigateAfterLogin();
     } catch (error: any) {
       toast({
@@ -198,7 +152,7 @@ export default function Login() {
     }
   };
 
-  // MFA Challenge screen
+  // ── MFA Challenge screen ──
   if (mfaRequired) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-muted/30 px-4">
@@ -222,12 +176,8 @@ export default function Login() {
                 </InputOTPGroup>
               </InputOTP>
             </div>
-            <Button
-              onClick={handleMfaVerify}
-              disabled={mfaCode.length !== 6 || mfaLoading}
-              className="w-full"
-            >
-              {mfaLoading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+            <Button onClick={handleMfaVerify} disabled={mfaCode.length !== 6 || mfaLoading} className="w-full">
+              {mfaLoading && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
               Verificar
             </Button>
             <div className="text-center">
@@ -249,6 +199,7 @@ export default function Login() {
     );
   }
 
+  // ── Login form ──
   return (
     <div className="flex min-h-screen items-center justify-center bg-muted/30 px-4">
       <Card className="w-full max-w-md">
@@ -262,26 +213,11 @@ export default function Login() {
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="email">E-mail</Label>
-              <Input
-                id="email"
-                type="email"
-                placeholder="seu@email.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-              />
+              <Input id="email" type="email" placeholder="seu@email.com" value={email} onChange={(e) => setEmail(e.target.value)} required />
             </div>
             <div className="space-y-2">
               <Label htmlFor="password">Senha</Label>
-              <Input
-                id="password"
-                type="password"
-                placeholder="••••••••"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-                minLength={6}
-              />
+              <Input id="password" type="password" placeholder="••••••••" value={password} onChange={(e) => setPassword(e.target.value)} required minLength={6} />
             </div>
             <Button type="submit" className="w-full" disabled={loading}>
               {loading ? 'Aguarde...' : isSignUp ? 'Criar conta' : 'Entrar'}
@@ -289,22 +225,14 @@ export default function Login() {
           </form>
           {!isSignUp && (
             <div className="mt-3 text-center">
-              <button
-                type="button"
-                onClick={() => setForgotOpen(true)}
-                className="text-sm text-muted-foreground underline-offset-4 hover:underline hover:text-primary"
-              >
+              <button type="button" onClick={() => setForgotOpen(true)} className="text-sm text-muted-foreground underline-offset-4 hover:underline hover:text-primary">
                 Esqueci minha senha
               </button>
             </div>
           )}
           <div className="mt-4 text-center text-sm text-muted-foreground">
             {isSignUp ? 'Já tem uma conta?' : 'Não tem uma conta?'}{' '}
-            <button
-              type="button"
-              onClick={() => setIsSignUp(!isSignUp)}
-              className="font-medium text-primary underline-offset-4 hover:underline"
-            >
+            <button type="button" onClick={() => setIsSignUp(!isSignUp)} className="font-medium text-primary underline-offset-4 hover:underline">
               {isSignUp ? 'Fazer login' : 'Criar conta'}
             </button>
           </div>
@@ -315,21 +243,12 @@ export default function Login() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Recuperar senha</DialogTitle>
-            <DialogDescription>
-              Informe seu e-mail para receber o link de redefinição de senha.
-            </DialogDescription>
+            <DialogDescription>Informe seu e-mail para receber o link de redefinição de senha.</DialogDescription>
           </DialogHeader>
           <form onSubmit={handleForgotPassword} className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="forgot-email">E-mail</Label>
-              <Input
-                id="forgot-email"
-                type="email"
-                placeholder="seu@email.com"
-                value={forgotEmail}
-                onChange={(e) => setForgotEmail(e.target.value)}
-                required
-              />
+              <Input id="forgot-email" type="email" placeholder="seu@email.com" value={forgotEmail} onChange={(e) => setForgotEmail(e.target.value)} required />
             </div>
             <Button type="submit" className="w-full" disabled={forgotLoading}>
               {forgotLoading ? 'Enviando...' : 'Enviar link de recuperação'}
