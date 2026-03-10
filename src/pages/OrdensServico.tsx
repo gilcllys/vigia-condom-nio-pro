@@ -100,7 +100,7 @@ export default function OrdensServico() {
 
   useEffect(() => {
     if (!condoId) return;
-    supabase.schema('nfe_vigia').from('providers').select('id, name').eq('condo_id', condoId).order('name').then(({ data }) => setProviders(data ?? []));
+    supabase.schema('nfe_vigia').from('providers').select('id, trade_name').eq('condo_id', condoId).order('trade_name').then(({ data }) => setProviders(data ?? []));
     supabase.schema('nfe_vigia').from('tickets').select('id, title').eq('condo_id', condoId).order('created_at', { ascending: false }).then(({ data }) => setTickets(data ?? []));
   }, [condoId]);
 
