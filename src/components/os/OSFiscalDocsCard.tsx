@@ -155,7 +155,7 @@ export function OSFiscalDocsCard({ orderId, condoId, canAttach, canCriticalActio
     });
 
     if (error) {
-      toast({ title: 'Erro ao adicionar nota fiscal', variant: 'destructive' });
+      toast({ title: 'Erro ao adicionar nota fiscal', description: error.message || JSON.stringify(error), variant: 'destructive' });
     } else {
       await logSOActivity({ serviceOrderId: orderId, action: 'DOCUMENTO_ANEXADO', description: `Nota fiscal Nº ${numberVal} anexada` });
       toast({ title: 'Nota fiscal adicionada' });
