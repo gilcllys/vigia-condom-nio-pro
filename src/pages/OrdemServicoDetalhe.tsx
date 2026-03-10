@@ -365,6 +365,7 @@ export default function OrdemServicoDetalhe() {
           condoId={condoId}
           isEmergency={order.is_emergency}
           isSindico={isSindico}
+          isAdmin={isAdmin}
           canCriticalActions={canCriticalActions}
           status={order.status}
           onSubmittedForApproval={fetchAll}

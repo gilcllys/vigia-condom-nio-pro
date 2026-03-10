@@ -33,6 +33,7 @@ interface Props {
   condoId: string;
   isEmergency: boolean;
   isSindico: boolean;
+  isAdmin?: boolean;
   canCriticalActions: boolean;
   status: string;
   onSubmittedForApproval: () => void;
@@ -44,7 +45,7 @@ const statusBadge: Record<string, { label: string; variant: 'default' | 'seconda
   rejeitado: { label: 'Rejeitado', variant: 'destructive' },
 };
 
-export function OSBudgetsCard({ orderId, condoId, isEmergency, isSindico, canCriticalActions, status, onSubmittedForApproval }: Props) {
+export function OSBudgetsCard({ orderId, condoId, isEmergency, isSindico, isAdmin = false, canCriticalActions, status, onSubmittedForApproval }: Props) {
   const { toast } = useToast();
   const [budgets, setBudgets] = useState<Budget[]>([]);
   const [providers, setProviders] = useState<Provider[]>([]);
@@ -62,7 +63,7 @@ export function OSBudgetsCard({ orderId, condoId, isEmergency, isSindico, canCri
   const [file, setFile] = useState<File | null>(null);
 
   const isNotFinished = status !== 'FINALIZADA' && status !== 'CANCELADA';
-  const canManage = canCriticalActions && isNotFinished;
+  const canManage = (isSindico || isAdmin || canCriticalActions) && isNotFinished;
   const minBudgets = isEmergency ? 1 : 3;
 
   const fetchBudgets = async () => {
@@ -123,7 +124,6 @@ export function OSBudgetsCard({ orderId, condoId, isEmergency, isSindico, canCri
 
     let fileUrl: string | null = null;
 
-    // Upload file if provided
     if (file) {
       const ext = file.name.split('.').pop();
       const path = `budgets/${orderId}/${crypto.randomUUID()}.${ext}`;
@@ -368,7 +368,7 @@ export function OSBudgetsCard({ orderId, condoId, isEmergency, isSindico, canCri
               <Label>Arquivo (PDF ou imagem)</Label>
               <Input
                 type="file"
-                accept=".pdf,.jpg,.jpeg,.png,.webp"
+                accept=".pdf,.jpg,.jpeg,.png,.webp,.heic"
                 onChange={(e) => setFile(e.target.files?.[0] ?? null)}
               />
             </div>

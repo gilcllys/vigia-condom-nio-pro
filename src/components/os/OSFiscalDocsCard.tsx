@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -6,7 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
-import { FileText, Download, Plus, Send } from 'lucide-react';
+import { FileText, Download, Plus, Send, Camera, Upload, Loader2 } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { useToast } from '@/hooks/use-toast';
@@ -30,15 +30,30 @@ interface OSFiscalDocsCardProps {
   onApprovalSent?: () => void;
 }
 
+async function fileToBase64(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = reader.result as string;
+      resolve(result.split(',')[1]);
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
 export function OSFiscalDocsCard({ orderId, condoId, canAttach, canCriticalActions, onApprovalSent }: OSFiscalDocsCardProps) {
   const { toast } = useToast();
   const [docs, setDocs] = useState<FiscalDocument[]>([]);
   const [loading, setLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [extracting, setExtracting] = useState(false);
   const [submitting, setSubmitting] = useState<string | null>(null);
-  const [form, setForm] = useState({ number: '', amount: '', issue_date: '' });
+  const [form, setForm] = useState({ number: '', amount: '', issue_date: '', fornecedor: '', descricao: '' });
   const [file, setFile] = useState<File | null>(null);
+  const cameraRef = useRef<HTMLInputElement>(null);
+  const uploadRef = useRef<HTMLInputElement>(null);
 
   const fetchDocs = async () => {
     setLoading(true);
@@ -63,9 +78,61 @@ export function OSFiscalDocsCard({ orderId, condoId, canAttach, canCriticalActio
     }
   };
 
+  const extractWithOCR = async (selectedFile: File) => {
+    setExtracting(true);
+    try {
+      const base64 = await fileToBase64(selectedFile);
+      const mediaType = selectedFile.type || 'image/jpeg';
+
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/extract-nf`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+          },
+          body: JSON.stringify({ fileBase64: base64, mediaType }),
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error('Erro na extração');
+      }
+
+      const extracted = await response.json();
+      setForm({
+        number: extracted.numero_nf || '',
+        amount: extracted.valor_total ? String(extracted.valor_total) : '',
+        issue_date: extracted.data_emissao || '',
+        fornecedor: extracted.fornecedor || '',
+        descricao: extracted.descricao_servico || '',
+      });
+      toast({ title: 'Dados extraídos automaticamente', description: 'Confira e ajuste se necessário.' });
+    } catch {
+      toast({
+        title: 'Não foi possível ler automaticamente',
+        description: 'Preencha os dados manualmente.',
+        variant: 'destructive',
+      });
+    }
+    setExtracting(false);
+  };
+
+  const handleFileSelected = async (selectedFile: File) => {
+    setFile(selectedFile);
+    await extractWithOCR(selectedFile);
+  };
+
   const handleAdd = async () => {
-    if (!form.number.trim() || !form.amount) {
-      toast({ title: 'Preencha número e valor da NF', variant: 'destructive' });
+    const numberVal = form.number.trim();
+    const amountVal = parseFloat(form.amount);
+    if (!numberVal) {
+      toast({ title: 'Preencha o número da NF', variant: 'destructive' });
+      return;
+    }
+    if (!form.amount || isNaN(amountVal) || amountVal <= 0) {
+      toast({ title: 'Preencha um valor válido para a NF', variant: 'destructive' });
       return;
     }
     setSaving(true);
@@ -81,8 +148,8 @@ export function OSFiscalDocsCard({ orderId, condoId, canAttach, canCriticalActio
     const { error } = await supabase.schema('nfe_vigia').from('fiscal_documents').insert({
       service_order_id: orderId,
       condo_id: condoId,
-      number: form.number.trim(),
-      amount: parseFloat(form.amount),
+      number: numberVal,
+      amount: amountVal,
       issue_date: form.issue_date || null,
       file_url: fileUrl,
     });
@@ -90,9 +157,9 @@ export function OSFiscalDocsCard({ orderId, condoId, canAttach, canCriticalActio
     if (error) {
       toast({ title: 'Erro ao adicionar nota fiscal', variant: 'destructive' });
     } else {
-      await logSOActivity({ serviceOrderId: orderId, action: 'DOCUMENTO_ANEXADO', description: `Nota fiscal Nº ${form.number.trim()} anexada` });
+      await logSOActivity({ serviceOrderId: orderId, action: 'DOCUMENTO_ANEXADO', description: `Nota fiscal Nº ${numberVal} anexada` });
       toast({ title: 'Nota fiscal adicionada' });
-      setForm({ number: '', amount: '', issue_date: '' });
+      setForm({ number: '', amount: '', issue_date: '', fornecedor: '', descricao: '' });
       setFile(null);
       setModalOpen(false);
       fetchDocs();
@@ -104,7 +171,6 @@ export function OSFiscalDocsCard({ orderId, condoId, canAttach, canCriticalActio
     if (!doc.amount) return;
     setSubmitting(doc.id);
 
-    // Get financial config
     const { data: config } = await supabase
       .schema('nfe_vigia')
       .from('condo_financial_config')
@@ -118,10 +184,8 @@ export function OSFiscalDocsCard({ orderId, condoId, canAttach, canCriticalActio
     const deadlineHours = config?.approval_deadline_hours ?? 48;
     const amount = doc.amount;
 
-    // Determine which roles need to approve
     let requiredRoles: string[] = [];
     if (amount <= alcada1) {
-      // Only Síndico - no approval needed from others
       toast({ title: 'NF abaixo da alçada mínima', description: 'Aprovação apenas do Síndico. Registrada automaticamente.' });
       setSubmitting(null);
       return;
@@ -131,13 +195,11 @@ export function OSFiscalDocsCard({ orderId, condoId, canAttach, canCriticalActio
       requiredRoles = ['SUBSINDICO', 'CONSELHO'];
     } else {
       requiredRoles = ['SUBSINDICO', 'CONSELHO'];
-      // Also mark notify_residents
       await supabase.schema('nfe_vigia').from('fiscal_documents')
         .update({ notify_residents: true })
         .eq('id', doc.id);
     }
 
-    // Get approvers
     const { data: approvers } = await supabase
       .schema('nfe_vigia')
       .from('user_condos')
@@ -192,7 +254,7 @@ export function OSFiscalDocsCard({ orderId, condoId, canAttach, canCriticalActio
           {docs.length > 0 && <Badge variant="secondary" className="text-xs">{docs.length}</Badge>}
         </CardTitle>
         {canAttach && (
-          <Button size="sm" variant="outline" onClick={() => setModalOpen(true)}>
+          <Button size="sm" variant="outline" onClick={() => { setForm({ number: '', amount: '', issue_date: '', fornecedor: '', descricao: '' }); setFile(null); setModalOpen(true); }}>
             <Plus className="h-4 w-4 mr-1" /> Anexar NF
           </Button>
         )}
@@ -247,33 +309,77 @@ export function OSFiscalDocsCard({ orderId, condoId, canAttach, canCriticalActio
       </CardContent>
 
       <Dialog open={modalOpen} onOpenChange={setModalOpen}>
-        <DialogContent>
+        <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle>Anexar Nota Fiscal</DialogTitle>
-            <DialogDescription>Informe os dados da nota fiscal.</DialogDescription>
+            <DialogDescription>Fotografe ou faça upload da NF para leitura automática.</DialogDescription>
           </DialogHeader>
-          <div className="space-y-4 py-2">
-            <div className="space-y-2">
-              <Label>Número da NF *</Label>
-              <Input value={form.number} onChange={(e) => setForm(p => ({ ...p, number: e.target.value }))} placeholder="Ex: 12345" />
+
+          {extracting ? (
+            <div className="flex flex-col items-center justify-center py-8 gap-3">
+              <Loader2 className="h-8 w-8 animate-spin text-primary" />
+              <p className="text-sm text-muted-foreground font-medium">Lendo nota fiscal...</p>
             </div>
-            <div className="space-y-2">
-              <Label>Valor (R$) *</Label>
-              <Input type="number" step="0.01" min="0" value={form.amount} onChange={(e) => setForm(p => ({ ...p, amount: e.target.value }))} placeholder="0,00" />
+          ) : (
+            <div className="space-y-4 py-2">
+              {/* OCR upload buttons */}
+              <div className="flex gap-2">
+                <div className="relative flex-1">
+                  <input
+                    ref={cameraRef}
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp,image/heic"
+                    capture="environment"
+                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                    onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFileSelected(f); }}
+                  />
+                  <Button variant="outline" className="w-full pointer-events-none" size="sm">
+                    <Camera className="h-4 w-4 mr-1" /> Fotografar NF
+                  </Button>
+                </div>
+                <div className="relative flex-1">
+                  <input
+                    ref={uploadRef}
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp,image/heic,application/pdf"
+                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                    onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFileSelected(f); }}
+                  />
+                  <Button variant="outline" className="w-full pointer-events-none" size="sm">
+                    <Upload className="h-4 w-4 mr-1" /> Upload PDF/Imagem
+                  </Button>
+                </div>
+              </div>
+
+              {file && (
+                <p className="text-xs text-muted-foreground">Arquivo: {file.name}</p>
+              )}
+
+              <div className="space-y-2">
+                <Label>Número da NF *</Label>
+                <Input value={form.number} onChange={(e) => setForm(p => ({ ...p, number: e.target.value }))} placeholder="Ex: 12345" />
+              </div>
+              <div className="space-y-2">
+                <Label>Valor (R$) *</Label>
+                <Input type="number" step="0.01" min="0" value={form.amount} onChange={(e) => setForm(p => ({ ...p, amount: e.target.value }))} placeholder="0,00" />
+              </div>
+              <div className="space-y-2">
+                <Label>Data de emissão</Label>
+                <Input type="date" value={form.issue_date} onChange={(e) => setForm(p => ({ ...p, issue_date: e.target.value }))} />
+              </div>
+              <div className="space-y-2">
+                <Label>Fornecedor</Label>
+                <Input value={form.fornecedor} onChange={(e) => setForm(p => ({ ...p, fornecedor: e.target.value }))} placeholder="Nome do fornecedor" />
+              </div>
             </div>
-            <div className="space-y-2">
-              <Label>Data de emissão</Label>
-              <Input type="date" value={form.issue_date} onChange={(e) => setForm(p => ({ ...p, issue_date: e.target.value }))} />
-            </div>
-            <div className="space-y-2">
-              <Label>Arquivo (PDF ou imagem)</Label>
-              <Input type="file" accept=".pdf,image/*" onChange={(e) => setFile(e.target.files?.[0] ?? null)} />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setModalOpen(false)}>Cancelar</Button>
-            <Button onClick={handleAdd} disabled={saving}>{saving ? 'Salvando...' : 'Adicionar'}</Button>
-          </DialogFooter>
+          )}
+
+          {!extracting && (
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setModalOpen(false)}>Cancelar</Button>
+              <Button onClick={handleAdd} disabled={saving}>{saving ? 'Salvando...' : 'Adicionar'}</Button>
+            </DialogFooter>
+          )}
         </DialogContent>
       </Dialog>
     </Card>

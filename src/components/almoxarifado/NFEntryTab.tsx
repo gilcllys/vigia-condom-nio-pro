@@ -41,6 +41,18 @@ const emptyNF: NFData = {
   itens: [],
 };
 
+async function fileToBase64(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = reader.result as string;
+      resolve(result.split(',')[1]);
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
 export default function NFEntryTab() {
   const { condoId } = useCondo();
   const { user } = useAuth();
@@ -48,6 +60,7 @@ export default function NFEntryTab() {
 
   const [step, setStep] = useState<Step>('upload');
   const [fileUrl, setFileUrl] = useState<string | null>(null);
+  const [uploadedFile, setUploadedFile] = useState<File | null>(null);
   const [nfData, setNfData] = useState<NFData>(emptyNF);
   const [stockItems, setStockItems] = useState<StockItemOption[]>([]);
   const [destination, setDestination] = useState('almoxarifado');
@@ -66,6 +79,9 @@ export default function NFEntryTab() {
 
   const handleFileSelect = async (file: File) => {
     if (!condoId) return;
+    setUploadedFile(file);
+
+    // Upload to storage
     const ext = file.name.split('.').pop() ?? 'jpg';
     const path = `nf-uploads/${condoId}/${crypto.randomUUID()}.${ext}`;
 
@@ -81,18 +97,11 @@ export default function NFEntryTab() {
     setFileUrl(path);
     setStep('extracting');
 
-    // Get signed URL for AI extraction
-    const { data: signedData } = await supabase.storage
-      .from('nfe-vigia')
-      .createSignedUrl(path, 3600);
-
-    if (!signedData?.signedUrl) {
-      toast({ title: 'Erro ao gerar URL do arquivo', variant: 'destructive' });
-      setStep('upload');
-      return;
-    }
-
+    // Extract with Claude via edge function
     try {
+      const base64 = await fileToBase64(file);
+      const mediaType = file.type || 'image/jpeg';
+
       const response = await fetch(
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/extract-nf`,
         {
@@ -101,13 +110,12 @@ export default function NFEntryTab() {
             'Content-Type': 'application/json',
             Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
           },
-          body: JSON.stringify({ imageUrl: signedData.signedUrl }),
+          body: JSON.stringify({ fileBase64: base64, mediaType }),
         }
       );
 
       if (!response.ok) {
-        const errText = await response.text();
-        throw new Error(errText || 'Erro na extração');
+        throw new Error('Erro na extração');
       }
 
       const extracted = await response.json();
@@ -117,18 +125,19 @@ export default function NFEntryTab() {
         fornecedor: extracted.fornecedor || '',
         valor_total: extracted.valor_total || 0,
         itens: (extracted.itens || []).map((item: any) => ({
-          nome: item.nome || '',
+          nome: item.descricao || item.nome || '',
           quantidade: item.quantidade || 0,
           valor_unitario: item.valor_unitario || 0,
           stock_item_id: '',
           create_new: true,
         })),
       });
+      toast({ title: 'Dados extraídos automaticamente', description: 'Confira e ajuste se necessário.' });
       setStep('review');
     } catch (err: any) {
       console.error('AI extraction error:', err);
       toast({
-        title: 'Erro na extração com IA',
+        title: 'Não foi possível ler automaticamente',
         description: 'Preencha os dados manualmente.',
         variant: 'destructive',
       });
@@ -182,7 +191,6 @@ export default function NFEntryTab() {
     setSaving(true);
 
     try {
-      // Get internal user ID
       const { data: internalUser } = await supabase
         .from('users')
         .select('id')
@@ -195,7 +203,6 @@ export default function NFEntryTab() {
         return;
       }
 
-      // 1. Save fiscal_document
       const { data: fdDoc, error: fdError } = await supabase
         .from('fiscal_documents')
         .insert({
@@ -219,12 +226,10 @@ export default function NFEntryTab() {
         return;
       }
 
-      // 2. For each item, create stock_item if needed, then stock_movement
       for (const item of nfData.itens) {
         let itemId = item.stock_item_id;
 
         if (item.create_new || !itemId) {
-          // Create new stock_item
           const { data: newItem, error: newItemErr } = await supabase
             .from('stock_items')
             .insert({
@@ -259,7 +264,6 @@ export default function NFEntryTab() {
           });
       }
 
-      // 3. Create approval records
       const { data: approvers } = await supabase
         .from('user_condos')
         .select('user_id')
@@ -281,6 +285,7 @@ export default function NFEntryTab() {
       toast({ title: 'NF salva! Aguardando aprovação do subsíndico e conselheiros.' });
       setStep('upload');
       setFileUrl(null);
+      setUploadedFile(null);
       setNfData(emptyNF);
     } catch (err: any) {
       toast({ title: 'Erro ao salvar', description: err.message, variant: 'destructive' });
@@ -294,8 +299,8 @@ export default function NFEntryTab() {
       <Card>
         <CardContent className="flex flex-col items-center justify-center py-16 gap-4">
           <Loader2 className="h-8 w-8 animate-spin text-primary" />
-          <p className="text-muted-foreground font-medium">Analisando NF com IA...</p>
-          <p className="text-sm text-muted-foreground">Extraindo dados da nota fiscal automaticamente.</p>
+          <p className="text-muted-foreground font-medium">Lendo nota fiscal...</p>
+          <p className="text-sm text-muted-foreground">Extraindo dados automaticamente com IA.</p>
         </CardContent>
       </Card>
     );
@@ -311,7 +316,6 @@ export default function NFEntryTab() {
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-6">
-          {/* NF header fields */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label>Número da NF *</Label>
@@ -331,7 +335,6 @@ export default function NFEntryTab() {
             </div>
           </div>
 
-          {/* Destination */}
           <div className="space-y-2">
             <Label>Destino dos itens</Label>
             <Select value={destination} onValueChange={setDestination}>
@@ -344,7 +347,6 @@ export default function NFEntryTab() {
             </Select>
           </div>
 
-          {/* Items */}
           <div className="space-y-3">
             <div className="flex items-center justify-between">
               <Label className="text-base font-semibold">Itens</Label>
@@ -402,7 +404,7 @@ export default function NFEntryTab() {
           </div>
 
           <div className="flex gap-2 justify-end">
-            <Button variant="outline" onClick={() => { setStep('upload'); setNfData(emptyNF); setFileUrl(null); }}>
+            <Button variant="outline" onClick={() => { setStep('upload'); setNfData(emptyNF); setFileUrl(null); setUploadedFile(null); }}>
               Cancelar
             </Button>
             <Button onClick={handleSave} disabled={saving}>
@@ -431,7 +433,7 @@ export default function NFEntryTab() {
           <div className="relative">
             <input
               type="file"
-              accept="image/*"
+              accept="image/jpeg,image/png,image/webp,image/heic"
               capture="environment"
               className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
               onChange={handleCameraCapture}
@@ -444,7 +446,7 @@ export default function NFEntryTab() {
           <div className="relative">
             <input
               type="file"
-              accept="image/*,application/pdf"
+              accept="image/jpeg,image/png,image/webp,image/heic,application/pdf"
               className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
               onChange={handleFileUpload}
             />
