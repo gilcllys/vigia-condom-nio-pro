@@ -21,6 +21,7 @@ import {
 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { PendingApprovalsCards } from '@/components/dashboard/PendingApprovalsCards';
 
 interface ActivityLog {
   id: string;
@@ -155,6 +156,9 @@ export default function Dashboard() {
           </div>
         )}
       </div>
+
+      {/* ── Pending Approval Cards ── */}
+      <PendingApprovalsCards />
 
       {/* ── Stat Cards ── */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
