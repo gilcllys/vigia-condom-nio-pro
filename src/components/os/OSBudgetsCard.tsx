@@ -211,7 +211,6 @@ export function OSBudgetsCard({ orderId, condoId, isEmergency, isSindico, isAdmi
       condo_id: condoId,
       approver_id: a.user_id,
       approver_role: a.role,
-      approval_type: 'ORCAMENTO',
       decision: 'pendente',
       expires_at: expiresAt,
     }));

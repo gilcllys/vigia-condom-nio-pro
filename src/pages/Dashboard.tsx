@@ -47,7 +47,7 @@ export default function Dashboard() {
     const fetchData = async () => {
       setLoading(true);
 
-      const [condosRes, residentsRes, invoicesRes, recentRes] = await Promise.all([
+      const [condosRes, residentsRes, invoicesRes] = await Promise.all([
         // Count condos the user has access to via get_my_condos
         supabase.schema('nfe_vigia').rpc('get_my_condos'),
         // Count residents for active condo
@@ -62,15 +62,10 @@ export default function Dashboard() {
           .from('invoices')
           .select('*', { count: 'exact', head: true })
           .eq('condo_id', condoId),
-        // Last 10 activity logs
-        supabase
-          .schema('nfe_vigia')
-          .from('activity_logs')
-          .select('id, action, entity, description, created_at')
-          .eq('condo_id', condoId)
-          .order('created_at', { ascending: false })
-          .limit(10),
       ]);
+
+      // activity_logs table does not exist yet — skip
+      const recentRes = { error: true as const, data: null };
 
       const condoCount = Array.isArray(condosRes.data) ? condosRes.data.length : 0;
 
