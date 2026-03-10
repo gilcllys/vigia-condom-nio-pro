@@ -36,7 +36,7 @@ interface ServiceOrder {
 
 interface Provider {
   id: string;
-  name: string;
+  trade_name: string;
 }
 
 interface Ticket {
@@ -83,8 +83,9 @@ const priorityLabel: Record<string, string> = {
 };
 
 export default function OrdensServico() {
-  const { condoId } = useCondo();
+  const { condoId, role } = useCondo();
   const { user } = useAuth();
+  const canSetEmergency = role === 'SINDICO' || role === 'ADMIN';
   const { toast } = useToast();
   const navigate = useNavigate();
 
@@ -100,7 +101,7 @@ export default function OrdensServico() {
 
   useEffect(() => {
     if (!condoId) return;
-    supabase.schema('nfe_vigia').from('providers').select('id, name').eq('condo_id', condoId).order('name').then(({ data }) => setProviders(data ?? []));
+    supabase.schema('nfe_vigia').from('providers').select('id, trade_name').eq('condo_id', condoId).order('trade_name').then(({ data }) => setProviders(data ?? []));
     supabase.schema('nfe_vigia').from('tickets').select('id, title').eq('condo_id', condoId).order('created_at', { ascending: false }).then(({ data }) => setTickets(data ?? []));
   }, [condoId]);
 
@@ -398,19 +399,23 @@ export default function OrdensServico() {
               <Label htmlFor="so_location">Local do problema</Label>
               <Input id="so_location" placeholder="Ex: Bloco A, 2º andar" value={form.location} onChange={(e) => updateField('location', e.target.value)} />
             </div>
-            {/* Emergency toggle */}
-            <div className="flex items-center justify-between rounded-lg border border-border p-3">
-              <div className="flex items-center gap-2">
-                <AlertTriangle className="h-4 w-4 text-destructive" />
-                <Label htmlFor="so_emergency" className="cursor-pointer">Emergencial?</Label>
-              </div>
-              <Switch id="so_emergency" checked={form.is_emergency} onCheckedChange={(v) => setForm(prev => ({ ...prev, is_emergency: v, emergency_justification: v ? prev.emergency_justification : '' }))} />
-            </div>
-            {form.is_emergency && (
-              <div className="space-y-2">
-                <Label htmlFor="so_emergency_just">Justificativa de emergência *</Label>
-                <Textarea id="so_emergency_just" placeholder="Descreva o motivo da emergência..." value={form.emergency_justification} onChange={(e) => setForm(prev => ({ ...prev, emergency_justification: e.target.value }))} />
-              </div>
+            {/* Emergency toggle - only for SINDICO/ADMIN */}
+            {canSetEmergency && (
+              <>
+                <div className="flex items-center justify-between rounded-lg border border-border p-3">
+                  <div className="flex items-center gap-2">
+                    <AlertTriangle className="h-4 w-4 text-destructive" />
+                    <Label htmlFor="so_emergency" className="cursor-pointer">Emergencial?</Label>
+                  </div>
+                  <Switch id="so_emergency" checked={form.is_emergency} onCheckedChange={(v) => setForm(prev => ({ ...prev, is_emergency: v, emergency_justification: v ? prev.emergency_justification : '' }))} />
+                </div>
+                {form.is_emergency && (
+                  <div className="space-y-2">
+                    <Label htmlFor="so_emergency_just">Justificativa de emergência *</Label>
+                    <Textarea id="so_emergency_just" placeholder="Descreva o motivo da emergência..." value={form.emergency_justification} onChange={(e) => setForm(prev => ({ ...prev, emergency_justification: e.target.value }))} />
+                  </div>
+                )}
+              </>
             )}
 
             {/* Provider */}
@@ -419,7 +424,7 @@ export default function OrdensServico() {
               <Select value={form.provider_id} onValueChange={(v) => setForm(prev => ({ ...prev, provider_id: v }))}>
                 <SelectTrigger><SelectValue placeholder="Selecione (opcional)" /></SelectTrigger>
                 <SelectContent>
-                  {providers.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
+                  {providers.map(p => <SelectItem key={p.id} value={p.id}>{p.trade_name}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
