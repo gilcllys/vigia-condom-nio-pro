@@ -7,9 +7,10 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { logSOActivity } from '@/lib/so-activity-log';
-import { DollarSign, Plus, Send, Trash2 } from 'lucide-react';
+import { DollarSign, Plus, Send, Trash2, FileText, Calendar } from 'lucide-react';
 
 interface Budget {
   id: string;
@@ -17,7 +18,14 @@ interface Budget {
   description: string | null;
   amount: number;
   file_url: string | null;
+  status: string | null;
+  valid_until: string | null;
   created_at: string;
+}
+
+interface Provider {
+  id: string;
+  trade_name: string;
 }
 
 interface Props {
@@ -30,16 +38,31 @@ interface Props {
   onSubmittedForApproval: () => void;
 }
 
+const statusBadge: Record<string, { label: string; variant: 'default' | 'secondary' | 'destructive' | 'outline' }> = {
+  pendente: { label: 'Pendente', variant: 'outline' },
+  aprovado: { label: 'Aprovado', variant: 'default' },
+  rejeitado: { label: 'Rejeitado', variant: 'destructive' },
+};
+
 export function OSBudgetsCard({ orderId, condoId, isEmergency, isSindico, canCriticalActions, status, onSubmittedForApproval }: Props) {
   const { toast } = useToast();
   const [budgets, setBudgets] = useState<Budget[]>([]);
+  const [providers, setProviders] = useState<Provider[]>([]);
   const [loading, setLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [submitting, setSubmitting] = useState(false);
-  const [form, setForm] = useState({ provider_name: '', description: '', amount: '' });
+  const [form, setForm] = useState({
+    provider_id: '',
+    provider_name: '',
+    description: '',
+    amount: '',
+    valid_until: '',
+  });
+  const [file, setFile] = useState<File | null>(null);
 
-  const canManage = canCriticalActions && (status === 'ABERTA' || status === 'EM_EXECUCAO');
+  const isNotFinished = status !== 'FINALIZADA' && status !== 'CANCELADA';
+  const canManage = canCriticalActions && isNotFinished;
   const minBudgets = isEmergency ? 1 : 3;
 
   const fetchBudgets = async () => {
@@ -54,25 +77,83 @@ export function OSBudgetsCard({ orderId, condoId, isEmergency, isSindico, canCri
     setLoading(false);
   };
 
+  const fetchProviders = async () => {
+    const { data } = await supabase
+      .schema('nfe_vigia')
+      .from('providers')
+      .select('id, trade_name')
+      .eq('condo_id', condoId)
+      .order('trade_name');
+    setProviders(data ?? []);
+  };
+
   useEffect(() => { fetchBudgets(); }, [orderId]);
+  useEffect(() => { if (condoId) fetchProviders(); }, [condoId]);
+
+  const handleOpenModal = () => {
+    setForm({ provider_id: '', provider_name: '', description: '', amount: '', valid_until: '' });
+    setFile(null);
+    setModalOpen(true);
+  };
+
+  const handleProviderChange = (providerId: string) => {
+    const provider = providers.find(p => p.id === providerId);
+    setForm(prev => ({
+      ...prev,
+      provider_id: providerId,
+      provider_name: provider?.trade_name ?? '',
+    }));
+  };
 
   const handleAdd = async () => {
-    if (!form.provider_name.trim() || !form.amount) {
-      toast({ title: 'Preencha fornecedor e valor', variant: 'destructive' });
+    if (!form.description.trim()) {
+      toast({ title: 'Descrição do serviço é obrigatória', variant: 'destructive' });
       return;
     }
+    if (!form.amount || parseFloat(form.amount) <= 0) {
+      toast({ title: 'Informe um valor válido', variant: 'destructive' });
+      return;
+    }
+    if (!form.provider_id && !form.provider_name.trim()) {
+      toast({ title: 'Selecione ou informe o prestador', variant: 'destructive' });
+      return;
+    }
+
     setSaving(true);
+
+    let fileUrl: string | null = null;
+
+    // Upload file if provided
+    if (file) {
+      const ext = file.name.split('.').pop();
+      const path = `budgets/${orderId}/${crypto.randomUUID()}.${ext}`;
+      const { error: uploadError } = await supabase.storage
+        .from('service-order-photos')
+        .upload(path, file);
+      if (uploadError) {
+        toast({ title: 'Erro ao enviar arquivo', variant: 'destructive' });
+        setSaving(false);
+        return;
+      }
+      fileUrl = path;
+    }
+
+    const providerName = form.provider_name.trim() || providers.find(p => p.id === form.provider_id)?.trade_name || '';
+
     const { error } = await supabase.schema('nfe_vigia').from('budgets').insert({
       service_order_id: orderId,
-      provider_name: form.provider_name.trim(),
-      description: form.description.trim() || null,
+      provider_name: providerName,
+      description: form.description.trim(),
       amount: parseFloat(form.amount),
+      file_url: fileUrl,
+      status: 'pendente',
+      valid_until: form.valid_until || null,
     });
+
     if (error) {
       toast({ title: 'Erro ao adicionar orçamento', variant: 'destructive' });
     } else {
-      toast({ title: 'Orçamento adicionado' });
-      setForm({ provider_name: '', description: '', amount: '' });
+      toast({ title: 'Orçamento adicionado com sucesso' });
       setModalOpen(false);
       fetchBudgets();
     }
@@ -84,11 +165,15 @@ export function OSBudgetsCard({ orderId, condoId, isEmergency, isSindico, canCri
     if (!error) fetchBudgets();
   };
 
+  const pendingBudgets = budgets.filter(b => (b.status ?? 'pendente') === 'pendente');
+
   const handleSubmitForApproval = async () => {
-    if (budgets.length < minBudgets) {
+    if (pendingBudgets.length < minBudgets) {
       toast({
-        title: `Mínimo de ${minBudgets} orçamento(s) necessário(s)`,
-        description: isEmergency ? 'OS emergencial requer ao menos 1 orçamento.' : 'São necessários ao menos 3 orçamentos para enviar para aprovação.',
+        title: `Mínimo de ${minBudgets} orçamento(s) pendente(s) necessário(s)`,
+        description: isEmergency
+          ? 'OS emergencial requer ao menos 1 orçamento.'
+          : 'São necessários ao menos 3 orçamentos para enviar para aprovação.',
         variant: 'destructive',
       });
       return;
@@ -96,7 +181,6 @@ export function OSBudgetsCard({ orderId, condoId, isEmergency, isSindico, canCri
 
     setSubmitting(true);
 
-    // Get approval deadline from condo config
     const { data: config } = await supabase
       .schema('nfe_vigia')
       .from('condo_financial_config')
@@ -106,7 +190,6 @@ export function OSBudgetsCard({ orderId, condoId, isEmergency, isSindico, canCri
 
     const deadlineHours = config?.approval_deadline_hours ?? 48;
 
-    // Get all SUBSINDICO and CONSELHO approvers for this condo
     const { data: approvers } = await supabase
       .schema('nfe_vigia')
       .from('user_condos')
@@ -123,7 +206,6 @@ export function OSBudgetsCard({ orderId, condoId, isEmergency, isSindico, canCri
 
     const expiresAt = new Date(Date.now() + deadlineHours * 60 * 60 * 1000).toISOString();
 
-    // Create approval records
     const approvalRecords = approvers.map((a: any) => ({
       service_order_id: orderId,
       condo_id: condoId,
@@ -160,16 +242,16 @@ export function OSBudgetsCard({ orderId, condoId, isEmergency, isSindico, canCri
             <Badge variant="secondary" className="text-xs">{budgets.length}</Badge>
           )}
         </CardTitle>
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap">
           {canManage && (
             <>
-              <Button size="sm" variant="outline" onClick={() => setModalOpen(true)}>
-                <Plus className="h-4 w-4 mr-1" /> Adicionar
+              <Button size="sm" variant="outline" onClick={handleOpenModal}>
+                <Plus className="h-4 w-4 mr-1" /> Adicionar Orçamento
               </Button>
-              {budgets.length >= minBudgets && (
+              {pendingBudgets.length >= minBudgets && (
                 <Button size="sm" onClick={handleSubmitForApproval} disabled={submitting}>
                   <Send className="h-4 w-4 mr-1" />
-                  {submitting ? 'Enviando...' : 'Enviar p/ aprovação'}
+                  {submitting ? 'Enviando...' : 'Enviar p/ Aprovação'}
                 </Button>
               )}
             </>
@@ -190,45 +272,85 @@ export function OSBudgetsCard({ orderId, condoId, isEmergency, isSindico, canCri
           </div>
         ) : (
           <div className="space-y-3">
-            {budgets.map((b, i) => (
-              <div key={b.id} className="flex items-center justify-between rounded-lg border border-border p-3">
-                <div className="space-y-1 flex-1 min-w-0">
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm font-medium text-foreground">
-                      {i + 1}. {b.provider_name}
-                    </span>
-                    <Badge variant="secondary" className="text-xs">
-                      R$ {b.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                    </Badge>
+            {budgets.map((b, i) => {
+              const st = statusBadge[b.status ?? 'pendente'] ?? statusBadge.pendente;
+              return (
+                <div key={b.id} className="flex items-center justify-between rounded-lg border border-border p-3">
+                  <div className="space-y-1 flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="text-sm font-medium text-foreground">
+                        {i + 1}. {b.provider_name}
+                      </span>
+                      <Badge variant="secondary" className="text-xs">
+                        R$ {b.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                      </Badge>
+                      <Badge variant={st.variant} className="text-xs">{st.label}</Badge>
+                    </div>
+                    {b.description && (
+                      <p className="text-xs text-muted-foreground truncate">{b.description}</p>
+                    )}
+                    <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                      {b.valid_until && (
+                        <span className="flex items-center gap-1">
+                          <Calendar className="h-3 w-3" />
+                          Válido até {new Date(b.valid_until).toLocaleDateString('pt-BR')}
+                        </span>
+                      )}
+                      {b.file_url && (
+                        <span className="flex items-center gap-1">
+                          <FileText className="h-3 w-3" />
+                          Arquivo anexo
+                        </span>
+                      )}
+                    </div>
                   </div>
-                  {b.description && (
-                    <p className="text-xs text-muted-foreground truncate">{b.description}</p>
+                  {canManage && (
+                    <Button size="sm" variant="ghost" onClick={() => handleDelete(b.id)}>
+                      <Trash2 className="h-4 w-4 text-destructive" />
+                    </Button>
                   )}
                 </div>
-                {canManage && (
-                  <Button size="sm" variant="ghost" onClick={() => handleDelete(b.id)}>
-                    <Trash2 className="h-4 w-4 text-destructive" />
-                  </Button>
-                )}
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </CardContent>
 
       <Dialog open={modalOpen} onOpenChange={setModalOpen}>
-        <DialogContent>
+        <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle>Adicionar Orçamento</DialogTitle>
             <DialogDescription>Informe os dados do orçamento recebido.</DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-2">
             <div className="space-y-2">
-              <Label>Fornecedor *</Label>
-              <Input
-                value={form.provider_name}
-                onChange={(e) => setForm(p => ({ ...p, provider_name: e.target.value }))}
-                placeholder="Nome do fornecedor"
+              <Label>Prestador *</Label>
+              {providers.length > 0 ? (
+                <Select value={form.provider_id} onValueChange={handleProviderChange}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecione o prestador" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {providers.map(p => (
+                      <SelectItem key={p.id} value={p.id}>{p.trade_name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              ) : (
+                <Input
+                  value={form.provider_name}
+                  onChange={(e) => setForm(prev => ({ ...prev, provider_name: e.target.value }))}
+                  placeholder="Nome do prestador"
+                />
+              )}
+            </div>
+            <div className="space-y-2">
+              <Label>Descrição do serviço *</Label>
+              <Textarea
+                value={form.description}
+                onChange={(e) => setForm(prev => ({ ...prev, description: e.target.value }))}
+                placeholder="Descreva o serviço orçado..."
+                rows={3}
               />
             </div>
             <div className="space-y-2">
@@ -238,17 +360,24 @@ export function OSBudgetsCard({ orderId, condoId, isEmergency, isSindico, canCri
                 step="0.01"
                 min="0"
                 value={form.amount}
-                onChange={(e) => setForm(p => ({ ...p, amount: e.target.value }))}
+                onChange={(e) => setForm(prev => ({ ...prev, amount: e.target.value }))}
                 placeholder="0,00"
               />
             </div>
             <div className="space-y-2">
-              <Label>Descrição</Label>
-              <Textarea
-                value={form.description}
-                onChange={(e) => setForm(p => ({ ...p, description: e.target.value }))}
-                placeholder="Detalhes do orçamento..."
-                rows={3}
+              <Label>Arquivo (PDF ou imagem)</Label>
+              <Input
+                type="file"
+                accept=".pdf,.jpg,.jpeg,.png,.webp"
+                onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Data de validade</Label>
+              <Input
+                type="date"
+                value={form.valid_until}
+                onChange={(e) => setForm(prev => ({ ...prev, valid_until: e.target.value }))}
               />
             </div>
           </div>
