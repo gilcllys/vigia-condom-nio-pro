@@ -424,7 +424,7 @@ export default function OrdensServico() {
               <Select value={form.provider_id} onValueChange={(v) => setForm(prev => ({ ...prev, provider_id: v }))}>
                 <SelectTrigger><SelectValue placeholder="Selecione (opcional)" /></SelectTrigger>
                 <SelectContent>
-                  {providers.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
+                  {providers.map(p => <SelectItem key={p.id} value={p.id}>{p.trade_name}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
