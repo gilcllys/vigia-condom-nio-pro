@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { FileText, MapPin, AlertTriangle, Calendar, User, Clock, Building2, Ticket } from 'lucide-react';
@@ -29,15 +30,19 @@ interface Props {
 export function OSInfoCard({ description, location, priority, createdAt, createdBy, isEmergency, emergencyJustification, startedAt, finishedAt, providerId, ticketId }: Props) {
   const [providerName, setProviderName] = useState<string | null>(null);
   const [ticketTitle, setTicketTitle] = useState<string | null>(null);
+  const [creatorName, setCreatorName] = useState<string | null>(null);
 
   useEffect(() => {
     if (providerId) {
-      supabase.schema('nfe_vigia').from('providers').select('name').eq('id', providerId).single().then(({ data }) => setProviderName(data?.name ?? null));
+      supabase.schema('nfe_vigia').from('providers').select('trade_name').eq('id', providerId).single().then(({ data }) => setProviderName(data?.trade_name ?? null));
     }
     if (ticketId) {
       supabase.schema('nfe_vigia').from('tickets').select('title').eq('id', ticketId).single().then(({ data }) => setTicketTitle(data?.title ?? null));
     }
-  }, [providerId, ticketId]);
+    if (createdBy) {
+      supabase.schema('nfe_vigia').from('users').select('full_name').eq('id', createdBy).maybeSingle().then(({ data }) => setCreatorName(data?.full_name ?? null));
+    }
+  }, [providerId, ticketId, createdBy]);
 
   return (
     <Card>
@@ -93,7 +98,7 @@ export function OSInfoCard({ description, location, priority, createdAt, created
             <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground flex items-center gap-1">
               <User className="h-3 w-3" /> Aberta por
             </p>
-            <p className="text-sm text-foreground font-mono text-xs">{createdBy.slice(0, 8)}…</p>
+            <p className="text-sm text-foreground">{creatorName ?? 'Carregando...'}</p>
           </div>
           {startedAt && (
             <div className="space-y-1">
@@ -123,12 +128,14 @@ export function OSInfoCard({ description, location, priority, createdAt, created
               <p className="text-sm text-foreground">{providerName}</p>
             </div>
           )}
-          {ticketTitle && (
+          {ticketId && (
             <div className="space-y-1">
               <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground flex items-center gap-1">
                 <Ticket className="h-3 w-3" /> Chamado de origem
               </p>
-              <p className="text-sm text-foreground">{ticketTitle}</p>
+              <Link to={`/ordens-servico`} className="text-sm text-primary hover:underline">
+                {ticketTitle ?? 'Ver chamado'}
+              </Link>
             </div>
           )}
         </div>
