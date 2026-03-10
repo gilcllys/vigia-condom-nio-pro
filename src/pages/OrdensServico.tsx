@@ -31,6 +31,7 @@ interface ServiceOrder {
   created_by: string;
   created_at: string;
   photo_count: number;
+  is_emergency: boolean;
 }
 
 interface Provider {
