@@ -50,22 +50,20 @@ export function PendingApprovalsCards() {
         const { data: myApprovals } = await supabase
           .schema('nfe_vigia')
           .from('approvals')
-          .select('id, approval_type, expires_at')
+          .select('id, approver_role, expires_at')
           .eq('condo_id', condoId)
           .eq('approver_id', internalUserId)
           .eq('decision', 'pendente');
 
-        const grouped = (myApprovals ?? []).reduce((acc: Record<string, { count: number; minExpiry: string | null }>, a: any) => {
-          const key = a.approval_type;
-          if (!acc[key]) acc[key] = { count: 0, minExpiry: null };
-          acc[key].count++;
-          if (!acc[key].minExpiry || a.expires_at < acc[key].minExpiry) acc[key].minExpiry = a.expires_at;
-          return acc;
-        }, {});
+        const totalCount = myApprovals?.length ?? 0;
+        const minExp = myApprovals?.reduce((min: string | null, a: any) => {
+          if (!min || a.expires_at < min) return a.expires_at;
+          return min;
+        }, null as string | null) ?? null;
 
-        setPendingBudgets({ type: 'budgets', count: grouped['ORCAMENTO']?.count ?? 0, minExpiry: grouped['ORCAMENTO']?.minExpiry ?? null });
-        setPendingNFs({ type: 'nfs', count: grouped['NF']?.count ?? 0, minExpiry: grouped['NF']?.minExpiry ?? null });
-        setPendingFinal({ type: 'final', count: grouped['FINAL']?.count ?? 0, minExpiry: grouped['FINAL']?.minExpiry ?? null });
+        setPendingBudgets({ type: 'budgets', count: totalCount, minExpiry: minExp });
+        setPendingNFs({ type: 'nfs', count: 0, minExpiry: null });
+        setPendingFinal({ type: 'final', count: 0, minExpiry: null });
       }
 
       if (isSindico) {
