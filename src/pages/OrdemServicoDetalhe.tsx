@@ -286,6 +286,8 @@ export default function OrdemServicoDetalhe() {
           executorType={order.executor_type}
           executorName={order.executor_name}
           executionNotes={order.execution_notes}
+          startedAt={order.started_at}
+          finishedAt={order.finished_at}
           canEdit={canEditExecution}
           onSaved={fetchAll}
         />
