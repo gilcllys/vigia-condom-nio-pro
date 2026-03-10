@@ -8,11 +8,14 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
-import { Plus, Search, Pencil, Trash2, Users, Shield, UserPlus } from 'lucide-react';
+import { Plus, Search, Pencil, Trash2, Users, Shield, UserPlus, Link2 } from 'lucide-react';
 import { logActivity } from '@/lib/activity-log';
 import RoleChangeDialog from '@/components/moradores/RoleChangeDialog';
 import AddEmployeeDialog from '@/components/moradores/AddEmployeeDialog';
+import InviteLinkDialog from '@/components/moradores/InviteLinkDialog';
+import PendingApprovalsTab from '@/components/moradores/PendingApprovalsTab';
 
 interface ResidentRow {
   resident_id: string;
@@ -80,10 +83,10 @@ export default function Moradores() {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [deletingResident, setDeletingResident] = useState<ResidentRow | null>(null);
 
-  // Role management
   const [roleDialogOpen, setRoleDialogOpen] = useState(false);
   const [roleTarget, setRoleTarget] = useState<{ name: string; role: string | null; userId: string | null } | null>(null);
   const [employeeDialogOpen, setEmployeeDialogOpen] = useState(false);
+  const [inviteDialogOpen, setInviteDialogOpen] = useState(false);
 
   const fetchResidents = async () => {
     if (!condoId) return;
@@ -93,118 +96,51 @@ export default function Moradores() {
       .rpc('list_residents_with_user_match', { _condo_id: condoId });
 
     if (error) {
-      console.error('Error fetching residents:', error);
-      toast({ title: 'Erro ao carregar moradores', description: error.message, variant: 'destructive' });
+      toast({ title: 'Erro ao carregar moradores', description: 'Tente novamente.', variant: 'destructive' });
     } else {
       setResidents((data as ResidentRow[]) ?? []);
     }
     setLoading(false);
   };
 
-  useEffect(() => {
-    fetchResidents();
-  }, [condoId]);
+  useEffect(() => { fetchResidents(); }, [condoId]);
 
-  const filtered = residents.filter((r) =>
-    r.full_name.toLowerCase().includes(search.toLowerCase())
-  );
+  const filtered = residents.filter((r) => r.full_name.toLowerCase().includes(search.toLowerCase()));
 
-  const openCreate = () => {
-    setEditingResident(null);
-    setForm(emptyForm);
-    setModalOpen(true);
-  };
-
+  const openCreate = () => { setEditingResident(null); setForm(emptyForm); setModalOpen(true); };
   const openEdit = (resident: ResidentRow) => {
     setEditingResident(resident);
-    setForm({
-      full_name: resident.full_name,
-      document: '',
-      email: resident.email ?? '',
-      phone: resident.phone ?? '',
-      block: resident.block ?? '',
-      unit: resident.unit ?? '',
-      unit_label: resident.unit_label ?? '',
-    });
+    setForm({ full_name: resident.full_name, document: '', email: resident.email ?? '', phone: resident.phone ?? '', block: resident.block ?? '', unit: resident.unit ?? '', unit_label: resident.unit_label ?? '' });
     setModalOpen(true);
   };
-
-  const openDelete = (resident: ResidentRow) => {
-    setDeletingResident(resident);
-    setDeleteDialogOpen(true);
-  };
-
+  const openDelete = (resident: ResidentRow) => { setDeletingResident(resident); setDeleteDialogOpen(true); };
   const openRoleChange = (resident: ResidentRow) => {
-    setRoleTarget({
-      name: resident.full_name,
-      role: resident.matched_role ?? null,
-      userId: resident.matched_user_id ?? null,
-    });
+    setRoleTarget({ name: resident.full_name, role: resident.matched_role ?? null, userId: resident.matched_user_id ?? null });
     setRoleDialogOpen(true);
   };
 
   const handleSave = async () => {
-    if (!condoId) return;
-    if (!form.full_name.trim()) {
-      toast({ title: 'Nome completo é obrigatório', variant: 'destructive' });
-      return;
-    }
-
+    if (!condoId || !form.full_name.trim()) { toast({ title: 'Nome completo é obrigatório', variant: 'destructive' }); return; }
     setSaving(true);
     const payload = {
-      condo_id: condoId,
-      full_name: form.full_name.trim(),
-      document: form.document.trim() || null,
-      email: form.email.trim() || null,
-      phone: form.phone.trim() || null,
-      block: form.block.trim() || null,
-      unit: form.unit.trim() || null,
-      unit_label: form.unit_label.trim() || null,
-      unit_id: null,
+      condo_id: condoId, full_name: form.full_name.trim(), document: form.document.trim() || null,
+      email: form.email.trim() || null, phone: form.phone.trim() || null, block: form.block.trim() || null,
+      unit: form.unit.trim() || null, unit_label: form.unit_label.trim() || null, unit_id: null,
     };
 
     if (editingResident) {
-      const { error } = await supabase
-        .schema('nfe_vigia')
-        .from('residents')
-        .update(payload)
-        .eq('id', editingResident.resident_id);
-
-      if (error) {
-        toast({ title: 'Erro ao atualizar morador', description: error.message, variant: 'destructive' });
-      } else {
-        await logActivity({
-          condoId,
-          action: 'update',
-          entity: 'resident',
-          entityId: editingResident.resident_id,
-          description: `Morador "${form.full_name.trim()}" atualizado`,
-        });
-        toast({ title: 'Morador atualizado com sucesso' });
-        setModalOpen(false);
-        fetchResidents();
+      const { error } = await supabase.schema('nfe_vigia').from('residents').update(payload).eq('id', editingResident.resident_id);
+      if (error) { toast({ title: 'Erro ao atualizar morador', variant: 'destructive' }); }
+      else {
+        await logActivity({ condoId, action: 'update', entity: 'resident', entityId: editingResident.resident_id, description: `Morador "${form.full_name.trim()}" atualizado` });
+        toast({ title: 'Morador atualizado com sucesso' }); setModalOpen(false); fetchResidents();
       }
     } else {
-      const { data: inserted, error } = await supabase
-        .schema('nfe_vigia')
-        .from('residents')
-        .insert(payload)
-        .select('id')
-        .single();
-
-      if (error) {
-        toast({ title: 'Erro ao cadastrar morador', description: error.message, variant: 'destructive' });
-      } else {
-        await logActivity({
-          condoId,
-          action: 'create',
-          entity: 'resident',
-          entityId: inserted?.id ?? '',
-          description: `Morador "${form.full_name.trim()}" cadastrado`,
-        });
-        toast({ title: 'Morador cadastrado com sucesso' });
-        setModalOpen(false);
-        fetchResidents();
+      const { data: inserted, error } = await supabase.schema('nfe_vigia').from('residents').insert(payload).select('id').single();
+      if (error) { toast({ title: 'Erro ao cadastrar morador', variant: 'destructive' }); }
+      else {
+        await logActivity({ condoId, action: 'create', entity: 'resident', entityId: inserted?.id ?? '', description: `Morador "${form.full_name.trim()}" cadastrado` });
+        toast({ title: 'Morador cadastrado com sucesso' }); setModalOpen(false); fetchResidents();
       }
     }
     setSaving(false);
@@ -212,40 +148,16 @@ export default function Moradores() {
 
   const handleDelete = async () => {
     if (!deletingResident || !condoId) return;
-    const { error } = await supabase
-      .schema('nfe_vigia')
-      .from('residents')
-      .delete()
-      .eq('id', deletingResident.resident_id);
-
-    if (error) {
-      toast({ title: 'Erro ao excluir morador', description: error.message, variant: 'destructive' });
-    } else {
-      await logActivity({
-        condoId,
-        action: 'delete',
-        entity: 'resident',
-        entityId: deletingResident.resident_id,
-        description: `Morador "${deletingResident.full_name}" excluído`,
-      });
-      toast({ title: 'Morador excluído com sucesso' });
-      fetchResidents();
+    const { error } = await supabase.schema('nfe_vigia').from('residents').delete().eq('id', deletingResident.resident_id);
+    if (error) { toast({ title: 'Erro ao excluir morador', variant: 'destructive' }); }
+    else {
+      await logActivity({ condoId, action: 'delete', entity: 'resident', entityId: deletingResident.resident_id, description: `Morador "${deletingResident.full_name}" excluído` });
+      toast({ title: 'Morador excluído com sucesso' }); fetchResidents();
     }
-    setDeleteDialogOpen(false);
-    setDeletingResident(null);
+    setDeleteDialogOpen(false); setDeletingResident(null);
   };
 
-  const updateField = (field: keyof ResidentForm, value: string) => {
-    setForm((prev) => ({ ...prev, [field]: value }));
-  };
-
-  const handleRoleSaved = () => {
-    fetchResidents();
-  };
-
-  const handleEmployeeSaved = () => {
-    fetchResidents();
-  };
+  const updateField = (field: keyof ResidentForm, value: string) => setForm((prev) => ({ ...prev, [field]: value }));
 
   return (
     <div className="space-y-6">
@@ -254,149 +166,134 @@ export default function Moradores() {
         <p className="text-muted-foreground">Gerencie os moradores do seu condomínio.</p>
       </div>
 
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between pb-2 gap-2 flex-wrap">
-          <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-            <Users className="h-4 w-4" />
-            Lista de Moradores
-          </CardTitle>
-          <div className="flex items-center gap-2">
-            {canManageRoles && (
-              <Button size="sm" variant="outline" onClick={() => setEmployeeDialogOpen(true)}>
-                <UserPlus className="h-4 w-4 mr-1" />
-                Adicionar Funcionário
-              </Button>
-            )}
-            <Button size="sm" onClick={openCreate}>
-              <Plus className="h-4 w-4 mr-1" />
-              Novo Morador
-            </Button>
-          </div>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              placeholder="Buscar por nome..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="pl-9"
-            />
-          </div>
+      <Tabs defaultValue="lista">
+        <TabsList>
+          <TabsTrigger value="lista">Lista de Moradores</TabsTrigger>
+          {canManageRoles && <TabsTrigger value="pendentes">Aguardando Aprovação</TabsTrigger>}
+        </TabsList>
 
-          {loading ? (
-            <p className="text-sm text-muted-foreground py-4 text-center">Carregando...</p>
-          ) : filtered.length === 0 ? (
-            <p className="text-sm text-muted-foreground py-4 text-center">
-              {search ? 'Nenhum morador encontrado.' : 'Nenhum morador cadastrado.'}
-            </p>
-          ) : (
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Nome</TableHead>
-                    <TableHead>Função</TableHead>
-                    
-                    <TableHead>Email</TableHead>
-                    <TableHead>Telefone</TableHead>
-                    <TableHead>Endereço</TableHead>
-                    <TableHead className="w-[130px]">Ações</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filtered.map((resident) => {
-                    const hasAccount = !!resident.matched_user_id;
-                    return (
-                      <TableRow key={resident.resident_id}>
-                        <TableCell className="font-medium">{resident.full_name}</TableCell>
-                        <TableCell>
-                          {resident.matched_role ? (
-                            <Badge variant={ROLE_VARIANTS[resident.matched_role] ?? 'outline'}>
-                              {ROLE_LABELS[resident.matched_role] ?? resident.matched_role}
-                            </Badge>
-                          ) : (
-                            <span className="text-muted-foreground text-xs">—</span>
-                          )}
-                        </TableCell>
-                        <TableCell>{resident.email ?? '—'}</TableCell>
-                        <TableCell>{resident.phone ?? '—'}</TableCell>
-                        <TableCell>{formatAddress(resident)}</TableCell>
-                        <TableCell>
-                          <div className="flex items-center gap-1">
-                            {canManageRoles && (
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                onClick={() => hasAccount ? openRoleChange(resident) : undefined}
-                                disabled={!hasAccount}
-                                title={hasAccount ? "Alterar função" : "Morador sem conta de acesso — peça que ele faça o cadastro primeiro"}
-                              >
-                                <Shield className={`h-4 w-4 ${!hasAccount ? 'opacity-30' : ''}`} />
-                              </Button>
-                            )}
-                            <Button variant="ghost" size="icon" onClick={() => openEdit(resident)}>
-                              <Pencil className="h-4 w-4" />
-                            </Button>
-                            <Button variant="ghost" size="icon" onClick={() => openDelete(resident)}>
-                              <Trash2 className="h-4 w-4 text-destructive" />
-                            </Button>
-                          </div>
-                        </TableCell>
+        <TabsContent value="lista">
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between pb-2 gap-2 flex-wrap">
+              <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+                <Users className="h-4 w-4" />
+                Moradores
+              </CardTitle>
+              <div className="flex items-center gap-2 flex-wrap">
+                {canManageRoles && (
+                  <>
+                    <Button size="sm" variant="outline" onClick={() => setInviteDialogOpen(true)}>
+                      <Link2 className="h-4 w-4 mr-1" />
+                      Gerar link de convite
+                    </Button>
+                    <Button size="sm" variant="outline" onClick={() => setEmployeeDialogOpen(true)}>
+                      <UserPlus className="h-4 w-4 mr-1" />
+                      Adicionar Funcionário
+                    </Button>
+                  </>
+                )}
+                <Button size="sm" onClick={openCreate}>
+                  <Plus className="h-4 w-4 mr-1" />
+                  Novo Morador
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <Input placeholder="Buscar por nome..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9" />
+              </div>
+
+              {loading ? (
+                <p className="text-sm text-muted-foreground py-4 text-center">Carregando...</p>
+              ) : filtered.length === 0 ? (
+                <p className="text-sm text-muted-foreground py-4 text-center">
+                  {search ? 'Nenhum morador encontrado.' : 'Nenhum morador cadastrado.'}
+                </p>
+              ) : (
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Nome</TableHead>
+                        <TableHead>Função</TableHead>
+                        <TableHead>Email</TableHead>
+                        <TableHead>Telefone</TableHead>
+                        <TableHead>Endereço</TableHead>
+                        <TableHead className="w-[130px]">Ações</TableHead>
                       </TableRow>
-                    );
-                  })}
-                </TableBody>
-              </Table>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+                    </TableHeader>
+                    <TableBody>
+                      {filtered.map((resident) => {
+                        const hasAccount = !!resident.matched_user_id;
+                        return (
+                          <TableRow key={resident.resident_id}>
+                            <TableCell className="font-medium">{resident.full_name}</TableCell>
+                            <TableCell>
+                              {resident.matched_role ? (
+                                <Badge variant={ROLE_VARIANTS[resident.matched_role] ?? 'outline'}>
+                                  {ROLE_LABELS[resident.matched_role] ?? resident.matched_role}
+                                </Badge>
+                              ) : (
+                                <span className="text-muted-foreground text-xs">—</span>
+                              )}
+                            </TableCell>
+                            <TableCell>{resident.email ?? '—'}</TableCell>
+                            <TableCell>{resident.phone ?? '—'}</TableCell>
+                            <TableCell>{formatAddress(resident)}</TableCell>
+                            <TableCell>
+                              <div className="flex items-center gap-1">
+                                {canManageRoles && (
+                                  <Button
+                                    variant="ghost" size="icon"
+                                    onClick={() => hasAccount ? openRoleChange(resident) : undefined}
+                                    disabled={!hasAccount}
+                                    title={hasAccount ? 'Alterar função' : 'Morador sem conta de acesso — peça que ele faça o cadastro primeiro'}
+                                  >
+                                    <Shield className={`h-4 w-4 ${!hasAccount ? 'opacity-30' : ''}`} />
+                                  </Button>
+                                )}
+                                <Button variant="ghost" size="icon" onClick={() => openEdit(resident)}><Pencil className="h-4 w-4" /></Button>
+                                <Button variant="ghost" size="icon" onClick={() => openDelete(resident)}><Trash2 className="h-4 w-4 text-destructive" /></Button>
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {canManageRoles && (
+          <TabsContent value="pendentes">
+            {condoId && <PendingApprovalsTab condoId={condoId} />}
+          </TabsContent>
+        )}
+      </Tabs>
 
       {/* Create / Edit Modal */}
       <Dialog open={modalOpen} onOpenChange={setModalOpen}>
         <DialogContent className="max-h-[calc(100vh-32px)] w-full max-w-[min(720px,calc(100vw-32px))] flex flex-col px-4 sm:px-6 overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{editingResident ? 'Editar Morador' : 'Novo Morador'}</DialogTitle>
-            <DialogDescription>
-              {editingResident ? 'Atualize os dados do morador.' : 'Preencha os dados para cadastrar um novo morador.'}
-            </DialogDescription>
+            <DialogDescription>{editingResident ? 'Atualize os dados do morador.' : 'Preencha os dados para cadastrar um novo morador.'}</DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-2 overflow-y-auto flex-1">
-            <div className="space-y-2">
-              <Label htmlFor="full_name">Nome completo *</Label>
-              <Input id="full_name" value={form.full_name} onChange={(e) => updateField('full_name', e.target.value)} />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="document">Documento</Label>
-              <Input id="document" value={form.document} onChange={(e) => updateField('document', e.target.value)} />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
-              <Input id="email" type="email" value={form.email} onChange={(e) => updateField('email', e.target.value)} />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="phone">Telefone</Label>
-              <Input id="phone" value={form.phone} onChange={(e) => updateField('phone', e.target.value)} />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="block">Bloco (opcional)</Label>
-              <Input id="block" placeholder="Ex: Bloco 26" value={form.block} onChange={(e) => updateField('block', e.target.value)} />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="unit">Unidade / Apto / Casa (opcional)</Label>
-              <Input id="unit" placeholder="Ex: Apto 203" value={form.unit} onChange={(e) => updateField('unit', e.target.value)} />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="unit_label">Complemento (opcional)</Label>
-              <Input id="unit_label" placeholder="Ex: Quadra B Lote 8" value={form.unit_label} onChange={(e) => updateField('unit_label', e.target.value)} />
-            </div>
+            <div className="space-y-2"><Label htmlFor="full_name">Nome completo *</Label><Input id="full_name" value={form.full_name} onChange={(e) => updateField('full_name', e.target.value)} /></div>
+            <div className="space-y-2"><Label htmlFor="document">Documento</Label><Input id="document" value={form.document} onChange={(e) => updateField('document', e.target.value)} /></div>
+            <div className="space-y-2"><Label htmlFor="email">Email</Label><Input id="email" type="email" value={form.email} onChange={(e) => updateField('email', e.target.value)} /></div>
+            <div className="space-y-2"><Label htmlFor="phone">Telefone</Label><Input id="phone" value={form.phone} onChange={(e) => updateField('phone', e.target.value)} /></div>
+            <div className="space-y-2"><Label htmlFor="block">Bloco (opcional)</Label><Input id="block" placeholder="Ex: Bloco 26" value={form.block} onChange={(e) => updateField('block', e.target.value)} /></div>
+            <div className="space-y-2"><Label htmlFor="unit">Unidade / Apto / Casa (opcional)</Label><Input id="unit" placeholder="Ex: Apto 203" value={form.unit} onChange={(e) => updateField('unit', e.target.value)} /></div>
+            <div className="space-y-2"><Label htmlFor="unit_label">Complemento (opcional)</Label><Input id="unit_label" placeholder="Ex: Quadra B Lote 8" value={form.unit_label} onChange={(e) => updateField('unit_label', e.target.value)} /></div>
           </div>
           <DialogFooter className="sticky bottom-0 bg-background pt-4 border-t border-border">
             <Button variant="outline" onClick={() => setModalOpen(false)}>Cancelar</Button>
-            <Button onClick={handleSave} disabled={saving}>
-              {saving ? 'Salvando...' : editingResident ? 'Salvar' : 'Cadastrar'}
-            </Button>
+            <Button onClick={handleSave} disabled={saving}>{saving ? 'Salvando...' : editingResident ? 'Salvar' : 'Cadastrar'}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -406,9 +303,7 @@ export default function Moradores() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Excluir Morador</DialogTitle>
-            <DialogDescription>
-              Tem certeza que deseja excluir <strong>{deletingResident?.full_name}</strong>? Esta ação não pode ser desfeita.
-            </DialogDescription>
+            <DialogDescription>Tem certeza que deseja excluir <strong>{deletingResident?.full_name}</strong>? Esta ação não pode ser desfeita.</DialogDescription>
           </DialogHeader>
           <DialogFooter>
             <Button variant="outline" onClick={() => setDeleteDialogOpen(false)}>Cancelar</Button>
@@ -419,26 +314,14 @@ export default function Moradores() {
 
       {/* Role Change Dialog */}
       {roleTarget && condoId && (
-        <RoleChangeDialog
-          open={roleDialogOpen}
-          onOpenChange={setRoleDialogOpen}
-          residentName={roleTarget.name}
-          currentRole={roleTarget.role}
-          userCondoUserId={roleTarget.userId}
-          condoId={condoId}
-          onSaved={handleRoleSaved}
-        />
+        <RoleChangeDialog open={roleDialogOpen} onOpenChange={setRoleDialogOpen} residentName={roleTarget.name} currentRole={roleTarget.role} userCondoUserId={roleTarget.userId} condoId={condoId} onSaved={fetchResidents} />
       )}
 
       {/* Add Employee Dialog */}
-      {condoId && (
-        <AddEmployeeDialog
-          open={employeeDialogOpen}
-          onOpenChange={setEmployeeDialogOpen}
-          condoId={condoId}
-          onSaved={handleEmployeeSaved}
-        />
-      )}
+      {condoId && <AddEmployeeDialog open={employeeDialogOpen} onOpenChange={setEmployeeDialogOpen} condoId={condoId} onSaved={fetchResidents} />}
+
+      {/* Invite Link Dialog */}
+      {condoId && <InviteLinkDialog open={inviteDialogOpen} onOpenChange={setInviteDialogOpen} condoId={condoId} />}
     </div>
   );
 }

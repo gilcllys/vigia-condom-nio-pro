@@ -8,16 +8,16 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { InputOTP, InputOTPGroup, InputOTPSlot } from '@/components/ui/input-otp';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2 } from 'lucide-react';
+import { Loader2, Info } from 'lucide-react';
 
 export default function Login() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
-  const [isSignUp, setIsSignUp] = useState(false);
   const [forgotOpen, setForgotOpen] = useState(false);
   const [forgotEmail, setForgotEmail] = useState('');
   const [forgotLoading, setForgotLoading] = useState(false);
+  const [showSignupInfo, setShowSignupInfo] = useState(false);
 
   // MFA state
   const [mfaRequired, setMfaRequired] = useState(false);
@@ -39,7 +39,7 @@ export default function Login() {
       toast({ title: 'E-mail enviado!', description: 'Se este e-mail estiver cadastrado, você receberá um link para redefinir sua senha.' });
       setForgotOpen(false);
       setForgotEmail('');
-    } catch (error: any) {
+    } catch {
       toast({ title: 'Erro', description: 'Não foi possível enviar o e-mail. Tente novamente.', variant: 'destructive' });
     } finally {
       setForgotLoading(false);
@@ -58,14 +58,34 @@ export default function Login() {
       return;
     }
 
+    // Check if user status is pending
     const { data: userRow, error: userError } = await supabase
-      .schema('nfe_vigia')
       .from('users')
-      .select('condo_id')
+      .select('condo_id, status')
       .eq('auth_user_id', userId)
       .maybeSingle();
 
     if (userError) throw userError;
+
+    if (userRow?.status === 'pendente') {
+      await supabase.auth.signOut();
+      toast({
+        title: 'Cadastro pendente',
+        description: 'Seu cadastro está aguardando aprovação do síndico.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    if (userRow?.status === 'recusado') {
+      await supabase.auth.signOut();
+      toast({
+        title: 'Acesso não autorizado',
+        description: 'Seu cadastro não foi aprovado. Entre em contato com o síndico.',
+        variant: 'destructive',
+      });
+      return;
+    }
 
     const condoId = userRow?.condo_id ?? null;
     if (condoId) {
@@ -81,36 +101,22 @@ export default function Login() {
     setLoading(true);
 
     try {
-      if (isSignUp) {
-        const { error } = await supabase.auth.signUp({
-          email,
-          password,
-          options: { emailRedirectTo: window.location.origin },
-        });
-        if (error) throw error;
-        toast({
-          title: 'Cadastro realizado!',
-          description: 'Verifique seu e-mail para confirmar a conta.',
-        });
-      } else {
-        const { error } = await supabase.auth.signInWithPassword({ email, password });
-        if (error) throw error;
+      const { error } = await supabase.auth.signInWithPassword({ email, password });
+      if (error) throw error;
 
-        // Check for verified TOTP factors → require MFA challenge
-        const { data: factorsData } = await supabase.auth.mfa.listFactors();
-        const verifiedFactors = factorsData?.totp?.filter((f) => f.status === 'verified') ?? [];
+      // Check for verified TOTP factors → require MFA challenge
+      const { data: factorsData } = await supabase.auth.mfa.listFactors();
+      const verifiedFactors = factorsData?.totp?.filter((f) => f.status === 'verified') ?? [];
 
-        if (verifiedFactors.length > 0) {
-          setMfaFactorId(verifiedFactors[0].id);
-          setMfaRequired(true);
-          setMfaCode('');
-          setLoading(false);
-          return;
-        }
-
-        // No MFA → proceed with AAL1
-        await navigateAfterLogin();
+      if (verifiedFactors.length > 0) {
+        setMfaFactorId(verifiedFactors[0].id);
+        setMfaRequired(true);
+        setMfaCode('');
+        setLoading(false);
+        return;
       }
+
+      await navigateAfterLogin();
     } catch (error: any) {
       const msg = error.message || '';
       let friendly = 'Ocorreu um erro. Tente novamente.';
@@ -118,8 +124,6 @@ export default function Login() {
         friendly = 'E-mail ou senha incorretos. Verifique seus dados e tente novamente.';
       } else if (msg.toLowerCase().includes('email not confirmed')) {
         friendly = 'Seu e-mail ainda não foi confirmado. Verifique sua caixa de entrada.';
-      } else if (msg.toLowerCase().includes('user already registered')) {
-        friendly = 'Este e-mail já está cadastrado. Tente fazer login.';
       }
       toast({
         title: 'Erro',
@@ -149,7 +153,7 @@ export default function Login() {
       if (verifyError) throw verifyError;
 
       await navigateAfterLogin();
-    } catch (error: any) {
+    } catch {
       toast({
         title: 'Código inválido',
         description: 'Verifique o código no seu app autenticador e tente novamente.',
@@ -214,9 +218,7 @@ export default function Login() {
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
           <CardTitle className="text-2xl font-bold tracking-tight">NFe Vigia</CardTitle>
-          <CardDescription>
-            {isSignUp ? 'Crie sua conta para começar' : 'Acesse sua conta'}
-          </CardDescription>
+          <CardDescription>Acesse sua conta</CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
@@ -229,25 +231,45 @@ export default function Login() {
               <Input id="password" type="password" placeholder="••••••••" value={password} onChange={(e) => setPassword(e.target.value)} required minLength={6} />
             </div>
             <Button type="submit" className="w-full" disabled={loading}>
-              {loading ? 'Aguarde...' : isSignUp ? 'Criar conta' : 'Entrar'}
+              {loading ? 'Aguarde...' : 'Entrar'}
             </Button>
           </form>
-          {!isSignUp && (
-            <div className="mt-3 text-center">
-              <button type="button" onClick={() => setForgotOpen(true)} className="text-sm text-muted-foreground underline-offset-4 hover:underline hover:text-primary">
-                Esqueci minha senha
-              </button>
-            </div>
-          )}
-          <div className="mt-4 text-center text-sm text-muted-foreground">
-            {isSignUp ? 'Já tem uma conta?' : 'Não tem uma conta?'}{' '}
-            <button type="button" onClick={() => setIsSignUp(!isSignUp)} className="font-medium text-primary underline-offset-4 hover:underline">
-              {isSignUp ? 'Fazer login' : 'Criar conta'}
+          <div className="mt-3 text-center">
+            <button type="button" onClick={() => setForgotOpen(true)} className="text-sm text-muted-foreground underline-offset-4 hover:underline hover:text-primary">
+              Esqueci minha senha
+            </button>
+          </div>
+          <div className="mt-4 text-center">
+            <button
+              type="button"
+              onClick={() => setShowSignupInfo(true)}
+              className="text-sm font-medium text-primary underline-offset-4 hover:underline"
+            >
+              Criar conta
             </button>
           </div>
         </CardContent>
       </Card>
 
+      {/* Signup info dialog */}
+      <Dialog open={showSignupInfo} onOpenChange={setShowSignupInfo}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Info className="h-5 w-5 text-primary" />
+              Cadastro por convite
+            </DialogTitle>
+            <DialogDescription>
+              Para criar sua conta, solicite o link de acesso ao síndico do seu condomínio.
+            </DialogDescription>
+          </DialogHeader>
+          <Button variant="outline" onClick={() => setShowSignupInfo(false)} className="w-full">
+            Entendi
+          </Button>
+        </DialogContent>
+      </Dialog>
+
+      {/* Forgot password dialog */}
       <Dialog open={forgotOpen} onOpenChange={setForgotOpen}>
         <DialogContent>
           <DialogHeader>
