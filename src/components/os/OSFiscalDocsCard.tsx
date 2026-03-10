@@ -148,10 +148,18 @@ export function OSFiscalDocsCard({ orderId, condoId, canAttach, canCriticalActio
     const { error } = await supabase.schema('nfe_vigia').from('fiscal_documents').insert({
       service_order_id: orderId,
       condo_id: condoId,
+      document_number: numberVal,
       number: numberVal,
+      gross_amount: amountVal,
       amount: amountVal,
       issue_date: form.issue_date || null,
+      issuer_name: form.fornecedor.trim() || null,
+      supplier: form.fornecedor.trim() || null,
       file_url: fileUrl,
+      source_type: 'MANUAL',
+      document_type: 'NF',
+      status: 'pendente',
+      approval_status: 'pendente',
     });
 
     if (error) {
