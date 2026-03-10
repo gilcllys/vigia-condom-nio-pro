@@ -8,7 +8,13 @@ export type SOAction =
   | 'OS_CANCELADA'
   | 'FOTO_ADICIONADA'
   | 'MATERIAL_ADICIONADO'
-  | 'DOCUMENTO_ANEXADO';
+  | 'DOCUMENTO_ANEXADO'
+  | 'APROVACAO_REGISTRADA'
+  | 'REJEICAO_REGISTRADA'
+  | 'MINERVA_EXERCIDO'
+  | 'NF_ENVIADA_APROVACAO'
+  | 'APROVACAO_FINAL_ENVIADA'
+  | 'PRAZO_EXPIRADO';
 
 const actionDescriptions: Record<SOAction, string> = {
   OS_CRIADA: 'Ordem de serviço criada',
@@ -19,6 +25,12 @@ const actionDescriptions: Record<SOAction, string> = {
   FOTO_ADICIONADA: 'Foto adicionada',
   MATERIAL_ADICIONADO: 'Material adicionado',
   DOCUMENTO_ANEXADO: 'Documento anexado',
+  APROVACAO_REGISTRADA: 'Aprovação registrada',
+  REJEICAO_REGISTRADA: 'Rejeição registrada',
+  MINERVA_EXERCIDO: 'Voto de minerva exercido',
+  NF_ENVIADA_APROVACAO: 'Nota fiscal enviada para aprovação',
+  APROVACAO_FINAL_ENVIADA: 'Enviada para aprovação final',
+  PRAZO_EXPIRADO: 'Prazo de aprovação expirado',
 };
 
 interface LogSOActivityParams {
