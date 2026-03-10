@@ -36,7 +36,7 @@ interface ServiceOrder {
 
 interface Provider {
   id: string;
-  name: string;
+  trade_name: string;
 }
 
 interface Ticket {
