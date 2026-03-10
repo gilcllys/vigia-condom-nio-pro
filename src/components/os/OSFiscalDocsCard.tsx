@@ -158,7 +158,7 @@ export function OSFiscalDocsCard({ orderId, condoId, canAttach, canCriticalActio
       file_url: fileUrl,
       source_type: 'UPLOAD',
       document_type: 'NFE',
-      status: 'pendente',
+      status: 'PENDENTE',
       approval_status: 'pendente',
     });
 
