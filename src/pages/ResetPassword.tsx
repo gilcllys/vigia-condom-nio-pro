@@ -46,7 +46,7 @@ export default function ResetPassword() {
       toast({ title: 'Senha alterada com sucesso!', description: 'Você já pode fazer login com sua nova senha.' });
       navigate('/login', { replace: true });
     } catch (error: any) {
-      toast({ title: 'Erro', description: error.message || 'Não foi possível atualizar a senha.', variant: 'destructive' });
+      toast({ title: 'Erro', description: 'Não foi possível atualizar a senha. Tente novamente ou solicite um novo link.', variant: 'destructive' });
     } finally {
       setLoading(false);
     }

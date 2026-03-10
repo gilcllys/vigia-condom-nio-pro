@@ -40,7 +40,7 @@ export default function Login() {
       setForgotOpen(false);
       setForgotEmail('');
     } catch (error: any) {
-      toast({ title: 'Erro', description: error.message || 'Não foi possível enviar o e-mail.', variant: 'destructive' });
+      toast({ title: 'Erro', description: 'Não foi possível enviar o e-mail. Tente novamente.', variant: 'destructive' });
     } finally {
       setForgotLoading(false);
     }
