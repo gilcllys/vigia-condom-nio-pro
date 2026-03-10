@@ -94,6 +94,14 @@ export default function OrdensServico() {
   const [form, setForm] = useState<SOForm>(emptyForm);
   const [photos, setPhotos] = useState<File[]>([]);
   const [saving, setSaving] = useState(false);
+  const [providers, setProviders] = useState<Provider[]>([]);
+  const [tickets, setTickets] = useState<Ticket[]>([]);
+
+  useEffect(() => {
+    if (!condoId) return;
+    supabase.schema('nfe_vigia').from('providers').select('id, name').eq('condo_id', condoId).order('name').then(({ data }) => setProviders(data ?? []));
+    supabase.schema('nfe_vigia').from('tickets').select('id, title').eq('condo_id', condoId).order('created_at', { ascending: false }).then(({ data }) => setTickets(data ?? []));
+  }, [condoId]);
 
   const fetchOrders = async () => {
     if (!condoId) return;
