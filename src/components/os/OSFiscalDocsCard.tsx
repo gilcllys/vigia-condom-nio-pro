@@ -157,7 +157,7 @@ export function OSFiscalDocsCard({ orderId, condoId, canAttach, canCriticalActio
       supplier: form.fornecedor.trim() || null,
       file_url: fileUrl,
       source_type: 'MANUAL',
-      document_type: 'NF',
+      document_type: 'NFE',
       status: 'pendente',
       approval_status: 'pendente',
     });
