@@ -17,6 +17,7 @@ import { OSPhotosCard } from '@/components/os/OSPhotosCard';
 import { OSTimelineCard } from '@/components/os/OSTimelineCard';
 import { OSMaterialsCard } from '@/components/os/OSMaterialsCard';
 import { generateOSPdf } from '@/components/os/os-pdf';
+import { OSFiscalDocsCard } from '@/components/os/OSFiscalDocsCard';
 
 interface ServiceOrderDetail {
   id: string;
