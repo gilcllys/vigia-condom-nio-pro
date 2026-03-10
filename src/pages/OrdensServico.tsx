@@ -83,8 +83,9 @@ const priorityLabel: Record<string, string> = {
 };
 
 export default function OrdensServico() {
-  const { condoId } = useCondo();
+  const { condoId, role } = useCondo();
   const { user } = useAuth();
+  const canSetEmergency = role === 'SINDICO' || role === 'ADMIN';
   const { toast } = useToast();
   const navigate = useNavigate();
 
