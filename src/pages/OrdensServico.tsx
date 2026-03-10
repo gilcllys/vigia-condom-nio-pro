@@ -183,6 +183,10 @@ export default function OrdensServico() {
       toast({ title: 'Título é obrigatório', variant: 'destructive' });
       return;
     }
+    if (form.is_emergency && !form.emergency_justification.trim()) {
+      toast({ title: 'Justificativa de emergência é obrigatória', variant: 'destructive' });
+      return;
+    }
 
     setSaving(true);
 
