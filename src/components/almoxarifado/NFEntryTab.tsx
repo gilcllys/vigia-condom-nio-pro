@@ -207,7 +207,7 @@ export default function NFEntryTab() {
         .from('fiscal_documents')
         .insert({
           condo_id: condoId,
-          document_type: 'NF',
+          document_type: 'NFE',
           source_type: 'estoque',
           issuer_name: nfData.fornecedor.trim(),
           document_number: nfData.numero_nf.trim(),
