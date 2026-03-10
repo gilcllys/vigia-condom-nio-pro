@@ -1,7 +1,10 @@
+import { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { FileText, MapPin, AlertTriangle, Calendar, User } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+import { FileText, MapPin, AlertTriangle, Calendar, User, Clock, Building2, Ticket } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { supabase } from '@/lib/supabase';
 
 const priorityLabel: Record<string, string> = {
   BAIXA: 'Baixa',
@@ -15,18 +18,48 @@ interface Props {
   priority: string | null;
   createdAt: string;
   createdBy: string;
+  isEmergency?: boolean;
+  emergencyJustification?: string | null;
+  startedAt?: string | null;
+  finishedAt?: string | null;
+  providerId?: string | null;
+  ticketId?: string | null;
 }
 
-export function OSInfoCard({ description, location, priority, createdAt, createdBy }: Props) {
+export function OSInfoCard({ description, location, priority, createdAt, createdBy, isEmergency, emergencyJustification, startedAt, finishedAt, providerId, ticketId }: Props) {
+  const [providerName, setProviderName] = useState<string | null>(null);
+  const [ticketTitle, setTicketTitle] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (providerId) {
+      supabase.schema('nfe_vigia').from('providers').select('name').eq('id', providerId).single().then(({ data }) => setProviderName(data?.name ?? null));
+    }
+    if (ticketId) {
+      supabase.schema('nfe_vigia').from('tickets').select('title').eq('id', ticketId).single().then(({ data }) => setTicketTitle(data?.title ?? null));
+    }
+  }, [providerId, ticketId]);
+
   return (
     <Card>
       <CardHeader>
         <CardTitle className="text-base flex items-center gap-2">
           <FileText className="h-4 w-4 text-muted-foreground" />
           Informações Gerais
+          {isEmergency && (
+            <Badge variant="destructive" className="ml-auto text-xs">
+              <AlertTriangle className="h-3 w-3 mr-1" />
+              EMERGENCIAL
+            </Badge>
+          )}
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
+        {isEmergency && emergencyJustification && (
+          <div className="rounded-md border border-destructive/30 bg-destructive/5 p-3 space-y-1">
+            <p className="text-xs font-medium uppercase tracking-wider text-destructive">Justificativa de Emergência</p>
+            <p className="text-sm text-foreground whitespace-pre-wrap">{emergencyJustification}</p>
+          </div>
+        )}
         {description && (
           <div className="space-y-1">
             <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Descrição</p>
@@ -62,6 +95,42 @@ export function OSInfoCard({ description, location, priority, createdAt, created
             </p>
             <p className="text-sm text-foreground font-mono text-xs">{createdBy.slice(0, 8)}…</p>
           </div>
+          {startedAt && (
+            <div className="space-y-1">
+              <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground flex items-center gap-1">
+                <Clock className="h-3 w-3" /> Início do serviço
+              </p>
+              <p className="text-sm text-foreground">
+                {format(new Date(startedAt), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
+              </p>
+            </div>
+          )}
+          {finishedAt && (
+            <div className="space-y-1">
+              <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground flex items-center gap-1">
+                <Clock className="h-3 w-3" /> Conclusão do serviço
+              </p>
+              <p className="text-sm text-foreground">
+                {format(new Date(finishedAt), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
+              </p>
+            </div>
+          )}
+          {providerName && (
+            <div className="space-y-1">
+              <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground flex items-center gap-1">
+                <Building2 className="h-3 w-3" /> Prestador
+              </p>
+              <p className="text-sm text-foreground">{providerName}</p>
+            </div>
+          )}
+          {ticketTitle && (
+            <div className="space-y-1">
+              <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground flex items-center gap-1">
+                <Ticket className="h-3 w-3" /> Chamado de origem
+              </p>
+              <p className="text-sm text-foreground">{ticketTitle}</p>
+            </div>
+          )}
         </div>
       </CardContent>
     </Card>
