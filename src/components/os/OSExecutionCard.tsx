@@ -53,6 +53,11 @@ export function OSExecutionCard({
 
   const handleSave = async () => {
     setSaving(true);
+    if (form.started_at && form.finished_at && new Date(form.finished_at) <= new Date(form.started_at)) {
+      toast({ title: 'Data de conclusão deve ser posterior à data de início', variant: 'destructive' });
+      setSaving(false);
+      return;
+    }
     const { error } = await supabase
       .schema('nfe_vigia')
       .from('service_orders')
@@ -60,6 +65,8 @@ export function OSExecutionCard({
         executor_type: form.executor_type || null,
         executor_name: form.executor_name.trim() || null,
         execution_notes: form.execution_notes.trim() || null,
+        started_at: form.started_at ? new Date(form.started_at).toISOString() : null,
+        finished_at: form.finished_at ? new Date(form.finished_at).toISOString() : null,
       })
       .eq('id', orderId);
 
