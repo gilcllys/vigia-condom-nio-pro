@@ -36,7 +36,7 @@ export default function Login() {
         redirectTo: window.location.origin + '/reset-password',
       });
       if (error) throw error;
-      toast({ title: 'E-mail enviado!', description: 'Verifique sua caixa de entrada para redefinir a senha.' });
+      toast({ title: 'E-mail enviado!', description: 'Se este e-mail estiver cadastrado, você receberá um link para redefinir sua senha.' });
       setForgotOpen(false);
       setForgotEmail('');
     } catch (error: any) {
