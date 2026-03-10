@@ -32,6 +32,8 @@ export function OSExecutionCard({
   executorType,
   executorName,
   executionNotes,
+  startedAt,
+  finishedAt,
   canEdit,
   onSaved,
 }: Props) {
@@ -42,6 +44,8 @@ export function OSExecutionCard({
     executor_type: executorType ?? '',
     executor_name: executorName ?? '',
     execution_notes: executionNotes ?? '',
+    started_at: startedAt ? startedAt.slice(0, 16) : '',
+    finished_at: finishedAt ? finishedAt.slice(0, 16) : '',
   });
 
   const isInExecution = status === 'EM_EXECUCAO';
