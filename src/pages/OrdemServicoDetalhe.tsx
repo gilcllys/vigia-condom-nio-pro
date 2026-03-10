@@ -303,6 +303,12 @@ export default function OrdemServicoDetalhe() {
         onUploaded={fetchAll}
       />
 
+      {/* Fiscal Documents */}
+      <OSFiscalDocsCard
+        orderId={order.id}
+        canAttach={isSindico || isAdmin}
+      />
+
       {/* Timeline + Materials */}
       <div className="grid gap-4 lg:grid-cols-2">
         <OSTimelineCard activities={activities} />
