@@ -36,11 +36,11 @@ export default function Login() {
         redirectTo: window.location.origin + '/reset-password',
       });
       if (error) throw error;
-      toast({ title: 'E-mail enviado!', description: 'Verifique sua caixa de entrada para redefinir a senha.' });
+      toast({ title: 'E-mail enviado!', description: 'Se este e-mail estiver cadastrado, você receberá um link para redefinir sua senha.' });
       setForgotOpen(false);
       setForgotEmail('');
     } catch (error: any) {
-      toast({ title: 'Erro', description: error.message || 'Não foi possível enviar o e-mail.', variant: 'destructive' });
+      toast({ title: 'Erro', description: 'Não foi possível enviar o e-mail. Tente novamente.', variant: 'destructive' });
     } finally {
       setForgotLoading(false);
     }
@@ -112,9 +112,18 @@ export default function Login() {
         await navigateAfterLogin();
       }
     } catch (error: any) {
+      const msg = error.message || '';
+      let friendly = 'Ocorreu um erro. Tente novamente.';
+      if (msg.toLowerCase().includes('invalid login credentials')) {
+        friendly = 'E-mail ou senha incorretos. Verifique seus dados e tente novamente.';
+      } else if (msg.toLowerCase().includes('email not confirmed')) {
+        friendly = 'Seu e-mail ainda não foi confirmado. Verifique sua caixa de entrada.';
+      } else if (msg.toLowerCase().includes('user already registered')) {
+        friendly = 'Este e-mail já está cadastrado. Tente fazer login.';
+      }
       toast({
         title: 'Erro',
-        description: error.message || 'Ocorreu um erro. Tente novamente.',
+        description: friendly,
         variant: 'destructive',
       });
     } finally {
