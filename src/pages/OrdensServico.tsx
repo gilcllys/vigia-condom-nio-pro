@@ -215,6 +215,10 @@ export default function OrdensServico() {
         priority: form.priority,
         status: 'ABERTA',
         created_by: internalUser.id,
+        is_emergency: form.is_emergency,
+        emergency_justification: form.is_emergency ? form.emergency_justification.trim() || null : null,
+        provider_id: form.provider_id || null,
+        ticket_id: form.ticket_id || null,
       })
       .select('id')
       .single();
