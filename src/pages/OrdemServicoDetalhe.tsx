@@ -31,6 +31,12 @@ interface ServiceOrderDetail {
   executor_type: string | null;
   executor_name: string | null;
   execution_notes: string | null;
+  is_emergency: boolean;
+  emergency_justification: string | null;
+  started_at: string | null;
+  finished_at: string | null;
+  provider_id: string | null;
+  ticket_id: string | null;
 }
 
 interface SOActivity {
