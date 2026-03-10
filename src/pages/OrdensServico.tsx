@@ -111,7 +111,7 @@ export default function OrdensServico() {
     const { data, error } = await supabase
       .schema('nfe_vigia')
       .from('service_orders')
-      .select('id, condo_id, title, description, location, status, priority, created_by, created_at')
+      .select('id, condo_id, title, description, location, status, priority, created_by, created_at, is_emergency')
       .eq('condo_id', condoId)
       .order('created_at', { ascending: false });
 
