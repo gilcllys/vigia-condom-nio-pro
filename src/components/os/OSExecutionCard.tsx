@@ -127,6 +127,24 @@ export function OSExecutionCard({
                 rows={3}
               />
             </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Data de início do serviço</Label>
+                <Input
+                  type="datetime-local"
+                  value={form.started_at}
+                  onChange={(e) => setForm((p) => ({ ...p, started_at: e.target.value }))}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Data de conclusão do serviço</Label>
+                <Input
+                  type="datetime-local"
+                  value={form.finished_at}
+                  onChange={(e) => setForm((p) => ({ ...p, finished_at: e.target.value }))}
+                />
+              </div>
+            </div>
             <div className="flex gap-2 justify-end">
               <Button size="sm" variant="outline" onClick={() => setEditing(false)}>Cancelar</Button>
               <Button size="sm" onClick={handleSave} disabled={saving}>

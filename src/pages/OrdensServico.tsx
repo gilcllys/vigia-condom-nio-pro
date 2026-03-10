@@ -344,7 +344,17 @@ export default function OrdensServico() {
                     className="cursor-pointer"
                     onClick={() => navigate(`/ordens-servico/${order.id}`)}
                   >
-                    <TableCell className="font-medium">{order.title}</TableCell>
+                    <TableCell className="font-medium">
+                      <span className="flex items-center gap-2">
+                        {order.title}
+                        {order.is_emergency && (
+                          <Badge variant="destructive" className="text-[10px] px-1.5 py-0">
+                            <AlertTriangle className="h-3 w-3 mr-0.5" />
+                            Emergencial
+                          </Badge>
+                        )}
+                      </span>
+                    </TableCell>
                     <TableCell>
                       <Badge variant={statusVariant(order.status)}>
                         {statusLabel[order.status] ?? order.status}
