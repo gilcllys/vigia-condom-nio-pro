@@ -151,7 +151,9 @@ export function OSFiscalDocsCard({ orderId, condoId, canAttach, canCriticalActio
       number: numberVal,
       amount: amountVal,
       issue_date: form.issue_date || null,
+      supplier: form.fornecedor.trim() || null,
       file_url: fileUrl,
+      source_type: 'MANUAL',
     });
 
     if (error) {
