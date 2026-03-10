@@ -12,8 +12,9 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Switch } from '@/components/ui/switch';
 import { useToast } from '@/hooks/use-toast';
-import { Plus, Search, ClipboardList, Image, X } from 'lucide-react';
+import { Plus, Search, ClipboardList, Image, X, AlertTriangle } from 'lucide-react';
 import { logActivity } from '@/lib/activity-log';
 import { logSOActivity } from '@/lib/so-activity-log';
 import { formatDistanceToNow } from 'date-fns';
