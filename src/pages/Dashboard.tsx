@@ -21,6 +21,7 @@ import {
 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { PendingApprovalsCards } from '@/components/dashboard/PendingApprovalsCards';
 
 interface ActivityLog {
   id: string;
