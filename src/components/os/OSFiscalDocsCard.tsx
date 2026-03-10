@@ -154,6 +154,7 @@ export function OSFiscalDocsCard({ orderId, condoId, canAttach, canCriticalActio
       supplier: form.fornecedor.trim() || null,
       file_url: fileUrl,
       source_type: 'MANUAL',
+      document_type: 'NF',
     });
 
     if (error) {
