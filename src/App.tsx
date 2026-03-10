@@ -8,6 +8,7 @@ import { CondoProvider } from "@/contexts/CondoContext";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { AppLayout } from "@/components/AppLayout";
 import Login from "./pages/Login";
+import Cadastro from "./pages/Cadastro";
 import NoCondo from "./pages/NoCondo";
 import Dashboard from "./pages/Dashboard";
 import Condominios from "./pages/Condominios";
@@ -33,6 +34,7 @@ const App = () => (
           <CondoProvider>
             <Routes>
               <Route path="/login" element={<Login />} />
+              <Route path="/cadastro" element={<Cadastro />} />
               <Route path="/reset-password" element={<ResetPassword />} />
               <Route path="/no-condo" element={<NoCondo />} />
               <Route

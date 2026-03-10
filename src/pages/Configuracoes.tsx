@@ -1,4 +1,5 @@
 import { MfaSecuritySection } from '@/components/security/MfaSecuritySection';
+import JoinCondoSection from '@/components/moradores/JoinCondoSection';
 
 export default function Configuracoes() {
   return (
@@ -8,6 +9,7 @@ export default function Configuracoes() {
         <p className="text-muted-foreground">Perfil e preferências do usuário.</p>
       </div>
 
+      <JoinCondoSection />
       <MfaSecuritySection />
     </div>
   );
