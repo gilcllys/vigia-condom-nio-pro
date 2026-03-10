@@ -32,14 +32,28 @@ interface ServiceOrder {
   photo_count: number;
 }
 
+interface Provider {
+  id: string;
+  name: string;
+}
+
+interface Ticket {
+  id: string;
+  title: string;
+}
+
 interface SOForm {
   title: string;
   description: string;
   location: string;
   priority: string;
+  is_emergency: boolean;
+  emergency_justification: string;
+  provider_id: string;
+  ticket_id: string;
 }
 
-const emptyForm: SOForm = { title: '', description: '', location: '', priority: 'MEDIA' };
+const emptyForm: SOForm = { title: '', description: '', location: '', priority: 'MEDIA', is_emergency: false, emergency_justification: '', provider_id: '', ticket_id: '' };
 
 const statusLabel: Record<string, string> = {
   ABERTA: 'Aberta',
