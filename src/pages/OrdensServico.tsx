@@ -13,12 +13,14 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogD
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
-import { Plus, Search, ClipboardList, Image, X, AlertTriangle } from 'lucide-react';
+import { Plus, Search, ClipboardList, Image, X, AlertTriangle, MessageSquare } from 'lucide-react';
 import { logActivity } from '@/lib/activity-log';
 import { logSOActivity } from '@/lib/so-activity-log';
 import { formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import ChamadosTab from '@/components/chamados/ChamadosTab';
 
 interface ServiceOrder {
   id: string;
@@ -86,6 +88,7 @@ export default function OrdensServico() {
   const { condoId, role } = useCondo();
   const { user } = useAuth();
   const canSetEmergency = role === 'SINDICO' || role === 'ADMIN';
+  const isMorador = role === 'MORADOR';
   const { toast } = useToast();
   const navigate = useNavigate();
 
@@ -98,36 +101,46 @@ export default function OrdensServico() {
   const [saving, setSaving] = useState(false);
   const [providers, setProviders] = useState<Provider[]>([]);
   const [tickets, setTickets] = useState<Ticket[]>([]);
+  const [internalUserId, setInternalUserId] = useState<string | null>(null);
+
+  // Get internal user id for MORADOR filtering
+  useEffect(() => {
+    if (!user) return;
+    supabase.schema('nfe_vigia').from('users').select('id').eq('auth_user_id', user.id).maybeSingle()
+      .then(({ data }) => setInternalUserId(data?.id ?? null));
+  }, [user]);
 
   useEffect(() => {
     if (!condoId) return;
-    supabase.schema('nfe_vigia').from('providers').select('id, trade_name').eq('condo_id', condoId).is('deleted_at', null).order('trade_name').then(({ data, error }) => { console.log('providers fetch', data, error); setProviders(data ?? []); });
-    supabase.schema('nfe_vigia').from('tickets').select('id, title').eq('condo_id', condoId).order('created_at', { ascending: false }).then(({ data }) => setTickets(data ?? []));
+    supabase.schema('nfe_vigia').from('providers').select('id, trade_name').eq('condo_id', condoId).is('deleted_at', null).order('trade_name').then(({ data }) => setProviders(data ?? []));
+    supabase.schema('nfe_vigia').from('tickets').select('id, title').eq('condo_id', condoId).in('status', ['ABERTO', 'EM_ANALISE']).order('created_at', { ascending: false }).then(({ data }) => setTickets(data ?? []));
   }, [condoId]);
 
   const fetchOrders = async () => {
     if (!condoId) return;
     setLoading(true);
 
-    const { data, error } = await supabase
+    let query = supabase
       .schema('nfe_vigia')
       .from('service_orders')
       .select('id, condo_id, title, description, location, status, priority, created_by, created_at, is_emergency')
       .eq('condo_id', condoId)
       .order('created_at', { ascending: false });
 
+    // MORADOR: only see own OS
+    if (isMorador && internalUserId) {
+      query = query.eq('created_by', internalUserId);
+    }
+
+    const { data, error } = await query;
+
     if (error) {
       console.error('Error fetching service orders:', error);
-      toast({ title: 'Erro ao carregar ordens de serviço', description: error.message, variant: 'destructive' });
+      toast({ title: 'Erro ao carregar ordens de serviço', variant: 'destructive' });
       setOrders([]);
     } else {
-      // For each order, get photo count
-      const ordersWithPhotos: ServiceOrder[] = (data ?? []).map((o: any) => ({
-        ...o,
-        photo_count: 0,
-      }));
+      const ordersWithPhotos: ServiceOrder[] = (data ?? []).map((o: any) => ({ ...o, photo_count: 0 }));
 
-      // Batch photo count from service_order_photos
       if (ordersWithPhotos.length > 0) {
         const ids = ordersWithPhotos.map((o) => o.id);
         const { data: docs } = await supabase
@@ -138,12 +151,8 @@ export default function OrdensServico() {
 
         if (docs) {
           const countMap: Record<string, number> = {};
-          docs.forEach((d: any) => {
-            countMap[d.service_order_id] = (countMap[d.service_order_id] || 0) + 1;
-          });
-          ordersWithPhotos.forEach((o) => {
-            o.photo_count = countMap[o.id] || 0;
-          });
+          docs.forEach((d: any) => { countMap[d.service_order_id] = (countMap[d.service_order_id] || 0) + 1; });
+          ordersWithPhotos.forEach((o) => { o.photo_count = countMap[o.id] || 0; });
         }
       }
 
@@ -153,17 +162,24 @@ export default function OrdensServico() {
   };
 
   useEffect(() => {
-    fetchOrders();
-  }, [condoId]);
+    if (internalUserId !== null || !isMorador) fetchOrders();
+  }, [condoId, internalUserId]);
 
   const filtered = orders.filter((o) =>
     o.title.toLowerCase().includes(search.toLowerCase())
   );
 
-  const openCreate = () => {
-    setForm(emptyForm);
+  const openCreate = (prefilledTicketId?: string, prefilledTicketTitle?: string) => {
+    setForm({
+      ...emptyForm,
+      ticket_id: prefilledTicketId ?? '',
+    });
     setPhotos([]);
     setModalOpen(true);
+  };
+
+  const handleConvertTicketToOS = async (ticketId: string, ticketTitle: string) => {
+    openCreate(ticketId, ticketTitle);
   };
 
   const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -192,7 +208,6 @@ export default function OrdensServico() {
 
     setSaving(true);
 
-    // Buscar o id interno em nfe_vigia.users (FK exige este id, não o auth id)
     const { data: internalUser, error: userError } = await supabase
       .schema('nfe_vigia')
       .from('users')
@@ -201,7 +216,7 @@ export default function OrdensServico() {
       .maybeSingle();
 
     if (userError || !internalUser) {
-      toast({ title: 'Erro ao identificar usuário interno', description: userError?.message ?? 'Usuário não encontrado', variant: 'destructive' });
+      toast({ title: 'Não foi possível identificar seu usuário', variant: 'destructive' });
       setSaving(false);
       return;
     }
@@ -226,50 +241,31 @@ export default function OrdensServico() {
       .single();
 
     if (error) {
-      toast({ title: 'Erro ao criar ordem de serviço', description: error.message, variant: 'destructive' });
+      toast({ title: 'Erro ao criar ordem de serviço', description: 'Não foi possível salvar. Tente novamente.', variant: 'destructive' });
       setSaving(false);
       return;
     }
 
     const soId = inserted.id;
 
-    // Upload photos to storage and register in service_order_photos
+    // If converting from ticket, update ticket status
+    if (form.ticket_id) {
+      await supabase.schema('nfe_vigia').from('tickets')
+        .update({ status: 'VIROU_OS', service_order_id: soId })
+        .eq('id', form.ticket_id);
+    }
+
+    // Upload photos
     for (const photo of photos) {
       const ext = photo.name.split('.').pop() ?? 'jpg';
       const path = `service-orders/${soId}/${crypto.randomUUID()}.${ext}`;
-
-      console.log('[OS upload] Uploading photo to path:', path);
-
-      const { error: uploadError } = await supabase.storage
-        .from('service-order-photos')
-        .upload(path, photo, { contentType: photo.type });
-
-      if (uploadError) {
-        console.error('[OS upload] Upload error:', uploadError);
-      } else {
-        console.log('[OS upload] file_url (path):', path);
-
-        const { error: photoDbError } = await supabase
-          .schema('nfe_vigia')
-          .from('service_order_photos')
-          .insert({
-            service_order_id: soId,
-            photo_type: 'PROBLEMA',
-            file_url: path,
-          });
-
-        if (photoDbError) {
-          console.error('[OS upload] Error saving photo record:', photoDbError);
-        }
+      const { error: uploadError } = await supabase.storage.from('service-order-photos').upload(path, photo, { contentType: photo.type });
+      if (!uploadError) {
+        await supabase.schema('nfe_vigia').from('service_order_photos').insert({ service_order_id: soId, photo_type: 'PROBLEMA', file_url: path });
       }
     }
 
-    console.log('[OS] service_order_id created:', soId);
-
-    // Log OS activity: criação
     await logSOActivity({ serviceOrderId: soId, action: 'OS_CRIADA' });
-
-    // Log OS activity: fotos adicionadas
     for (let i = 0; i < photos.length; i++) {
       await logSOActivity({ serviceOrderId: soId, action: 'FOTO_ADICIONADA', description: `Foto ${i + 1} adicionada` });
     }
@@ -296,90 +292,105 @@ export default function OrdensServico() {
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold tracking-tight text-foreground">Ordens de Serviço</h1>
-        <p className="text-muted-foreground">Gerencie as ordens de serviço do condomínio.</p>
+        <p className="text-muted-foreground">Gerencie chamados e ordens de serviço do condomínio.</p>
       </div>
 
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between pb-2">
-          <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+      <Tabs defaultValue="chamados" className="w-full">
+        <TabsList className="grid w-full max-w-md grid-cols-2">
+          <TabsTrigger value="chamados" className="flex items-center gap-1">
+            <MessageSquare className="h-4 w-4" />
+            Chamados
+          </TabsTrigger>
+          <TabsTrigger value="os" className="flex items-center gap-1">
             <ClipboardList className="h-4 w-4" />
-            Lista de Ordens de Serviço
-          </CardTitle>
-          <Button size="sm" onClick={openCreate}>
-            <Plus className="h-4 w-4 mr-1" />
-            Nova Ordem de Serviço
-          </Button>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              placeholder="Buscar por título..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="pl-9"
-            />
-          </div>
+            Ordens de Serviço
+          </TabsTrigger>
+        </TabsList>
 
-          {loading ? (
-            <p className="text-sm text-muted-foreground py-4 text-center">Carregando...</p>
-          ) : filtered.length === 0 ? (
-            <p className="text-sm text-muted-foreground py-4 text-center">
-              {search ? 'Nenhuma OS encontrada.' : 'Nenhuma ordem de serviço cadastrada.'}
-            </p>
-          ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Título</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Prioridade</TableHead>
-                  <TableHead>Fotos</TableHead>
-                  <TableHead>Criada em</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filtered.map((order) => (
-                  <TableRow
-                    key={order.id}
-                    className="cursor-pointer"
-                    onClick={() => navigate(`/ordens-servico/${order.id}`)}
-                  >
-                    <TableCell className="font-medium">
-                      <span className="flex items-center gap-2">
-                        {order.title}
-                        {order.is_emergency && (
-                          <Badge variant="destructive" className="text-[10px] px-1.5 py-0">
-                            <AlertTriangle className="h-3 w-3 mr-0.5" />
-                            Emergencial
+        <TabsContent value="chamados" className="mt-4">
+          <ChamadosTab onConvertToOS={handleConvertTicketToOS} />
+        </TabsContent>
+
+        <TabsContent value="os" className="mt-4">
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+                <ClipboardList className="h-4 w-4" />
+                Lista de Ordens de Serviço
+              </CardTitle>
+              <Button size="sm" onClick={() => openCreate()}>
+                <Plus className="h-4 w-4 mr-1" />
+                Nova OS
+              </Button>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  placeholder="Buscar por título..."
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  className="pl-9"
+                />
+              </div>
+
+              {loading ? (
+                <p className="text-sm text-muted-foreground py-4 text-center">Carregando...</p>
+              ) : filtered.length === 0 ? (
+                <p className="text-sm text-muted-foreground py-4 text-center">
+                  {search ? 'Nenhuma OS encontrada.' : 'Nenhuma ordem de serviço cadastrada.'}
+                </p>
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Título</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Prioridade</TableHead>
+                      <TableHead>Fotos</TableHead>
+                      <TableHead>Criada em</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {filtered.map((order) => (
+                      <TableRow key={order.id} className="cursor-pointer" onClick={() => navigate(`/ordens-servico/${order.id}`)}>
+                        <TableCell className="font-medium">
+                          <span className="flex items-center gap-2">
+                            {order.title}
+                            {order.is_emergency && (
+                              <Badge variant="destructive" className="text-[10px] px-1.5 py-0">
+                                <AlertTriangle className="h-3 w-3 mr-0.5" />
+                                Emergencial
+                              </Badge>
+                            )}
+                          </span>
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant={statusVariant(order.status)}>
+                            {statusLabel[order.status] ?? order.status}
                           </Badge>
-                        )}
-                      </span>
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant={statusVariant(order.status)}>
-                        {statusLabel[order.status] ?? order.status}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>{priorityLabel[order.priority ?? ''] ?? order.priority ?? '—'}</TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-1 text-muted-foreground">
-                        <Image className="h-3 w-3" />
-                        <span className="text-sm">{order.photo_count}</span>
-                      </div>
-                    </TableCell>
-                    <TableCell className="text-muted-foreground text-sm">
-                      {formatDistanceToNow(new Date(order.created_at), { addSuffix: true, locale: ptBR })}
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          )}
-        </CardContent>
-      </Card>
+                        </TableCell>
+                        <TableCell>{priorityLabel[order.priority ?? ''] ?? order.priority ?? '—'}</TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-1 text-muted-foreground">
+                            <Image className="h-3 w-3" />
+                            <span className="text-sm">{order.photo_count}</span>
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-muted-foreground text-sm">
+                          {formatDistanceToNow(new Date(order.created_at), { addSuffix: true, locale: ptBR })}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
 
-      {/* Create Modal */}
+      {/* Create OS Modal */}
       <Dialog open={modalOpen} onOpenChange={setModalOpen}>
         <DialogContent className="max-h-[calc(100vh-32px)] w-full max-w-[min(720px,calc(100vw-32px))] flex flex-col px-4 sm:px-6 overflow-y-auto">
           <DialogHeader>
@@ -399,7 +410,6 @@ export default function OrdensServico() {
               <Label htmlFor="so_location">Local do problema</Label>
               <Input id="so_location" placeholder="Ex: Bloco A, 2º andar" value={form.location} onChange={(e) => updateField('location', e.target.value)} />
             </div>
-            {/* Emergency toggle - only for SINDICO/ADMIN */}
             {canSetEmergency && (
               <>
                 <div className="flex items-center justify-between rounded-lg border border-border p-3">
@@ -417,8 +427,6 @@ export default function OrdensServico() {
                 )}
               </>
             )}
-
-            {/* Provider */}
             <div className="space-y-2">
               <Label>Prestador de Serviço</Label>
               <Select value={form.provider_id} onValueChange={(v) => setForm(prev => ({ ...prev, provider_id: v }))}>
@@ -428,8 +436,6 @@ export default function OrdensServico() {
                 </SelectContent>
               </Select>
             </div>
-
-            {/* Ticket */}
             <div className="space-y-2">
               <Label>Chamado de origem</Label>
               <Select value={form.ticket_id} onValueChange={(v) => setForm(prev => ({ ...prev, ticket_id: v }))}>
@@ -439,7 +445,6 @@ export default function OrdensServico() {
                 </SelectContent>
               </Select>
             </div>
-
             <div className="space-y-2">
               <Label>Fotos do problema (até 3)</Label>
               <Input type="file" accept="image/*" multiple onChange={handlePhotoChange} disabled={photos.length >= 3} />

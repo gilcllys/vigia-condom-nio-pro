@@ -296,7 +296,7 @@ export default function Moradores() {
                 <TableHeader>
                   <TableRow>
                     <TableHead>Nome</TableHead>
-                    <TableHead>Papel</TableHead>
+                    <TableHead>Função</TableHead>
                     
                     <TableHead>Email</TableHead>
                     <TableHead>Telefone</TableHead>
@@ -325,8 +325,14 @@ export default function Moradores() {
                         <TableCell>
                           <div className="flex items-center gap-1">
                             {canManageRoles && (
-                              <Button variant="ghost" size="icon" onClick={() => openRoleChange(resident)} title={hasAccount ? "Alterar papel" : "Este morador não possui conta vinculada"}>
-                                <Shield className={`h-4 w-4 ${!hasAccount ? 'opacity-50' : ''}`} />
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => hasAccount ? openRoleChange(resident) : undefined}
+                                disabled={!hasAccount}
+                                title={hasAccount ? "Alterar função" : "Morador sem conta de acesso — peça que ele faça o cadastro primeiro"}
+                              >
+                                <Shield className={`h-4 w-4 ${!hasAccount ? 'opacity-30' : ''}`} />
                               </Button>
                             )}
                             <Button variant="ghost" size="icon" onClick={() => openEdit(resident)}>

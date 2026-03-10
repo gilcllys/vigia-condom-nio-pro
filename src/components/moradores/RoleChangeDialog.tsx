@@ -22,7 +22,7 @@ interface RoleChangeDialogProps {
   onOpenChange: (open: boolean) => void;
   residentName: string;
   currentRole: string | null;
-  userCondoUserId: string | null; // nfe_vigia.user_condos.user_id
+  userCondoUserId: string | null;
   condoId: string;
   onSaved: () => void;
 }
@@ -42,32 +42,48 @@ export default function RoleChangeDialog({
 
   const handleSave = async () => {
     if (!userCondoUserId) {
-      toast({ title: 'Este morador não possui conta de usuário vinculada', variant: 'destructive' });
+      toast({ title: 'Este morador não possui conta de acesso vinculada', variant: 'destructive' });
       return;
     }
 
     setSaving(true);
-    const { error } = await supabase
+
+    // Update role in user_condos
+    const { error: ucError } = await supabase
       .schema('nfe_vigia')
       .from('user_condos')
       .update({ role })
       .eq('user_id', userCondoUserId)
       .eq('condo_id', condoId);
 
-    if (error) {
-      toast({ title: 'Erro ao alterar papel', description: error.message, variant: 'destructive' });
-    } else {
-      await logActivity({
-        condoId,
-        action: 'update',
-        entity: 'user_condo',
-        entityId: userCondoUserId,
-        description: `Papel de "${residentName}" alterado para ${ROLE_LABELS[role] ?? role}`,
-      });
-      toast({ title: `Papel alterado para ${ROLE_LABELS[role] ?? role}` });
-      onSaved();
-      onOpenChange(false);
+    if (ucError) {
+      toast({ title: 'Erro ao alterar função', description: 'Não foi possível salvar a alteração. Tente novamente.', variant: 'destructive' });
+      setSaving(false);
+      return;
     }
+
+    // Also update user_profile in nfe_vigia.users
+    const { error: usersError } = await supabase
+      .schema('nfe_vigia')
+      .from('users')
+      .update({ user_profile: role })
+      .eq('id', userCondoUserId);
+
+    if (usersError) {
+      console.error('Error updating user_profile:', usersError);
+      // Non-blocking: role was already updated in user_condos
+    }
+
+    await logActivity({
+      condoId,
+      action: 'update',
+      entity: 'user_condo',
+      entityId: userCondoUserId,
+      description: `Função de "${residentName}" alterada para ${ROLE_LABELS[role] ?? role}`,
+    });
+    toast({ title: `Função alterada para ${ROLE_LABELS[role] ?? role}` });
+    onSaved();
+    onOpenChange(false);
     setSaving(false);
   };
 
@@ -75,14 +91,14 @@ export default function RoleChangeDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-md">
         <DialogHeader>
-          <DialogTitle>Alterar Papel</DialogTitle>
+          <DialogTitle>Alterar Função</DialogTitle>
           <DialogDescription>
-            Altere o papel de <strong>{residentName}</strong> no condomínio.
+            Altere a função de <strong>{residentName}</strong> no condomínio.
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-4 py-2">
           <div className="space-y-2">
-            <Label>Papel</Label>
+            <Label>Função</Label>
             <Select value={role} onValueChange={setRole}>
               <SelectTrigger>
                 <SelectValue />
