@@ -15,7 +15,9 @@ interface Props {
   executorType: string | null;
   executorName: string | null;
   executionNotes: string | null;
-  canEdit: boolean; // SINDICO with AAL2 or ZELADOR
+  startedAt: string | null;
+  finishedAt: string | null;
+  canEdit: boolean;
   onSaved: () => void;
 }
 
