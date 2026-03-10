@@ -20,6 +20,12 @@ const activityColor: Record<string, string> = {
   FOTO_ADICIONADA: 'bg-violet-500',
   MATERIAL_ADICIONADO: 'bg-teal-500',
   DOCUMENTO_ANEXADO: 'bg-orange-500',
+  APROVACAO_REGISTRADA: 'bg-green-500',
+  REJEICAO_REGISTRADA: 'bg-red-500',
+  MINERVA_EXERCIDO: 'bg-amber-600',
+  NF_ENVIADA_APROVACAO: 'bg-blue-400',
+  APROVACAO_FINAL_ENVIADA: 'bg-indigo-500',
+  PRAZO_EXPIRADO: 'bg-gray-500',
 };
 
 interface Props {
@@ -40,9 +46,8 @@ export function OSTimelineCard({ activities }: Props) {
           <p className="text-sm text-muted-foreground">Nenhuma atividade registrada.</p>
         ) : (
           <div className="relative space-y-0">
-            {/* Vertical line */}
             <div className="absolute left-[7px] top-2 bottom-2 w-px bg-border" />
-            {activities.map((a, i) => (
+            {activities.map((a) => (
               <div key={a.id} className="relative flex gap-3 items-start pb-4 last:pb-0">
                 <div
                   className={`mt-1.5 h-3.5 w-3.5 rounded-full shrink-0 z-10 border-2 border-background ${activityColor[a.activity_type] ?? 'bg-muted-foreground'}`}
