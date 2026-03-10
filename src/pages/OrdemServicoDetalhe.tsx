@@ -31,6 +31,12 @@ interface ServiceOrderDetail {
   executor_type: string | null;
   executor_name: string | null;
   execution_notes: string | null;
+  is_emergency: boolean;
+  emergency_justification: string | null;
+  started_at: string | null;
+  finished_at: string | null;
+  provider_id: string | null;
+  ticket_id: string | null;
 }
 
 interface SOActivity {
@@ -267,6 +273,12 @@ export default function OrdemServicoDetalhe() {
           priority={order.priority}
           createdAt={order.created_at}
           createdBy={order.created_by}
+          isEmergency={order.is_emergency}
+          emergencyJustification={order.emergency_justification}
+          startedAt={order.started_at}
+          finishedAt={order.finished_at}
+          providerId={order.provider_id}
+          ticketId={order.ticket_id}
         />
         <OSExecutionCard
           orderId={order.id}
@@ -274,6 +286,8 @@ export default function OrdemServicoDetalhe() {
           executorType={order.executor_type}
           executorName={order.executor_name}
           executionNotes={order.execution_notes}
+          startedAt={order.started_at}
+          finishedAt={order.finished_at}
           canEdit={canEditExecution}
           onSaved={fetchAll}
         />

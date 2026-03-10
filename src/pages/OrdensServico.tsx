@@ -12,8 +12,9 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Switch } from '@/components/ui/switch';
 import { useToast } from '@/hooks/use-toast';
-import { Plus, Search, ClipboardList, Image, X } from 'lucide-react';
+import { Plus, Search, ClipboardList, Image, X, AlertTriangle } from 'lucide-react';
 import { logActivity } from '@/lib/activity-log';
 import { logSOActivity } from '@/lib/so-activity-log';
 import { formatDistanceToNow } from 'date-fns';
@@ -30,6 +31,17 @@ interface ServiceOrder {
   created_by: string;
   created_at: string;
   photo_count: number;
+  is_emergency: boolean;
+}
+
+interface Provider {
+  id: string;
+  name: string;
+}
+
+interface Ticket {
+  id: string;
+  title: string;
 }
 
 interface SOForm {
@@ -37,9 +49,13 @@ interface SOForm {
   description: string;
   location: string;
   priority: string;
+  is_emergency: boolean;
+  emergency_justification: string;
+  provider_id: string;
+  ticket_id: string;
 }
 
-const emptyForm: SOForm = { title: '', description: '', location: '', priority: 'MEDIA' };
+const emptyForm: SOForm = { title: '', description: '', location: '', priority: 'MEDIA', is_emergency: false, emergency_justification: '', provider_id: '', ticket_id: '' };
 
 const statusLabel: Record<string, string> = {
   ABERTA: 'Aberta',
@@ -79,6 +95,14 @@ export default function OrdensServico() {
   const [form, setForm] = useState<SOForm>(emptyForm);
   const [photos, setPhotos] = useState<File[]>([]);
   const [saving, setSaving] = useState(false);
+  const [providers, setProviders] = useState<Provider[]>([]);
+  const [tickets, setTickets] = useState<Ticket[]>([]);
+
+  useEffect(() => {
+    if (!condoId) return;
+    supabase.schema('nfe_vigia').from('providers').select('id, name').eq('condo_id', condoId).order('name').then(({ data }) => setProviders(data ?? []));
+    supabase.schema('nfe_vigia').from('tickets').select('id, title').eq('condo_id', condoId).order('created_at', { ascending: false }).then(({ data }) => setTickets(data ?? []));
+  }, [condoId]);
 
   const fetchOrders = async () => {
     if (!condoId) return;
@@ -87,7 +111,7 @@ export default function OrdensServico() {
     const { data, error } = await supabase
       .schema('nfe_vigia')
       .from('service_orders')
-      .select('id, condo_id, title, description, location, status, priority, created_by, created_at')
+      .select('id, condo_id, title, description, location, status, priority, created_by, created_at, is_emergency')
       .eq('condo_id', condoId)
       .order('created_at', { ascending: false });
 
@@ -160,6 +184,10 @@ export default function OrdensServico() {
       toast({ title: 'Título é obrigatório', variant: 'destructive' });
       return;
     }
+    if (form.is_emergency && !form.emergency_justification.trim()) {
+      toast({ title: 'Justificativa de emergência é obrigatória', variant: 'destructive' });
+      return;
+    }
 
     setSaving(true);
 
@@ -188,6 +216,10 @@ export default function OrdensServico() {
         priority: form.priority,
         status: 'ABERTA',
         created_by: internalUser.id,
+        is_emergency: form.is_emergency,
+        emergency_justification: form.is_emergency ? form.emergency_justification.trim() || null : null,
+        provider_id: form.provider_id || null,
+        ticket_id: form.ticket_id || null,
       })
       .select('id')
       .single();
@@ -312,7 +344,17 @@ export default function OrdensServico() {
                     className="cursor-pointer"
                     onClick={() => navigate(`/ordens-servico/${order.id}`)}
                   >
-                    <TableCell className="font-medium">{order.title}</TableCell>
+                    <TableCell className="font-medium">
+                      <span className="flex items-center gap-2">
+                        {order.title}
+                        {order.is_emergency && (
+                          <Badge variant="destructive" className="text-[10px] px-1.5 py-0">
+                            <AlertTriangle className="h-3 w-3 mr-0.5" />
+                            Emergencial
+                          </Badge>
+                        )}
+                      </span>
+                    </TableCell>
                     <TableCell>
                       <Badge variant={statusVariant(order.status)}>
                         {statusLabel[order.status] ?? order.status}
@@ -356,6 +398,43 @@ export default function OrdensServico() {
               <Label htmlFor="so_location">Local do problema</Label>
               <Input id="so_location" placeholder="Ex: Bloco A, 2º andar" value={form.location} onChange={(e) => updateField('location', e.target.value)} />
             </div>
+            {/* Emergency toggle */}
+            <div className="flex items-center justify-between rounded-lg border border-border p-3">
+              <div className="flex items-center gap-2">
+                <AlertTriangle className="h-4 w-4 text-destructive" />
+                <Label htmlFor="so_emergency" className="cursor-pointer">Emergencial?</Label>
+              </div>
+              <Switch id="so_emergency" checked={form.is_emergency} onCheckedChange={(v) => setForm(prev => ({ ...prev, is_emergency: v, emergency_justification: v ? prev.emergency_justification : '' }))} />
+            </div>
+            {form.is_emergency && (
+              <div className="space-y-2">
+                <Label htmlFor="so_emergency_just">Justificativa de emergência *</Label>
+                <Textarea id="so_emergency_just" placeholder="Descreva o motivo da emergência..." value={form.emergency_justification} onChange={(e) => setForm(prev => ({ ...prev, emergency_justification: e.target.value }))} />
+              </div>
+            )}
+
+            {/* Provider */}
+            <div className="space-y-2">
+              <Label>Prestador de Serviço</Label>
+              <Select value={form.provider_id} onValueChange={(v) => setForm(prev => ({ ...prev, provider_id: v }))}>
+                <SelectTrigger><SelectValue placeholder="Selecione (opcional)" /></SelectTrigger>
+                <SelectContent>
+                  {providers.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Ticket */}
+            <div className="space-y-2">
+              <Label>Chamado de origem</Label>
+              <Select value={form.ticket_id} onValueChange={(v) => setForm(prev => ({ ...prev, ticket_id: v }))}>
+                <SelectTrigger><SelectValue placeholder="Selecione (opcional)" /></SelectTrigger>
+                <SelectContent>
+                  {tickets.map(t => <SelectItem key={t.id} value={t.id}>{t.title}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+
             <div className="space-y-2">
               <Label>Fotos do problema (até 3)</Label>
               <Input type="file" accept="image/*" multiple onChange={handlePhotoChange} disabled={photos.length >= 3} />

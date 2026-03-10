@@ -15,7 +15,9 @@ interface Props {
   executorType: string | null;
   executorName: string | null;
   executionNotes: string | null;
-  canEdit: boolean; // SINDICO with AAL2 or ZELADOR
+  startedAt: string | null;
+  finishedAt: string | null;
+  canEdit: boolean;
   onSaved: () => void;
 }
 
@@ -30,6 +32,8 @@ export function OSExecutionCard({
   executorType,
   executorName,
   executionNotes,
+  startedAt,
+  finishedAt,
   canEdit,
   onSaved,
 }: Props) {
@@ -40,6 +44,8 @@ export function OSExecutionCard({
     executor_type: executorType ?? '',
     executor_name: executorName ?? '',
     execution_notes: executionNotes ?? '',
+    started_at: startedAt ? startedAt.slice(0, 16) : '',
+    finished_at: finishedAt ? finishedAt.slice(0, 16) : '',
   });
 
   const isInExecution = status === 'EM_EXECUCAO';
@@ -47,6 +53,11 @@ export function OSExecutionCard({
 
   const handleSave = async () => {
     setSaving(true);
+    if (form.started_at && form.finished_at && new Date(form.finished_at) <= new Date(form.started_at)) {
+      toast({ title: 'Data de conclusão deve ser posterior à data de início', variant: 'destructive' });
+      setSaving(false);
+      return;
+    }
     const { error } = await supabase
       .schema('nfe_vigia')
       .from('service_orders')
@@ -54,6 +65,8 @@ export function OSExecutionCard({
         executor_type: form.executor_type || null,
         executor_name: form.executor_name.trim() || null,
         execution_notes: form.execution_notes.trim() || null,
+        started_at: form.started_at ? new Date(form.started_at).toISOString() : null,
+        finished_at: form.finished_at ? new Date(form.finished_at).toISOString() : null,
       })
       .eq('id', orderId);
 
@@ -113,6 +126,24 @@ export function OSExecutionCard({
                 placeholder="Detalhes sobre o serviço realizado..."
                 rows={3}
               />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Data de início do serviço</Label>
+                <Input
+                  type="datetime-local"
+                  value={form.started_at}
+                  onChange={(e) => setForm((p) => ({ ...p, started_at: e.target.value }))}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Data de conclusão do serviço</Label>
+                <Input
+                  type="datetime-local"
+                  value={form.finished_at}
+                  onChange={(e) => setForm((p) => ({ ...p, finished_at: e.target.value }))}
+                />
+              </div>
             </div>
             <div className="flex gap-2 justify-end">
               <Button size="sm" variant="outline" onClick={() => setEditing(false)}>Cancelar</Button>
