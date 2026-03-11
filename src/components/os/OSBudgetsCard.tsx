@@ -83,8 +83,9 @@ export function OSBudgetsCard({ orderId, condoId, isEmergency, isSindico, isAdmi
     const { data } = await supabase
       .schema('nfe_vigia')
       .from('providers')
-      .select('id, trade_name')
+      .select('id, trade_name, risk_score')
       .eq('condo_id', condoId)
+      .eq('status', 'ativo')
       .order('trade_name');
     setProviders(data ?? []);
   };
