@@ -165,8 +165,10 @@ export default function Cadastro() {
         status: 'pendente',
         is_default: true,
       });
+      console.log('[Cadastro] Resultado do INSERT em user_condos:', { error: ucError });
       if (ucError) {
-        console.error('Error creating user_condos:', ucError.message, JSON.stringify(ucError));
+        console.error('[Cadastro] ERRO COMPLETO ao inserir user_condos:', ucError);
+        console.error('[Cadastro] ucError details:', JSON.stringify(ucError, null, 2));
       }
 
       // 5. INSERT em nfe_vigia.residents
