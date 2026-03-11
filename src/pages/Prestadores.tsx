@@ -145,7 +145,7 @@ export default function Prestadores() {
     }
     if (!condoId) return;
     setSaving(true);
-    const { error } = await supabase.schema('nfe_vigia').from('providers').insert({
+    const { error } = await supabase.from('providers').insert({
       condo_id: condoId,
       cnpj: form.cnpj || null,
       company_name: form.company_name || null,
