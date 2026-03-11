@@ -139,8 +139,7 @@ export default function Cadastro() {
         .update({
           full_name: fullName.trim(),
           email: email.trim(),
-          document: document.trim() || null,
-          document_type: docType.toUpperCase(),
+          cpf_rg: document.trim() || null,
           birth_date: birthDate || null,
           profile: 'MORADOR',
           status: 'pendente',
