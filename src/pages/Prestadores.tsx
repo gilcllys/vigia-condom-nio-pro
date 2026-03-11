@@ -91,7 +91,6 @@ export default function Prestadores() {
     if (!condoId) return;
     setLoading(true);
     const { data } = await supabase
-      .schema('nfe_vigia')
       .from('providers')
       .select('*')
       .eq('condo_id', condoId)
@@ -146,7 +145,7 @@ export default function Prestadores() {
     }
     if (!condoId) return;
     setSaving(true);
-    const { error } = await supabase.schema('nfe_vigia').from('providers').insert({
+    const { error } = await supabase.from('providers').insert({
       condo_id: condoId,
       cnpj: form.cnpj || null,
       company_name: form.company_name || null,
@@ -181,7 +180,6 @@ export default function Prestadores() {
     setRiskAnalysis(null);
     // Fetch latest risk analysis
     const { data } = await supabase
-      .schema('nfe_vigia')
       .from('provider_risk_analysis')
       .select('*')
       .eq('provider_id', provider.id)
@@ -219,7 +217,7 @@ export default function Prestadores() {
       if (data?.error) throw new Error(data.error);
 
       // Save analysis
-      const { error: insertError } = await supabase.schema('nfe_vigia').from('provider_risk_analysis').insert({
+      const { error: insertError } = await supabase.from('provider_risk_analysis').insert({
         provider_id: detailProvider.id,
         score: data.score ?? 0,
         risk_level: data.nivel_risco ?? 'MEDIO',
@@ -238,7 +236,7 @@ export default function Prestadores() {
       }
 
       // Update provider risk_score
-      await supabase.schema('nfe_vigia').from('providers').update({ risk_score: data.score ?? 0 }).eq('id', detailProvider.id);
+      await supabase.from('providers').update({ risk_score: data.score ?? 0 }).eq('id', detailProvider.id);
 
       setRiskAnalysis({
         id: '',
@@ -264,7 +262,7 @@ export default function Prestadores() {
 
   const toggleStatus = async (provider: Provider) => {
     const newStatus = provider.status === 'ativo' ? 'inativo' : 'ativo';
-    await supabase.schema('nfe_vigia').from('providers').update({ status: newStatus }).eq('id', provider.id);
+    await supabase.from('providers').update({ status: newStatus }).eq('id', provider.id);
     fetchProviders();
     if (detailProvider?.id === provider.id) {
       setDetailProvider(prev => prev ? { ...prev, status: newStatus } : null);
