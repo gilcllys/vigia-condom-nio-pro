@@ -144,6 +144,7 @@ export function OSBudgetsCard({ orderId, condoId, isEmergency, isSindico, isAdmi
 
     const { error } = await supabase.schema('nfe_vigia').from('budgets').insert({
       service_order_id: orderId,
+      condo_id: condoId,
       provider_name: providerName,
       description: form.description.trim(),
       amount: parseFloat(form.amount),
