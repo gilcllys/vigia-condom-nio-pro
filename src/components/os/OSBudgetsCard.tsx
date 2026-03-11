@@ -142,15 +142,18 @@ export function OSBudgetsCard({ orderId, condoId, isEmergency, isSindico, isAdmi
 
     const providerName = form.provider_name.trim() || providers.find(p => p.id === form.provider_id)?.trade_name || '';
 
+    const { data: { user } } = await supabase.auth.getUser();
+
     const insertPayload = {
       service_order_id: orderId,
       condo_id: condoId,
       provider_name: providerName,
       description: form.description.trim(),
-      amount: parseFloat(form.amount),
+      total_value: parseFloat(form.amount),
       file_url: fileUrl,
       status: 'pendente',
       valid_until: form.valid_until || null,
+      created_by_user_id: user?.id ?? null,
     };
     console.log('[OSBudgetsCard] Insert payload:', JSON.stringify(insertPayload, null, 2));
 
