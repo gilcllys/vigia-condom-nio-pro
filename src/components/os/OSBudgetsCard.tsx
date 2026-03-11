@@ -55,7 +55,6 @@ export function OSBudgetsCard({ orderId, condoId, isEmergency, isSindico, isAdmi
   const [submitting, setSubmitting] = useState(false);
   const [form, setForm] = useState({
     provider_id: '',
-    provider_name: '',
     description: '',
     amount: '',
     valid_until: '',
