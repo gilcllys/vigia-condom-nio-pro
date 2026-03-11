@@ -332,11 +332,7 @@ export function OSBudgetsCard({ orderId, condoId, isEmergency, isSindico, isAdmi
                   </SelectContent>
                 </Select>
               ) : (
-                <Input
-                  value={form.provider_name}
-                  onChange={(e) => setForm(prev => ({ ...prev, provider_name: e.target.value }))}
-                  placeholder="Nome do prestador"
-                />
+                <p className="text-sm text-muted-foreground">Nenhum prestador cadastrado.</p>
               )}
             </div>
             <div className="space-y-2">
