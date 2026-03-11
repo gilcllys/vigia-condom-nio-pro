@@ -122,8 +122,8 @@ export default function Cadastro() {
         });
 
       if (userError) {
-        console.error('Error creating user:', userError);
-        toast({ title: 'Erro ao salvar dados', description: 'Tente novamente.', variant: 'destructive' });
+        console.error('Error creating user:', userError.message, userError.code, JSON.stringify(userError));
+        toast({ title: 'Erro ao salvar dados', description: userError.message, variant: 'destructive' });
         setSaving(false);
         return;
       }
