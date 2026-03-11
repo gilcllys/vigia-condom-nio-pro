@@ -107,7 +107,7 @@ export default function Cadastro() {
       }
 
       // 2. Create user in nfe_vigia.users
-      const { error: userError } = await supabase
+      const { data: newUser, error: userError } = await supabase
         .from('users')
         .insert({
           auth_user_id: authUserId,
@@ -116,26 +116,21 @@ export default function Cadastro() {
           document: document.trim() || null,
           document_type: docType.toUpperCase(),
           birth_date: birthDate || null,
-          user_profile: 'MORADOR',
+          profile: 'MORADOR',
           status: 'pendente',
           condo_id: condoId,
-        });
+        })
+        .select('id')
+        .single();
 
-      if (userError) {
-        console.error('Error creating user:', userError.message, userError.code, JSON.stringify(userError));
-        toast({ title: 'Erro ao salvar dados', description: userError.message, variant: 'destructive' });
+      if (userError || !newUser) {
+        console.error('Error creating user:', userError?.message, userError?.code, JSON.stringify(userError));
+        toast({ title: 'Erro ao salvar dados', description: userError?.message || 'Usuário não criado', variant: 'destructive' });
         setSaving(false);
         return;
       }
 
-      // Get the user row id
-      const { data: userRow } = await supabase
-        .from('users')
-        .select('id')
-        .eq('auth_user_id', authUserId)
-        .single();
-
-      const userId = userRow?.id;
+      const userId = newUser.id;
 
       // 3. Create resident
       const residentPayload: Record<string, any> = {
@@ -143,7 +138,7 @@ export default function Cadastro() {
         full_name: fullName.trim(),
         email: email.trim(),
         document: document.trim() || null,
-        user_id: userId || null,
+        user_id: userId,
       };
 
       if (residenceType === 'apartamento') {
@@ -155,17 +150,24 @@ export default function Cadastro() {
         residentPayload.unit_label = complement.trim() || null;
       }
 
-      await supabase.from('residents').insert(residentPayload);
+      const { error: residentError } = await supabase.from('residents').insert(residentPayload);
+      if (residentError) {
+        console.error('Error creating resident:', residentError.message, JSON.stringify(residentError));
+        toast({ title: 'Erro ao salvar morador', description: residentError.message, variant: 'destructive' });
+        setSaving(false);
+        return;
+      }
 
       // 4. Create user_condos
-      if (userId) {
-        await supabase.from('user_condos').insert({
-          user_id: userId,
-          condo_id: condoId,
-          role: 'MORADOR',
-          status: 'pendente',
-          is_default: true,
-        });
+      const { error: ucError } = await supabase.from('user_condos').insert({
+        user_id: userId,
+        condo_id: condoId,
+        role: 'MORADOR',
+        status: 'pendente',
+        is_default: true,
+      });
+      if (ucError) {
+        console.error('Error creating user_condos:', ucError.message, JSON.stringify(ucError));
       }
 
       // Sign out the pending user
