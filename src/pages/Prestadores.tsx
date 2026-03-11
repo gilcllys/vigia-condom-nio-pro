@@ -236,7 +236,7 @@ export default function Prestadores() {
       }
 
       // Update provider risk_score
-      await supabase.schema('nfe_vigia').from('providers').update({ risk_score: data.score ?? 0 }).eq('id', detailProvider.id);
+      await supabase.from('providers').update({ risk_score: data.score ?? 0 }).eq('id', detailProvider.id);
 
       setRiskAnalysis({
         id: '',
