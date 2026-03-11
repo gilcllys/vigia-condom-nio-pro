@@ -180,7 +180,6 @@ export default function Prestadores() {
     setRiskAnalysis(null);
     // Fetch latest risk analysis
     const { data } = await supabase
-      .schema('nfe_vigia')
       .from('provider_risk_analysis')
       .select('*')
       .eq('provider_id', provider.id)
