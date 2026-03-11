@@ -61,17 +61,21 @@ export default function RoleChangeDialog({
       return;
     }
 
-    await logActivity({
-      condoId,
-      action: 'update',
-      entity: 'user_condo',
-      entityId: userCondoUserId,
-      description: `Função de "${residentName}" alterada para ${ROLE_LABELS[role] ?? role}`,
-    });
+    try {
+      await logActivity({
+        condoId,
+        action: 'update',
+        entity: 'user_condo',
+        entityId: userCondoUserId,
+        description: `Função de "${residentName}" alterada para ${ROLE_LABELS[role] ?? role}`,
+      });
+    } catch (e) {
+      console.warn('[RoleChangeDialog] logActivity falhou (ignorado):', e);
+    }
     toast({ title: `Função alterada para ${ROLE_LABELS[role] ?? role}` });
-    onSaved();
     onOpenChange(false);
     setSaving(false);
+    onSaved();
   };
 
   return (
