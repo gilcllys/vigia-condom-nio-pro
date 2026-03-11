@@ -59,7 +59,7 @@ export function OSBudgetsCard({ orderId, condoId, isEmergency, isSindico, isAdmi
     amount: '',
     valid_until: '',
   });
-  const [file, setFile] = useState<File | null>(null);
+  
 
   const isNotFinished = status !== 'FINALIZADA' && status !== 'CANCELADA';
   const canManage = (isSindico || isAdmin || canCriticalActions) && isNotFinished;
