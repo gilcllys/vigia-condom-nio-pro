@@ -27,6 +27,7 @@ const allMenuItems: MenuItem[] = [
   { title: 'Almoxarifado', url: '/almoxarifado', icon: Warehouse },
   { title: 'Portal da Transparência', url: '/transparencia', icon: Eye },
   { title: 'Moradores', url: '/moradores', icon: Users },
+  { title: 'Prestadores', url: '/prestadores', icon: Briefcase },
   { title: 'Condomínios', url: '/condominios', icon: Building2 },
   { title: 'Configurações', url: '/configuracoes', icon: Settings },
 ];
