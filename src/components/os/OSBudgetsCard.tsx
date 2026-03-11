@@ -188,13 +188,25 @@ export function OSBudgetsCard({ orderId, condoId, isEmergency, isSindico, isAdmi
 
     const deadlineHours = config?.approval_deadline_hours ?? 48;
 
-    const { data: approvers } = await supabase
+    console.log('[OSBudgetsCard] condoId usado na query de aprovadores:', condoId);
+
+    const { data: allUserCondos } = await supabase
+      .schema('nfe_vigia')
+      .from('user_condos')
+      .select('user_id, role, status, condo_id')
+      .eq('condo_id', condoId);
+
+    console.log('[OSBudgetsCard] Todos user_condos para este condo:', allUserCondos);
+
+    const { data: approvers, error: approversError } = await supabase
       .schema('nfe_vigia')
       .from('user_condos')
       .select('user_id, role, users!inner(id, full_name)')
       .eq('condo_id', condoId)
       .in('role', ['SUBSINDICO', 'CONSELHO'])
       .eq('status', 'ativo');
+
+    console.log('[OSBudgetsCard] Aprovadores filtrados:', approvers, 'Erro:', approversError);
 
     if (!approvers || approvers.length === 0) {
       toast({ title: 'Nenhum aprovador encontrado', description: 'Cadastre Subsíndico ou Conselheiros antes de enviar para aprovação.', variant: 'destructive' });
