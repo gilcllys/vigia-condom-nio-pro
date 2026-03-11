@@ -332,9 +332,13 @@ export function OSBudgetsCard({ orderId, condoId, isEmergency, isSindico, isAdmi
                     <SelectValue placeholder="Selecione o prestador" />
                   </SelectTrigger>
                   <SelectContent>
-                    {providers.map(p => (
-                      <SelectItem key={p.id} value={p.id}>{p.trade_name}</SelectItem>
-                    ))}
+                    {providers.map(p => {
+                      const score = p.risk_score;
+                      const riskLabel = score === null ? '' : score >= 80 ? ' 🟢' : score >= 60 ? ' 🟡' : score >= 40 ? ' 🟠' : ' 🔴';
+                      return (
+                        <SelectItem key={p.id} value={p.id}>{p.trade_name}{riskLabel}</SelectItem>
+                      );
+                    })}
                   </SelectContent>
                 </Select>
               ) : (
