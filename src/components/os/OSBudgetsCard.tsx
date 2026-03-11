@@ -353,14 +353,6 @@ export function OSBudgetsCard({ orderId, condoId, isEmergency, isSindico, isAdmi
               />
             </div>
             <div className="space-y-2">
-              <Label>Arquivo (PDF ou imagem)</Label>
-              <Input
-                type="file"
-                accept=".pdf,.jpg,.jpeg,.png,.webp,.heic"
-                onChange={(e) => setFile(e.target.files?.[0] ?? null)}
-              />
-            </div>
-            <div className="space-y-2">
               <Label>Data de validade</Label>
               <Input
                 type="date"
