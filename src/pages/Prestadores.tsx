@@ -217,7 +217,7 @@ export default function Prestadores() {
       if (data?.error) throw new Error(data.error);
 
       // Save analysis
-      const { error: insertError } = await supabase.schema('nfe_vigia').from('provider_risk_analysis').insert({
+      const { error: insertError } = await supabase.from('provider_risk_analysis').insert({
         provider_id: detailProvider.id,
         score: data.score ?? 0,
         risk_level: data.nivel_risco ?? 'MEDIO',
