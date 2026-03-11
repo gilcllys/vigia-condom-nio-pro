@@ -14,7 +14,7 @@ import { DollarSign, Plus, Send, Trash2, FileText, Calendar } from 'lucide-react
 
 interface Budget {
   id: string;
-  provider_name: string;
+  provider_id: string | null;
   description: string | null;
   total_value: number;
   status: string | null;
