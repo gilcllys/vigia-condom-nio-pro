@@ -12,15 +12,6 @@ interface InviteLinkDialogProps {
   condoId: string;
 }
 
-function generateCode(): string {
-  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghkmnpqrstuvwxyz23456789';
-  let code = '';
-  for (let i = 0; i < 8; i++) {
-    code += chars[Math.floor(Math.random() * chars.length)];
-  }
-  return code;
-}
-
 export default function InviteLinkDialog({ open, onOpenChange, condoId }: InviteLinkDialogProps) {
   const { toast } = useToast();
   const [loading, setLoading] = useState(true);
@@ -51,33 +42,46 @@ export default function InviteLinkDialog({ open, onOpenChange, condoId }: Invite
 
   const handleGenerate = async () => {
     setGenerating(true);
-    const code = generateCode();
-    const { error } = await supabase
-      .from('condos')
-      .update({ invite_code: code, invite_active: true })
-      .eq('id', condoId);
+    try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const token = sessionData?.session?.access_token;
 
-    if (error) {
+      const resp = await supabase.functions.invoke('generate-invite', {
+        body: { condoId },
+        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+      });
+
+      if (resp.error || resp.data?.error) {
+        toast({ title: 'Erro ao gerar link', description: resp.data?.error || 'Tente novamente.', variant: 'destructive' });
+      } else {
+        setInviteCode(resp.data.invite_code);
+        setInviteActive(true);
+        toast({ title: 'Link de convite gerado!' });
+      }
+    } catch {
       toast({ title: 'Erro ao gerar link', description: 'Tente novamente.', variant: 'destructive' });
-    } else {
-      setInviteCode(code);
-      setInviteActive(true);
-      toast({ title: 'Link de convite gerado!' });
     }
     setGenerating(false);
   };
 
   const handleDeactivate = async () => {
-    const { error } = await supabase
-      .from('condos')
-      .update({ invite_active: false })
-      .eq('id', condoId);
+    try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const token = sessionData?.session?.access_token;
 
-    if (error) {
+      const resp = await supabase.functions.invoke('generate-invite', {
+        body: { condoId, action: 'deactivate' },
+        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+      });
+
+      if (resp.error || resp.data?.error) {
+        toast({ title: 'Erro ao desativar link', variant: 'destructive' });
+      } else {
+        setInviteActive(false);
+        toast({ title: 'Link desativado' });
+      }
+    } catch {
       toast({ title: 'Erro ao desativar link', variant: 'destructive' });
-    } else {
-      setInviteActive(false);
-      toast({ title: 'Link desativado' });
     }
   };
 
