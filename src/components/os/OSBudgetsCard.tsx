@@ -93,7 +93,6 @@ export function OSBudgetsCard({ orderId, condoId, isEmergency, isSindico, isAdmi
 
   const handleOpenModal = () => {
     setForm({ provider_id: '', provider_name: '', description: '', amount: '', valid_until: '' });
-    setFile(null);
     setModalOpen(true);
   };
 
