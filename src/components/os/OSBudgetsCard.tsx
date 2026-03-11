@@ -17,7 +17,6 @@ interface Budget {
   provider_name: string;
   description: string | null;
   total_value: number;
-  file_url: string | null;
   status: string | null;
   valid_until: string | null;
   created_at: string;
@@ -61,7 +60,7 @@ export function OSBudgetsCard({ orderId, condoId, isEmergency, isSindico, isAdmi
     amount: '',
     valid_until: '',
   });
-  const [file, setFile] = useState<File | null>(null);
+  
 
   const isNotFinished = status !== 'FINALIZADA' && status !== 'CANCELADA';
   const canManage = (isSindico || isAdmin || canCriticalActions) && isNotFinished;
@@ -95,7 +94,6 @@ export function OSBudgetsCard({ orderId, condoId, isEmergency, isSindico, isAdmi
 
   const handleOpenModal = () => {
     setForm({ provider_id: '', provider_name: '', description: '', amount: '', valid_until: '' });
-    setFile(null);
     setModalOpen(true);
   };
 
@@ -124,22 +122,6 @@ export function OSBudgetsCard({ orderId, condoId, isEmergency, isSindico, isAdmi
 
     setSaving(true);
 
-    let fileUrl: string | null = null;
-
-    if (file) {
-      const ext = file.name.split('.').pop();
-      const path = `budgets/${orderId}/${crypto.randomUUID()}.${ext}`;
-      const { error: uploadError } = await supabase.storage
-        .from('nfe-vigia')
-        .upload(path, file, { contentType: file.type });
-      if (uploadError) {
-        toast({ title: 'Erro ao enviar arquivo', description: uploadError.message, variant: 'destructive' });
-        setSaving(false);
-        return;
-      }
-      fileUrl = path;
-    }
-
     const providerName = form.provider_name.trim() || providers.find(p => p.id === form.provider_id)?.trade_name || '';
 
     const { data: { user } } = await supabase.auth.getUser();
@@ -150,7 +132,6 @@ export function OSBudgetsCard({ orderId, condoId, isEmergency, isSindico, isAdmi
       provider_name: providerName,
       description: form.description.trim(),
       total_value: parseFloat(form.amount),
-      file_url: fileUrl,
       status: 'pendente',
       valid_until: form.valid_until || null,
       created_by_user_id: user?.id ?? null,
@@ -305,12 +286,6 @@ export function OSBudgetsCard({ orderId, condoId, isEmergency, isSindico, isAdmi
                           Válido até {new Date(b.valid_until).toLocaleDateString('pt-BR')}
                         </span>
                       )}
-                      {b.file_url && (
-                        <span className="flex items-center gap-1">
-                          <FileText className="h-3 w-3" />
-                          Arquivo anexo
-                        </span>
-                      )}
                     </div>
                   </div>
                   {canManage && (
@@ -375,14 +350,6 @@ export function OSBudgetsCard({ orderId, condoId, isEmergency, isSindico, isAdmi
                 value={form.amount}
                 onChange={(e) => setForm(prev => ({ ...prev, amount: e.target.value }))}
                 placeholder="0,00"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>Arquivo (PDF ou imagem)</Label>
-              <Input
-                type="file"
-                accept=".pdf,.jpg,.jpeg,.png,.webp,.heic"
-                onChange={(e) => setFile(e.target.files?.[0] ?? null)}
               />
             </div>
             <div className="space-y-2">
