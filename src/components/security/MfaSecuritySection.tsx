@@ -45,7 +45,7 @@ export function MfaSecuritySection() {
     const [factorsRes, aalRes, critRes] = await Promise.all([
       supabase.auth.mfa.listFactors(),
       supabase.auth.mfa.getAuthenticatorAssuranceLevel(),
-      supabase.schema('nfe_vigia').rpc('can_current_user_do_sindico_critical_actions'),
+      supabase.schema('nfe_vigia').rpc('is_current_user_sindico_aal2'),
     ]);
 
     const totp = (factorsRes.data?.totp as TOTPFactor[]) ?? [];

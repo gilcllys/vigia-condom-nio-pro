@@ -141,7 +141,7 @@ export default function OrdemServicoDetalhe() {
 
   useEffect(() => {
     const checkCritical = async () => {
-      const { data } = await supabase.schema('nfe_vigia').rpc('can_current_user_do_sindico_critical_actions');
+      const { data } = await supabase.schema('nfe_vigia').rpc('is_current_user_sindico_aal2');
       setCanCriticalActions(!!data);
     };
     checkCritical();
