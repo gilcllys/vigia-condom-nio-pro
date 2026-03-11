@@ -110,11 +110,14 @@ export default function Cadastro() {
       let userId: string | null = null;
       // Aguardar um pouco para o trigger criar o registro
       for (let attempt = 0; attempt < 5; attempt++) {
-        const { data: existingUser } = await supabase
+        console.log(`[Cadastro] Tentativa ${attempt + 1} de buscar user por auth_user_id:`, authUserId);
+        const { data: existingUser, error: fetchError } = await supabase
           .from('users')
           .select('id')
           .eq('auth_user_id', authUserId)
           .maybeSingle();
+
+        console.log('[Cadastro] Resultado da busca:', { data: existingUser, error: fetchError });
 
         if (existingUser?.id) {
           userId = existingUser.id;
