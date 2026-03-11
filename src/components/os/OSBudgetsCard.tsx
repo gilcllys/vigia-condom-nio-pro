@@ -125,6 +125,18 @@ export function OSBudgetsCard({ orderId, condoId, isEmergency, isSindico, isAdmi
     const providerName = form.provider_name.trim() || providers.find(p => p.id === form.provider_id)?.trade_name || '';
 
     const { data: { user } } = await supabase.auth.getUser();
+    const authUid = user?.id;
+
+    let nfeUserId: string | null = null;
+    if (authUid) {
+      const { data: userData } = await supabase
+        .schema('nfe_vigia')
+        .from('users')
+        .select('id')
+        .eq('auth_user_id', authUid)
+        .maybeSingle();
+      nfeUserId = userData?.id ?? null;
+    }
 
     const insertPayload = {
       service_order_id: orderId,
@@ -134,7 +146,7 @@ export function OSBudgetsCard({ orderId, condoId, isEmergency, isSindico, isAdmi
       total_value: parseFloat(form.amount),
       status: 'pendente',
       valid_until: form.valid_until || null,
-      created_by_user_id: user?.id ?? null,
+      created_by_user_id: nfeUserId,
     };
     console.log('[OSBudgetsCard] Insert payload:', JSON.stringify(insertPayload, null, 2));
 
