@@ -66,7 +66,7 @@ export default function RoleChangeDialog({
     const { error: usersError } = await supabase
       .schema('nfe_vigia')
       .from('users')
-      .update({ user_profile: role })
+      .update({ profile: role })
       .eq('id', userCondoUserId);
 
     if (usersError) {
