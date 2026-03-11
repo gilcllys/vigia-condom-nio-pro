@@ -73,7 +73,6 @@ export function OSApprovalCard({ orderId, condoId, approvalType, title, isSindic
       .from('approvals')
       .select('*')
       .eq('service_order_id', orderId)
-      .eq('approval_type', approvalType)
       .order('created_at', { ascending: true });
 
     if (data) {
