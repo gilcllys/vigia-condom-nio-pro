@@ -16,7 +16,6 @@ interface Approval {
   id: string;
   approver_id: string;
   approver_role: string;
-  approval_type: string;
   decision: string;
   justification: string | null;
   expires_at: string;
