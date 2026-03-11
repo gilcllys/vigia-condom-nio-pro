@@ -110,11 +110,14 @@ export default function Cadastro() {
       let userId: string | null = null;
       // Aguardar um pouco para o trigger criar o registro
       for (let attempt = 0; attempt < 5; attempt++) {
-        const { data: existingUser } = await supabase
+        console.log(`[Cadastro] Tentativa ${attempt + 1} de buscar user por auth_user_id:`, authUserId);
+        const { data: existingUser, error: fetchError } = await supabase
           .from('users')
           .select('id')
           .eq('auth_user_id', authUserId)
           .maybeSingle();
+
+        console.log('[Cadastro] Resultado da busca:', { data: existingUser, error: fetchError });
 
         if (existingUser?.id) {
           userId = existingUser.id;
@@ -145,8 +148,10 @@ export default function Cadastro() {
         })
         .eq('id', userId);
 
+      console.log('[Cadastro] Resultado do UPDATE em users:', { error: updateError });
       if (updateError) {
-        console.error('Error updating user:', updateError.message, JSON.stringify(updateError));
+        console.error('[Cadastro] ERRO COMPLETO ao atualizar users:', updateError);
+        console.error('[Cadastro] updateError details:', JSON.stringify(updateError, null, 2));
         toast({ title: 'Erro ao salvar dados', description: updateError.message, variant: 'destructive' });
         setSaving(false);
         return;
@@ -160,8 +165,10 @@ export default function Cadastro() {
         status: 'pendente',
         is_default: true,
       });
+      console.log('[Cadastro] Resultado do INSERT em user_condos:', { error: ucError });
       if (ucError) {
-        console.error('Error creating user_condos:', ucError.message, JSON.stringify(ucError));
+        console.error('[Cadastro] ERRO COMPLETO ao inserir user_condos:', ucError);
+        console.error('[Cadastro] ucError details:', JSON.stringify(ucError, null, 2));
       }
 
       // 5. INSERT em nfe_vigia.residents
@@ -182,9 +189,12 @@ export default function Cadastro() {
         residentPayload.unit_label = complement.trim() || null;
       }
 
+      console.log('[Cadastro] Payload do residents:', residentPayload);
       const { error: residentError } = await supabase.from('residents').insert(residentPayload);
+      console.log('[Cadastro] Resultado do INSERT em residents:', { error: residentError });
       if (residentError) {
-        console.error('Error creating resident:', residentError.message, JSON.stringify(residentError));
+        console.error('[Cadastro] ERRO COMPLETO ao inserir residents:', residentError);
+        console.error('[Cadastro] residentError details:', JSON.stringify(residentError, null, 2));
         toast({ title: 'Erro ao salvar morador', description: residentError.message, variant: 'destructive' });
         setSaving(false);
         return;
