@@ -19,17 +19,18 @@ import { Plus, Search, Building2, CheckCircle2, AlertTriangle, XCircle, Shield, 
 
 interface Provider {
   id: string;
-  cnpj: string | null;
-  company_name: string | null;
+  document: string | null;
+  legal_name: string | null;
   trade_name: string;
   phone: string | null;
   email: string | null;
   address: string | null;
-  city: string | null;
-  state: string | null;
+  neighborhood: string | null;
+  cidade: string | null;
+  estado: string | null;
   zip_code: string | null;
-  service_type: string | null;
-  notes: string | null;
+  tipo_servico: string | null;
+  observacoes: string | null;
   status: string;
   risk_score: number | null;
   created_at: string;
@@ -83,8 +84,8 @@ export default function Prestadores() {
   const [searchingCnpj, setSearchingCnpj] = useState(false);
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState({
-    cnpj: '', company_name: '', trade_name: '', phone: '', email: '',
-    address: '', city: '', state: '', zip_code: '', service_type: '', notes: '',
+    document: '', legal_name: '', trade_name: '', phone: '', email: '',
+    address: '', neighborhood: '', cidade: '', estado: '', zip_code: '', tipo_servico: '', observacoes: '',
   });
 
   const fetchProviders = async () => {
@@ -117,19 +118,20 @@ export default function Prestadores() {
       const res = await fetch(`https://brasilapi.com.br/api/cnpj/v1/${cnpj}`);
       if (!res.ok) throw new Error('CNPJ não encontrado');
       const data = await res.json();
-      const parts = [data.logradouro, data.numero, data.complemento, data.bairro].filter(Boolean);
+      const parts = [data.logradouro, data.numero, data.complemento].filter(Boolean);
       setForm({
-        cnpj: data.cnpj || cnpj,
-        company_name: data.razao_social || '',
+        document: data.cnpj || cnpj,
+        legal_name: data.razao_social || '',
         trade_name: data.nome_fantasia || data.razao_social || '',
         phone: data.ddd_telefone_1 || '',
         email: data.email || '',
         address: parts.join(', '),
-        city: data.municipio || '',
-        state: data.uf || '',
+        neighborhood: data.bairro || '',
+        cidade: data.municipio || '',
+        estado: data.uf || '',
         zip_code: data.cep || '',
-        service_type: form.service_type,
-        notes: form.notes,
+        tipo_servico: form.tipo_servico,
+        observacoes: form.observacoes,
       });
       toast({ title: 'Dados do CNPJ carregados com sucesso' });
     } catch {
@@ -147,17 +149,18 @@ export default function Prestadores() {
     setSaving(true);
     const { error } = await supabase.from('providers').insert({
       condo_id: condoId,
-      cnpj: form.cnpj || null,
-      company_name: form.company_name || null,
+      document: form.document || null,
+      legal_name: form.legal_name || null,
       trade_name: form.trade_name,
       phone: form.phone || null,
       email: form.email || null,
       address: form.address || null,
-      city: form.city || null,
-      state: form.state || null,
+      neighborhood: form.neighborhood || null,
+      cidade: form.cidade || null,
+      estado: form.estado || null,
       zip_code: form.zip_code || null,
-      service_type: form.service_type || null,
-      notes: form.notes || null,
+      tipo_servico: form.tipo_servico || null,
+      observacoes: form.observacoes || null,
     });
     if (error) {
       toast({ title: 'Erro ao salvar prestador', description: error.message, variant: 'destructive' });
@@ -172,13 +175,12 @@ export default function Prestadores() {
 
   const resetForm = () => {
     setCnpjSearch('');
-    setForm({ cnpj: '', company_name: '', trade_name: '', phone: '', email: '', address: '', city: '', state: '', zip_code: '', service_type: '', notes: '' });
+    setForm({ document: '', legal_name: '', trade_name: '', phone: '', email: '', address: '', neighborhood: '', cidade: '', estado: '', zip_code: '', tipo_servico: '', observacoes: '' });
   };
 
   const openDetail = async (provider: Provider) => {
     setDetailProvider(provider);
     setRiskAnalysis(null);
-    // Fetch latest risk analysis
     const { data } = await supabase
       .from('provider_risk_analysis')
       .select('*')
@@ -196,19 +198,17 @@ export default function Prestadores() {
   };
 
   const handleAnalyzeRisk = async () => {
-    if (!detailProvider?.cnpj) {
+    if (!detailProvider?.document) {
       toast({ title: 'Prestador sem CNPJ cadastrado', variant: 'destructive' });
       return;
     }
     setAnalyzingRisk(true);
     try {
-      // Fetch fresh CNPJ data
-      const cnpj = detailProvider.cnpj.replace(/\D/g, '');
+      const cnpj = detailProvider.document.replace(/\D/g, '');
       const cnpjRes = await fetch(`https://brasilapi.com.br/api/cnpj/v1/${cnpj}`);
       if (!cnpjRes.ok) throw new Error('Não foi possível consultar CNPJ');
       const cnpjData = await cnpjRes.json();
 
-      // Call edge function
       const { data, error } = await supabase.functions.invoke('analyze-provider-risk', {
         body: { cnpjData },
       });
@@ -216,7 +216,6 @@ export default function Prestadores() {
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
 
-      // Save analysis
       const { error: insertError } = await supabase.from('provider_risk_analysis').insert({
         provider_id: detailProvider.id,
         score: data.score ?? 0,
@@ -235,7 +234,6 @@ export default function Prestadores() {
         toast({ title: 'Análise concluída mas houve erro ao salvar', variant: 'destructive' });
       }
 
-      // Update provider risk_score
       await supabase.from('providers').update({ risk_score: data.score ?? 0 }).eq('id', detailProvider.id);
 
       setRiskAnalysis({
@@ -311,9 +309,9 @@ export default function Prestadores() {
                     <TableRow key={p.id} className="cursor-pointer" onClick={() => openDetail(p)}>
                       <TableCell className="font-medium">{p.trade_name}</TableCell>
                       <TableCell className="text-muted-foreground">
-                        {p.cnpj ? p.cnpj.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/, '$1.$2.$3/$4-$5') : '—'}
+                        {p.document ? p.document.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/, '$1.$2.$3/$4-$5') : '—'}
                       </TableCell>
-                      <TableCell>{p.service_type || '—'}</TableCell>
+                      <TableCell>{p.tipo_servico || '—'}</TableCell>
                       <TableCell>
                         <Badge className={p.status === 'ativo'
                           ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
@@ -365,7 +363,7 @@ export default function Prestadores() {
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2 col-span-2">
                 <Label>Razão Social *</Label>
-                <Input value={form.company_name} onChange={e => setForm(f => ({ ...f, company_name: e.target.value }))} />
+                <Input value={form.legal_name} onChange={e => setForm(f => ({ ...f, legal_name: e.target.value }))} />
               </div>
               <div className="space-y-2 col-span-2">
                 <Label>Nome Fantasia *</Label>
@@ -384,12 +382,16 @@ export default function Prestadores() {
                 <Input value={form.address} onChange={e => setForm(f => ({ ...f, address: e.target.value }))} />
               </div>
               <div className="space-y-2">
+                <Label>Bairro</Label>
+                <Input value={form.neighborhood} onChange={e => setForm(f => ({ ...f, neighborhood: e.target.value }))} />
+              </div>
+              <div className="space-y-2">
                 <Label>Cidade</Label>
-                <Input value={form.city} onChange={e => setForm(f => ({ ...f, city: e.target.value }))} />
+                <Input value={form.cidade} onChange={e => setForm(f => ({ ...f, cidade: e.target.value }))} />
               </div>
               <div className="space-y-2">
                 <Label>Estado</Label>
-                <Input value={form.state} onChange={e => setForm(f => ({ ...f, state: e.target.value }))} maxLength={2} />
+                <Input value={form.estado} onChange={e => setForm(f => ({ ...f, estado: e.target.value }))} maxLength={2} />
               </div>
               <div className="space-y-2">
                 <Label>CEP</Label>
@@ -397,7 +399,7 @@ export default function Prestadores() {
               </div>
               <div className="space-y-2">
                 <Label>Tipo de Serviço</Label>
-                <Select value={form.service_type} onValueChange={v => setForm(f => ({ ...f, service_type: v }))}>
+                <Select value={form.tipo_servico} onValueChange={v => setForm(f => ({ ...f, tipo_servico: v }))}>
                   <SelectTrigger>
                     <SelectValue placeholder="Selecione" />
                   </SelectTrigger>
@@ -409,7 +411,7 @@ export default function Prestadores() {
             </div>
             <div className="space-y-2">
               <Label>Observações</Label>
-              <Textarea value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} rows={2} />
+              <Textarea value={form.observacoes} onChange={e => setForm(f => ({ ...f, observacoes: e.target.value }))} rows={2} />
             </div>
           </div>
           <DialogFooter>
@@ -430,8 +432,8 @@ export default function Prestadores() {
               {detailProvider?.trade_name}
             </DialogTitle>
             <DialogDescription>
-              {detailProvider?.company_name && detailProvider.company_name !== detailProvider.trade_name
-                ? detailProvider.company_name
+              {detailProvider?.legal_name && detailProvider.legal_name !== detailProvider.trade_name
+                ? detailProvider.legal_name
                 : 'Detalhes do prestador'}
             </DialogDescription>
           </DialogHeader>
@@ -440,13 +442,13 @@ export default function Prestadores() {
             <div className="space-y-6 py-2">
               {/* Info */}
               <div className="grid grid-cols-2 gap-3 text-sm">
-                {detailProvider.cnpj && (
-                  <div><span className="text-muted-foreground">CNPJ:</span> {detailProvider.cnpj.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/, '$1.$2.$3/$4-$5')}</div>
+                {detailProvider.document && (
+                  <div><span className="text-muted-foreground">CNPJ:</span> {detailProvider.document.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/, '$1.$2.$3/$4-$5')}</div>
                 )}
                 {detailProvider.phone && <div><span className="text-muted-foreground">Telefone:</span> {detailProvider.phone}</div>}
                 {detailProvider.email && <div><span className="text-muted-foreground">Email:</span> {detailProvider.email}</div>}
-                {detailProvider.service_type && <div><span className="text-muted-foreground">Serviço:</span> {detailProvider.service_type}</div>}
-                {detailProvider.city && <div><span className="text-muted-foreground">Cidade:</span> {detailProvider.city}/{detailProvider.state}</div>}
+                {detailProvider.tipo_servico && <div><span className="text-muted-foreground">Serviço:</span> {detailProvider.tipo_servico}</div>}
+                {detailProvider.cidade && <div><span className="text-muted-foreground">Cidade:</span> {detailProvider.cidade}/{detailProvider.estado}</div>}
                 <div>
                   <span className="text-muted-foreground">Situação:</span>{' '}
                   <Badge className={detailProvider.status === 'ativo'
@@ -466,7 +468,7 @@ export default function Prestadores() {
                     size="sm"
                     variant="outline"
                     onClick={handleAnalyzeRisk}
-                    disabled={analyzingRisk || !detailProvider.cnpj}
+                    disabled={analyzingRisk || !detailProvider.document}
                   >
                     {analyzingRisk ? (
                       <><Loader2 className="h-4 w-4 animate-spin mr-1" /> Analisando...</>
@@ -490,7 +492,6 @@ export default function Prestadores() {
                 {riskAnalysis && !analyzingRisk && (
                   <Card>
                     <CardContent className="pt-4 space-y-4">
-                      {/* Score and Recommendation */}
                       <div className="flex items-center gap-4 flex-wrap">
                         <div className="text-center">
                           <div className="text-3xl font-bold text-foreground">{riskAnalysis.score}</div>
@@ -510,12 +511,10 @@ export default function Prestadores() {
                         )}
                       </div>
 
-                      {/* Summary */}
                       {riskAnalysis.summary && (
                         <p className="text-sm text-muted-foreground border-l-2 border-primary pl-3">{riskAnalysis.summary}</p>
                       )}
 
-                      {/* Points */}
                       {riskAnalysis.positive_points.length > 0 && (
                         <div>
                           <h4 className="text-sm font-medium text-foreground mb-1 flex items-center gap-1">
@@ -542,7 +541,6 @@ export default function Prestadores() {
                         </div>
                       )}
 
-                      {/* Full Report */}
                       {riskAnalysis.full_report && (
                         <details className="text-sm">
                           <summary className="cursor-pointer text-primary font-medium">Ver relatório completo</summary>
@@ -559,7 +557,7 @@ export default function Prestadores() {
 
                 {!riskAnalysis && !analyzingRisk && (
                   <p className="text-sm text-muted-foreground">
-                    {detailProvider.cnpj
+                    {detailProvider.document
                       ? 'Nenhuma análise realizada. Clique em "Analisar Risco" para gerar o relatório.'
                       : 'Cadastre o CNPJ do prestador para habilitar a análise de risco.'}
                   </p>
