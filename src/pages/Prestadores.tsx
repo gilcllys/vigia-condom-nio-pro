@@ -91,7 +91,6 @@ export default function Prestadores() {
     if (!condoId) return;
     setLoading(true);
     const { data } = await supabase
-      .schema('nfe_vigia')
       .from('providers')
       .select('*')
       .eq('condo_id', condoId)
