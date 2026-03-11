@@ -106,11 +106,34 @@ export default function Cadastro() {
         return;
       }
 
-      // 2. Create user in nfe_vigia.users
-      const { data: newUser, error: userError } = await supabase
+      // 2. Buscar o registro criado automaticamente em nfe_vigia.users
+      let userId: string | null = null;
+      // Aguardar um pouco para o trigger criar o registro
+      for (let attempt = 0; attempt < 5; attempt++) {
+        const { data: existingUser } = await supabase
+          .from('users')
+          .select('id')
+          .eq('auth_user_id', authUserId)
+          .maybeSingle();
+
+        if (existingUser?.id) {
+          userId = existingUser.id;
+          break;
+        }
+        await new Promise((r) => setTimeout(r, 800));
+      }
+
+      if (!userId) {
+        console.error('User record not found in nfe_vigia.users after signUp for auth_user_id:', authUserId);
+        toast({ title: 'Erro ao localizar usuário', description: 'Registro não encontrado. Tente novamente.', variant: 'destructive' });
+        setSaving(false);
+        return;
+      }
+
+      // 3. UPDATE nfe_vigia.users com dados do formulário
+      const { error: updateError } = await supabase
         .from('users')
-        .insert({
-          auth_user_id: authUserId,
+        .update({
           full_name: fullName.trim(),
           email: email.trim(),
           document: document.trim() || null,
@@ -120,19 +143,28 @@ export default function Cadastro() {
           status: 'pendente',
           condo_id: condoId,
         })
-        .select('id')
-        .single();
+        .eq('id', userId);
 
-      if (userError || !newUser) {
-        console.error('Error creating user:', userError?.message, userError?.code, JSON.stringify(userError));
-        toast({ title: 'Erro ao salvar dados', description: userError?.message || 'Usuário não criado', variant: 'destructive' });
+      if (updateError) {
+        console.error('Error updating user:', updateError.message, JSON.stringify(updateError));
+        toast({ title: 'Erro ao salvar dados', description: updateError.message, variant: 'destructive' });
         setSaving(false);
         return;
       }
 
-      const userId = newUser.id;
+      // 4. INSERT em nfe_vigia.user_condos
+      const { error: ucError } = await supabase.from('user_condos').insert({
+        user_id: userId,
+        condo_id: condoId,
+        role: 'MORADOR',
+        status: 'pendente',
+        is_default: true,
+      });
+      if (ucError) {
+        console.error('Error creating user_condos:', ucError.message, JSON.stringify(ucError));
+      }
 
-      // 3. Create resident
+      // 5. INSERT em nfe_vigia.residents
       const residentPayload: Record<string, any> = {
         condo_id: condoId,
         full_name: fullName.trim(),
@@ -156,18 +188,6 @@ export default function Cadastro() {
         toast({ title: 'Erro ao salvar morador', description: residentError.message, variant: 'destructive' });
         setSaving(false);
         return;
-      }
-
-      // 4. Create user_condos
-      const { error: ucError } = await supabase.from('user_condos').insert({
-        user_id: userId,
-        condo_id: condoId,
-        role: 'MORADOR',
-        status: 'pendente',
-        is_default: true,
-      });
-      if (ucError) {
-        console.error('Error creating user_condos:', ucError.message, JSON.stringify(ucError));
       }
 
       // Sign out the pending user
