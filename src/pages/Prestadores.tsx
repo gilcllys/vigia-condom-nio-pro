@@ -262,7 +262,7 @@ export default function Prestadores() {
 
   const toggleStatus = async (provider: Provider) => {
     const newStatus = provider.status === 'ativo' ? 'inativo' : 'ativo';
-    await supabase.schema('nfe_vigia').from('providers').update({ status: newStatus }).eq('id', provider.id);
+    await supabase.from('providers').update({ status: newStatus }).eq('id', provider.id);
     fetchProviders();
     if (detailProvider?.id === provider.id) {
       setDetailProvider(prev => prev ? { ...prev, status: newStatus } : null);
