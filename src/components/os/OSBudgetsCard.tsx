@@ -124,22 +124,6 @@ export function OSBudgetsCard({ orderId, condoId, isEmergency, isSindico, isAdmi
 
     setSaving(true);
 
-    let fileUrl: string | null = null;
-
-    if (file) {
-      const ext = file.name.split('.').pop();
-      const path = `budgets/${orderId}/${crypto.randomUUID()}.${ext}`;
-      const { error: uploadError } = await supabase.storage
-        .from('nfe-vigia')
-        .upload(path, file, { contentType: file.type });
-      if (uploadError) {
-        toast({ title: 'Erro ao enviar arquivo', description: uploadError.message, variant: 'destructive' });
-        setSaving(false);
-        return;
-      }
-      fileUrl = path;
-    }
-
     const providerName = form.provider_name.trim() || providers.find(p => p.id === form.provider_id)?.trade_name || '';
 
     const { data: { user } } = await supabase.auth.getUser();
@@ -150,7 +134,6 @@ export function OSBudgetsCard({ orderId, condoId, isEmergency, isSindico, isAdmi
       provider_name: providerName,
       description: form.description.trim(),
       total_value: parseFloat(form.amount),
-      file_url: fileUrl,
       status: 'pendente',
       valid_until: form.valid_until || null,
       created_by_user_id: user?.id ?? null,
