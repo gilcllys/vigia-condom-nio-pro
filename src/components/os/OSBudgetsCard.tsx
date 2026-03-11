@@ -291,7 +291,7 @@ export function OSBudgetsCard({ orderId, condoId, isEmergency, isSindico, isAdmi
                         {i + 1}. {b.provider_name}
                       </span>
                       <Badge variant="secondary" className="text-xs">
-                        R$ {b.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                        R$ {b.total_value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                       </Badge>
                       <Badge variant={st.variant} className="text-xs">{st.label}</Badge>
                     </div>
