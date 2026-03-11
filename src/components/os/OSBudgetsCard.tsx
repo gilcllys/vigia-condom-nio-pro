@@ -122,8 +122,6 @@ export function OSBudgetsCard({ orderId, condoId, isEmergency, isSindico, isAdmi
 
     setSaving(true);
 
-    const providerName = form.provider_name.trim() || providers.find(p => p.id === form.provider_id)?.trade_name || '';
-
     const { data: { user } } = await supabase.auth.getUser();
     const authUid = user?.id;
 
@@ -141,7 +139,7 @@ export function OSBudgetsCard({ orderId, condoId, isEmergency, isSindico, isAdmi
     const insertPayload = {
       service_order_id: orderId,
       condo_id: condoId,
-      provider_name: providerName,
+      provider_id: form.provider_id || null,
       description: form.description.trim(),
       total_value: parseFloat(form.amount),
       status: 'pendente',
