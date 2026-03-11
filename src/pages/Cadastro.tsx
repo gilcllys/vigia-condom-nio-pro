@@ -148,8 +148,10 @@ export default function Cadastro() {
         })
         .eq('id', userId);
 
+      console.log('[Cadastro] Resultado do UPDATE em users:', { error: updateError });
       if (updateError) {
-        console.error('Error updating user:', updateError.message, JSON.stringify(updateError));
+        console.error('[Cadastro] ERRO COMPLETO ao atualizar users:', updateError);
+        console.error('[Cadastro] updateError details:', JSON.stringify(updateError, null, 2));
         toast({ title: 'Erro ao salvar dados', description: updateError.message, variant: 'destructive' });
         setSaving(false);
         return;
