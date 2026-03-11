@@ -238,7 +238,6 @@ export default function OrdemServicoDetalhe() {
       condo_id: condoId,
       approver_id: a.user_id,
       approver_role: 'FINAL',
-      approval_type: 'FINAL',
       decision: 'pendente',
       expires_at: expiresAt,
     }));

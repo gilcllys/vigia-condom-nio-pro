@@ -165,8 +165,7 @@ export function OSApprovalCard({ orderId, condoId, approvalType, title, isSindic
         is_minerva: true,
         minerva_justification: `Síndico exerceu voto de minerva — ${decision === 'aprovado' ? 'Aprovado' : 'Cancelado'} — Motivo: ${minervaJustification.trim()}`,
       })
-      .eq('service_order_id', orderId)
-      .eq('approval_type', approvalType);
+      .eq('service_order_id', orderId);
 
     if (!error) {
       await logSOActivity({
