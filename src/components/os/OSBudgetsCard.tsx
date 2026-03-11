@@ -130,8 +130,8 @@ export function OSBudgetsCard({ orderId, condoId, isEmergency, isSindico, isAdmi
       const ext = file.name.split('.').pop();
       const path = `budgets/${orderId}/${crypto.randomUUID()}.${ext}`;
       const { error: uploadError } = await supabase.storage
-        .from('service-order-photos')
-        .upload(path, file);
+        .from('nfe-vigia')
+        .upload(path, file, { contentType: file.type });
       if (uploadError) {
         toast({ title: 'Erro ao enviar arquivo', description: uploadError.message, variant: 'destructive' });
         setSaving(false);
