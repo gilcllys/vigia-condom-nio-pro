@@ -14,7 +14,7 @@ import { DollarSign, Plus, Send, Trash2, FileText, Calendar } from 'lucide-react
 
 interface Budget {
   id: string;
-  provider_name: string;
+  provider_id: string | null;
   description: string | null;
   total_value: number;
   status: string | null;
@@ -55,7 +55,6 @@ export function OSBudgetsCard({ orderId, condoId, isEmergency, isSindico, isAdmi
   const [submitting, setSubmitting] = useState(false);
   const [form, setForm] = useState({
     provider_id: '',
-    provider_name: '',
     description: '',
     amount: '',
     valid_until: '',
@@ -93,16 +92,14 @@ export function OSBudgetsCard({ orderId, condoId, isEmergency, isSindico, isAdmi
   useEffect(() => { if (condoId) fetchProviders(); }, [condoId]);
 
   const handleOpenModal = () => {
-    setForm({ provider_id: '', provider_name: '', description: '', amount: '', valid_until: '' });
+    setForm({ provider_id: '', description: '', amount: '', valid_until: '' });
     setModalOpen(true);
   };
 
   const handleProviderChange = (providerId: string) => {
-    const provider = providers.find(p => p.id === providerId);
     setForm(prev => ({
       ...prev,
       provider_id: providerId,
-      provider_name: provider?.trade_name ?? '',
     }));
   };
 
@@ -115,8 +112,8 @@ export function OSBudgetsCard({ orderId, condoId, isEmergency, isSindico, isAdmi
       toast({ title: 'Informe um valor válido', variant: 'destructive' });
       return;
     }
-    if (!form.provider_id && !form.provider_name.trim()) {
-      toast({ title: 'Selecione ou informe o prestador', variant: 'destructive' });
+    if (!form.provider_id) {
+      toast({ title: 'Selecione o prestador', variant: 'destructive' });
       return;
     }
 
@@ -279,7 +276,7 @@ export function OSBudgetsCard({ orderId, condoId, isEmergency, isSindico, isAdmi
                   <div className="space-y-1 flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
                       <span className="text-sm font-medium text-foreground">
-                        {i + 1}. {b.provider_name}
+                        {i + 1}. {providers.find(p => p.id === b.provider_id)?.trade_name ?? 'Prestador'}
                       </span>
                       <Badge variant="secondary" className="text-xs">
                         R$ {b.total_value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
@@ -335,11 +332,7 @@ export function OSBudgetsCard({ orderId, condoId, isEmergency, isSindico, isAdmi
                   </SelectContent>
                 </Select>
               ) : (
-                <Input
-                  value={form.provider_name}
-                  onChange={(e) => setForm(prev => ({ ...prev, provider_name: e.target.value }))}
-                  placeholder="Nome do prestador"
-                />
+                <p className="text-sm text-muted-foreground">Nenhum prestador cadastrado.</p>
               )}
             </div>
             <div className="space-y-2">
