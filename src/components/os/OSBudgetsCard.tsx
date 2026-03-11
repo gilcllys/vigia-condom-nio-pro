@@ -26,6 +26,7 @@ interface Budget {
 interface Provider {
   id: string;
   trade_name: string;
+  risk_score: number | null;
 }
 
 interface Props {
