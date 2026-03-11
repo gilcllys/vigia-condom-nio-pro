@@ -286,12 +286,6 @@ export function OSBudgetsCard({ orderId, condoId, isEmergency, isSindico, isAdmi
                           Válido até {new Date(b.valid_until).toLocaleDateString('pt-BR')}
                         </span>
                       )}
-                      {b.file_url && (
-                        <span className="flex items-center gap-1">
-                          <FileText className="h-3 w-3" />
-                          Arquivo anexo
-                        </span>
-                      )}
                     </div>
                   </div>
                   {canManage && (
