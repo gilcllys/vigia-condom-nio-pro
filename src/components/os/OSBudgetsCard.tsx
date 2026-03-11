@@ -142,7 +142,7 @@ export function OSBudgetsCard({ orderId, condoId, isEmergency, isSindico, isAdmi
 
     const providerName = form.provider_name.trim() || providers.find(p => p.id === form.provider_id)?.trade_name || '';
 
-    const { error } = await supabase.schema('nfe_vigia').from('budgets').insert({
+    const insertPayload = {
       service_order_id: orderId,
       condo_id: condoId,
       provider_name: providerName,
@@ -151,9 +151,13 @@ export function OSBudgetsCard({ orderId, condoId, isEmergency, isSindico, isAdmi
       file_url: fileUrl,
       status: 'pendente',
       valid_until: form.valid_until || null,
-    });
+    };
+    console.log('[OSBudgetsCard] Insert payload:', JSON.stringify(insertPayload, null, 2));
+
+    const { error } = await supabase.schema('nfe_vigia').from('budgets').insert(insertPayload);
 
     if (error) {
+      console.error('[OSBudgetsCard] Insert error:', JSON.stringify(error, null, 2));
       toast({ title: 'Erro ao adicionar orçamento', variant: 'destructive' });
     } else {
       toast({ title: 'Orçamento adicionado com sucesso' });
