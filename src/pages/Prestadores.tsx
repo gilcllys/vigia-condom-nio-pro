@@ -161,7 +161,7 @@ export default function Prestadores() {
       notes: form.notes || null,
     });
     if (error) {
-      toast({ title: 'Erro ao salvar prestador', variant: 'destructive' });
+      toast({ title: 'Erro ao salvar prestador', description: error.message, variant: 'destructive' });
     } else {
       toast({ title: 'Prestador cadastrado com sucesso' });
       setModalOpen(false);
