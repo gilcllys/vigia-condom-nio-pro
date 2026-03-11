@@ -16,7 +16,6 @@ interface Approval {
   id: string;
   approver_id: string;
   approver_role: string;
-  approval_type: string;
   decision: string;
   justification: string | null;
   expires_at: string;
@@ -74,7 +73,6 @@ export function OSApprovalCard({ orderId, condoId, approvalType, title, isSindic
       .from('approvals')
       .select('*')
       .eq('service_order_id', orderId)
-      .eq('approval_type', approvalType)
       .order('created_at', { ascending: true });
 
     if (data) {
@@ -167,8 +165,7 @@ export function OSApprovalCard({ orderId, condoId, approvalType, title, isSindic
         is_minerva: true,
         minerva_justification: `Síndico exerceu voto de minerva — ${decision === 'aprovado' ? 'Aprovado' : 'Cancelado'} — Motivo: ${minervaJustification.trim()}`,
       })
-      .eq('service_order_id', orderId)
-      .eq('approval_type', approvalType);
+      .eq('service_order_id', orderId);
 
     if (!error) {
       await logSOActivity({
