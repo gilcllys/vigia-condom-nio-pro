@@ -19,6 +19,7 @@ import OrdemServicoDetalhe from "./pages/OrdemServicoDetalhe";
 import NotasFiscais from "./pages/NotasFiscais";
 import Almoxarifado from "./pages/Almoxarifado";
 import Transparencia from "./pages/Transparencia";
+import Prestadores from "./pages/Prestadores";
 import ResetPassword from "./pages/ResetPassword";
 import NotFound from "./pages/NotFound";
 
