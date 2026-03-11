@@ -1,4 +1,4 @@
-import { LayoutDashboard, Building2, Users, Settings, LogOut, ClipboardList, FileText, Warehouse, Eye } from 'lucide-react';
+import { LayoutDashboard, Building2, Users, Settings, LogOut, ClipboardList, FileText, Warehouse, Eye, Briefcase } from 'lucide-react';
 import { NavLink } from '@/components/NavLink';
 import { useLocation } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
@@ -27,6 +27,7 @@ const allMenuItems: MenuItem[] = [
   { title: 'Almoxarifado', url: '/almoxarifado', icon: Warehouse },
   { title: 'Portal da Transparência', url: '/transparencia', icon: Eye },
   { title: 'Moradores', url: '/moradores', icon: Users },
+  { title: 'Prestadores', url: '/prestadores', icon: Briefcase },
   { title: 'Condomínios', url: '/condominios', icon: Building2 },
   { title: 'Configurações', url: '/configuracoes', icon: Settings },
 ];
@@ -36,8 +37,8 @@ const MENU_BY_ROLE: Record<string, string[]> = {
   ZELADOR: ['/dashboard', '/ordens-servico', '/almoxarifado', '/transparencia'],
   SUBSINDICO: ['/dashboard', '/ordens-servico', '/notas-fiscais', '/almoxarifado', '/transparencia'],
   CONSELHO: ['/dashboard', '/ordens-servico', '/notas-fiscais', '/almoxarifado', '/transparencia'],
-  SINDICO: ['/dashboard', '/ordens-servico', '/notas-fiscais', '/almoxarifado', '/transparencia', '/moradores', '/configuracoes'],
-  ADMIN: ['/dashboard', '/ordens-servico', '/notas-fiscais', '/almoxarifado', '/transparencia', '/moradores', '/condominios', '/configuracoes'],
+  SINDICO: ['/dashboard', '/ordens-servico', '/notas-fiscais', '/almoxarifado', '/transparencia', '/moradores', '/prestadores', '/configuracoes'],
+  ADMIN: ['/dashboard', '/ordens-servico', '/notas-fiscais', '/almoxarifado', '/transparencia', '/moradores', '/prestadores', '/condominios', '/configuracoes'],
 };
 
 export function AppSidebar() {

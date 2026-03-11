@@ -26,6 +26,7 @@ interface Budget {
 interface Provider {
   id: string;
   trade_name: string;
+  risk_score: number | null;
 }
 
 interface Props {
@@ -82,8 +83,9 @@ export function OSBudgetsCard({ orderId, condoId, isEmergency, isSindico, isAdmi
     const { data } = await supabase
       .schema('nfe_vigia')
       .from('providers')
-      .select('id, trade_name')
+      .select('id, trade_name, risk_score')
       .eq('condo_id', condoId)
+      .eq('status', 'ativo')
       .order('trade_name');
     setProviders(data ?? []);
   };
@@ -330,9 +332,13 @@ export function OSBudgetsCard({ orderId, condoId, isEmergency, isSindico, isAdmi
                     <SelectValue placeholder="Selecione o prestador" />
                   </SelectTrigger>
                   <SelectContent>
-                    {providers.map(p => (
-                      <SelectItem key={p.id} value={p.id}>{p.trade_name}</SelectItem>
-                    ))}
+                    {providers.map(p => {
+                      const score = p.risk_score;
+                      const riskLabel = score === null ? '' : score >= 80 ? ' 🟢' : score >= 60 ? ' 🟡' : score >= 40 ? ' 🟠' : ' 🔴';
+                      return (
+                        <SelectItem key={p.id} value={p.id}>{p.trade_name}{riskLabel}</SelectItem>
+                      );
+                    })}
                   </SelectContent>
                 </Select>
               ) : (
