@@ -276,7 +276,7 @@ export function OSBudgetsCard({ orderId, condoId, isEmergency, isSindico, isAdmi
                   <div className="space-y-1 flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
                       <span className="text-sm font-medium text-foreground">
-                        {i + 1}. {b.provider_name}
+                        {i + 1}. {providers.find(p => p.id === b.provider_id)?.trade_name ?? 'Prestador'}
                       </span>
                       <Badge variant="secondary" className="text-xs">
                         R$ {b.total_value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
