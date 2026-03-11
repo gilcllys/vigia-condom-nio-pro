@@ -31,12 +31,29 @@ Responda APENAS com JSON válido, sem markdown:
 }`;
 
 serve(async (req) => {
+  console.log("analyze-provider-risk: function invoked, method:", req.method);
+
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    const { cnpjData } = await req.json();
+    const apiKey = Deno.env.get("VITE_ANTHROPIC_API_KEY");
+    console.log("API key exists:", !!apiKey);
+    console.log("API key length:", apiKey?.length || 0);
+
+    if (!apiKey) {
+      console.error("VITE_ANTHROPIC_API_KEY is not set!");
+      return new Response(
+        JSON.stringify({ error: "ANTHROPIC_API_KEY is not configured in secrets" }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    const body = await req.json();
+    const { cnpjData } = body;
+    console.log("Received cnpjData for CNPJ:", cnpjData?.cnpj);
+
     if (!cnpjData) {
       return new Response(
         JSON.stringify({ error: "cnpjData is required" }),
@@ -44,15 +61,11 @@ serve(async (req) => {
       );
     }
 
-    const ANTHROPIC_API_KEY = Deno.env.get("VITE_ANTHROPIC_API_KEY");
-    if (!ANTHROPIC_API_KEY) {
-      throw new Error("ANTHROPIC_API_KEY is not configured");
-    }
-
+    console.log("Calling Anthropic API...");
     const response = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
       headers: {
-        "x-api-key": ANTHROPIC_API_KEY,
+        "x-api-key": apiKey,
         "anthropic-version": "2023-06-01",
         "Content-Type": "application/json",
       },
@@ -69,20 +82,23 @@ serve(async (req) => {
       }),
     });
 
+    console.log("Anthropic API response status:", response.status);
+
     if (!response.ok) {
-      const text = await response.text();
-      console.error("Anthropic API error:", response.status, text);
-      if (response.status === 429) {
-        return new Response(
-          JSON.stringify({ error: "Limite de requisições excedido. Tente novamente em alguns instantes." }),
-          { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
-      throw new Error(`Anthropic API error: ${response.status}`);
+      const errorText = await response.text();
+      console.error("Anthropic API error body:", errorText);
+      return new Response(
+        JSON.stringify({
+          error: `Anthropic API error: ${response.status}`,
+          details: errorText,
+        }),
+        { status: response.status, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
     }
 
     const aiResult = await response.json();
     const content = aiResult.content?.[0]?.text || "";
+    console.log("AI response length:", content.length);
 
     let parsed;
     try {
@@ -93,17 +109,25 @@ serve(async (req) => {
         parsed = JSON.parse(content.trim());
       } catch {
         console.error("Failed to parse AI response:", content);
-        throw new Error("Não foi possível interpretar a resposta da IA.");
+        return new Response(
+          JSON.stringify({ error: "Não foi possível interpretar a resposta da IA.", raw: content }),
+          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
       }
     }
 
+    console.log("Successfully parsed risk analysis, score:", parsed.score);
     return new Response(JSON.stringify(parsed), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (e) {
-    console.error("analyze-provider-risk error:", e);
+    console.error("analyze-provider-risk FULL error:", e);
     return new Response(
-      JSON.stringify({ error: e instanceof Error ? e.message : "Erro desconhecido" }),
+      JSON.stringify({
+        error: e instanceof Error ? e.message : "Erro desconhecido",
+        stack: e instanceof Error ? e.stack : undefined,
+        type: typeof e,
+      }),
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }

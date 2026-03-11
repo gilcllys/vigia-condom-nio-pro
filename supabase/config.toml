@@ -2,3 +2,6 @@ project_id = "vopbtykmizwqumbfnjup"
 
 [functions.extract-nf]
 verify_jwt = false
+
+[functions.analyze-provider-risk]
+verify_jwt = false
