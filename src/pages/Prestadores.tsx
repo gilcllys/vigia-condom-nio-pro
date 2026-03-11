@@ -209,9 +209,18 @@ export default function Prestadores() {
       if (!cnpjRes.ok) throw new Error('Não foi possível consultar CNPJ');
       const cnpjData = await cnpjRes.json();
 
-      const { data, error } = await supabase.functions.invoke('analyze-provider-risk', {
-        body: { cnpjData },
+      const cloudUrl = `https://${import.meta.env.VITE_SUPABASE_PROJECT_ID}.supabase.co/functions/v1/analyze-provider-risk`;
+      const fnRes = await fetch(cloudUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'apikey': import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+          'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+        },
+        body: JSON.stringify({ cnpjData }),
       });
+      const data = await fnRes.json();
+      const error = fnRes.ok ? null : new Error(data?.error || 'Erro na análise de risco');
 
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
