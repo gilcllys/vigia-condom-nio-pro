@@ -16,7 +16,7 @@ interface Budget {
   id: string;
   provider_name: string;
   description: string | null;
-  amount: number;
+  total_value: number;
   file_url: string | null;
   status: string | null;
   valid_until: string | null;
