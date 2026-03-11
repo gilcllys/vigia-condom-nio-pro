@@ -112,8 +112,8 @@ export function OSBudgetsCard({ orderId, condoId, isEmergency, isSindico, isAdmi
       toast({ title: 'Informe um valor válido', variant: 'destructive' });
       return;
     }
-    if (!form.provider_id && !form.provider_name.trim()) {
-      toast({ title: 'Selecione ou informe o prestador', variant: 'destructive' });
+    if (!form.provider_id) {
+      toast({ title: 'Selecione o prestador', variant: 'destructive' });
       return;
     }
 
