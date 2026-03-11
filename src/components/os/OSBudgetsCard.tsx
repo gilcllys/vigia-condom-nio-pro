@@ -92,16 +92,14 @@ export function OSBudgetsCard({ orderId, condoId, isEmergency, isSindico, isAdmi
   useEffect(() => { if (condoId) fetchProviders(); }, [condoId]);
 
   const handleOpenModal = () => {
-    setForm({ provider_id: '', provider_name: '', description: '', amount: '', valid_until: '' });
+    setForm({ provider_id: '', description: '', amount: '', valid_until: '' });
     setModalOpen(true);
   };
 
   const handleProviderChange = (providerId: string) => {
-    const provider = providers.find(p => p.id === providerId);
     setForm(prev => ({
       ...prev,
       provider_id: providerId,
-      provider_name: provider?.trade_name ?? '',
     }));
   };
 
