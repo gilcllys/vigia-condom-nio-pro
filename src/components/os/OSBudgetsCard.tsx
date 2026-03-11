@@ -133,7 +133,7 @@ export function OSBudgetsCard({ orderId, condoId, isEmergency, isSindico, isAdmi
         .from('service-order-photos')
         .upload(path, file);
       if (uploadError) {
-        toast({ title: 'Erro ao enviar arquivo', variant: 'destructive' });
+        toast({ title: 'Erro ao enviar arquivo', description: uploadError.message, variant: 'destructive' });
         setSaving(false);
         return;
       }
