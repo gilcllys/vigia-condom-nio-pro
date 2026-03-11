@@ -189,9 +189,12 @@ export default function Cadastro() {
         residentPayload.unit_label = complement.trim() || null;
       }
 
+      console.log('[Cadastro] Payload do residents:', residentPayload);
       const { error: residentError } = await supabase.from('residents').insert(residentPayload);
+      console.log('[Cadastro] Resultado do INSERT em residents:', { error: residentError });
       if (residentError) {
-        console.error('Error creating resident:', residentError.message, JSON.stringify(residentError));
+        console.error('[Cadastro] ERRO COMPLETO ao inserir residents:', residentError);
+        console.error('[Cadastro] residentError details:', JSON.stringify(residentError, null, 2));
         toast({ title: 'Erro ao salvar morador', description: residentError.message, variant: 'destructive' });
         setSaving(false);
         return;
