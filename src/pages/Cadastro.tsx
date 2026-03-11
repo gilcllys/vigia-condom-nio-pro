@@ -89,10 +89,11 @@ export default function Cadastro() {
         options: { emailRedirectTo: window.location.origin },
       });
       if (authError) {
+        console.error('SignUp error:', authError.message, authError.status, JSON.stringify(authError));
         if (authError.message.toLowerCase().includes('user already registered')) {
           toast({ title: 'Este e-mail já está cadastrado', description: 'Tente fazer login ou recupere sua senha.', variant: 'destructive' });
         } else {
-          toast({ title: 'Erro ao criar conta', description: 'Tente novamente mais tarde.', variant: 'destructive' });
+          toast({ title: 'Erro ao criar conta', description: authError.message, variant: 'destructive' });
         }
         setSaving(false);
         return;
