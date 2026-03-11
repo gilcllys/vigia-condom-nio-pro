@@ -48,31 +48,39 @@ export default function RoleChangeDialog({
 
     setSaving(true);
 
+    console.log('[RoleChangeDialog] Salvando role:', { role, userCondoUserId, condoId });
+
     // Update role in user_condos
-    const { error: ucError } = await supabase
-      .schema('nfe_vigia')
+    const { data: ucData, error: ucError, count: ucCount } = await supabase
       .from('user_condos')
       .update({ role })
       .eq('user_id', userCondoUserId)
-      .eq('condo_id', condoId);
+      .eq('condo_id', condoId)
+      .select();
+
+    console.log('[RoleChangeDialog] user_condos update result:', { ucData, ucError, ucCount });
 
     if (ucError) {
-      toast({ title: 'Erro ao alterar função', description: 'Não foi possível salvar a alteração. Tente novamente.', variant: 'destructive' });
+      toast({ title: 'Erro ao alterar função', description: ucError.message, variant: 'destructive' });
       setSaving(false);
       return;
     }
 
-    // Also update user_profile in nfe_vigia.users
-    const { error: usersError } = await supabase
-      .schema('nfe_vigia')
+    if (!ucData || ucData.length === 0) {
+      console.warn('[RoleChangeDialog] user_condos update afetou 0 linhas! Possível bloqueio por RLS.');
+      toast({ title: 'Função não alterada', description: 'A atualização não afetou nenhum registro. Verifique suas permissões.', variant: 'destructive' });
+      setSaving(false);
+      return;
+    }
+
+    // Also update profile in nfe_vigia.users
+    const { data: usersData, error: usersError } = await supabase
       .from('users')
       .update({ profile: role })
-      .eq('id', userCondoUserId);
+      .eq('id', userCondoUserId)
+      .select();
 
-    if (usersError) {
-      console.error('Error updating user_profile:', usersError);
-      // Non-blocking: role was already updated in user_condos
-    }
+    console.log('[RoleChangeDialog] users update result:', { usersData, usersError });
 
     await logActivity({
       condoId,
