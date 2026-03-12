@@ -28,7 +28,7 @@ export default function InviteLinkDialog({ open, onOpenChange, condoId }: Invite
   const [inviteActive, setInviteActive] = useState(false);
   const [generating, setGenerating] = useState(false);
 
-  const fullLink = inviteCode ? `${window.location.origin}/cadastro?convite=${inviteCode}` : '';
+  const fullLink = inviteCode ? `https://www.nfevigia.com.br/cadastro?convite=${inviteCode}` : '';
 
   const fetchCurrent = async () => {
     setLoading(true);
