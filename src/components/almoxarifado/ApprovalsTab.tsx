@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
+import { getPublicStorageUrl } from '@/lib/storage-url';
 import { useCondo } from '@/contexts/CondoContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -284,7 +285,7 @@ export default function ApprovalsTab() {
                         <p className="text-xs text-muted-foreground">{new Date(nf.issue_date).toLocaleDateString('pt-BR')}</p>
                       )}
                       {nf.file_url && (
-                        <Button size="sm" variant="outline" className="text-xs h-7" onClick={() => window.open(nf.file_url!, '_blank')}>
+                        <Button size="sm" variant="outline" className="text-xs h-7" onClick={() => window.open(getPublicStorageUrl(nf.file_url!), '_blank')}>
                           <FileText className="h-3 w-3 mr-1" />
                           Ver NF
                         </Button>
