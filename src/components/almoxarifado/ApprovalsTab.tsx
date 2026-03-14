@@ -22,11 +22,11 @@ interface Approval {
 
 interface PendingNF {
   id: string;
-  document_number: string;
-  issuer_name: string;
-  gross_amount: number;
+  number: string;
+  supplier: string;
+  amount: number;
   issue_date: string | null;
-  approval_status: string;
+  status: string;
   approvals: Approval[];
 }
 
@@ -59,10 +59,9 @@ export default function ApprovalsTab() {
 
     const { data: docs, error } = await supabase
       .from('fiscal_documents')
-      .select('id, document_number, issuer_name, gross_amount, issue_date, approval_status')
+      .select('id, number, supplier, amount, issue_date, status')
       .eq('condo_id', condoId)
-      .eq('approval_status', 'pendente')
-      .eq('source_type', 'estoque')
+      .eq('status', 'PENDENTE')
       .order('created_at', { ascending: false });
 
     if (error) {
@@ -190,13 +189,13 @@ export default function ApprovalsTab() {
         newStatus = 'aprovado';
         await supabase
           .from('fiscal_documents')
-          .update({ approval_status: 'aprovado', sindico_voto_minerva: true })
+          .update({ status: 'PROCESSADO' })
           .eq('id', nf.id);
       } else {
         newStatus = 'rejeitado';
         await supabase
           .from('fiscal_documents')
-          .update({ approval_status: 'rejeitado', sindico_voto_minerva: false })
+          .update({ status: 'CANCELADO' })
           .eq('id', nf.id);
       }
     } else if (allVoted) {
@@ -213,7 +212,7 @@ export default function ApprovalsTab() {
           newStatus = 'aprovado';
           await supabase
             .from('fiscal_documents')
-            .update({ approval_status: 'aprovado' })
+            .update({ status: 'PROCESSADO' })
             .eq('id', nf.id);
         }
       }
@@ -273,11 +272,11 @@ export default function ApprovalsTab() {
                 <div key={nf.id} className="border rounded-lg p-4 space-y-3">
                   <div className="flex items-start justify-between">
                     <div>
-                      <p className="font-medium">NF {nf.document_number}</p>
-                      <p className="text-sm text-muted-foreground">{nf.issuer_name}</p>
+                      <p className="font-medium">NF {nf.number}</p>
+                      <p className="text-sm text-muted-foreground">{nf.supplier}</p>
                     </div>
                     <div className="text-right">
-                      <p className="font-medium">R$ {nf.gross_amount?.toFixed(2)}</p>
+                      <p className="font-medium">R$ {nf.amount?.toFixed(2)}</p>
                       {nf.issue_date && (
                         <p className="text-xs text-muted-foreground">{new Date(nf.issue_date).toLocaleDateString('pt-BR')}</p>
                       )}

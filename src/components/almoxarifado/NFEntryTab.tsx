@@ -209,13 +209,12 @@ export default function NFEntryTab() {
           condo_id: condoId,
           document_type: 'NFE',
           source_type: 'UPLOAD',
-          issuer_name: nfData.fornecedor.trim(),
-          document_number: nfData.numero_nf.trim(),
+          supplier: nfData.fornecedor.trim(),
+          number: nfData.numero_nf.trim(),
           issue_date: nfData.data_emissao || null,
-          gross_amount: nfData.valor_total,
+          amount: nfData.valor_total,
           status: 'PENDENTE',
-          approval_status: 'pendente',
-          file_url: fileUrl,
+          created_by: internalUser.id,
         })
         .select('id')
         .single();
