@@ -113,8 +113,9 @@ export default function ApprovalsTab() {
         .filter((a: any) => a.fiscal_document_id === doc.id)
         .map((a: any) => ({
           ...a,
-          user_name: userMap[a.user_id]?.name || 'Usuário',
-          user_role: userMap[a.user_id]?.role || '',
+          user_id: a.approver_user_id,
+          user_name: userMap[a.approver_user_id]?.name || 'Usuário',
+          user_role: a.approver_role || userMap[a.approver_user_id]?.role || '',
         })),
     }));
 
