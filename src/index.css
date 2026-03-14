@@ -4,92 +4,105 @@
 @tailwind components;
 @tailwind utilities;
 
-/* NFe Vigia Dark Corporate Design System – all colors in HSL */
+/* NFe Vigia – Dark Corporate Fintech Design System */
 
 @layer base {
   :root {
-    --background: 222 60% 8%;
+    /* Background: #0A0F1E */
+    --background: 224 55% 8%;
+    /* Foreground / Text principal: #F1F5F9 */
     --foreground: 210 40% 96%;
 
+    /* Cards: #111827 */
     --card: 222 47% 11%;
     --card-foreground: 210 40% 96%;
 
+    /* Popover: same as card */
     --popover: 222 47% 11%;
     --popover-foreground: 210 40% 96%;
 
+    /* Primary / Accent: #0EA5E9 */
     --primary: 199 89% 48%;
-    --primary-foreground: 222 60% 8%;
+    --primary-foreground: 224 55% 8%;
+    /* Gradient end for buttons: #0284C7 */
+    --primary-dark: 200 98% 39%;
 
-    --secondary: 215 25% 27%;
+    /* Secondary / Slate: #64748B */
+    --secondary: 215 16% 47%;
     --secondary-foreground: 210 40% 96%;
 
+    /* Muted: slightly lighter navy */
     --muted: 222 30% 16%;
+    /* Texto secundário: #94A3B8 */
     --muted-foreground: 215 20% 65%;
 
     --accent: 222 30% 16%;
     --accent-foreground: 210 40% 96%;
 
+    /* Danger: #EF4444 */
     --destructive: 0 84% 60%;
     --destructive-foreground: 210 40% 96%;
 
+    /* Success: #10B981 */
     --success: 160 84% 39%;
     --success-foreground: 210 40% 96%;
 
+    /* Warning: #F59E0B */
     --warning: 38 92% 50%;
-    --warning-foreground: 222 60% 8%;
+    --warning-foreground: 224 55% 8%;
 
-    --border: 222 30% 20%;
-    --input: 222 30% 20%;
+    /* Border: #1E2A45 */
+    --border: 222 40% 19%;
+    --input: 222 40% 19%;
     --ring: 199 89% 48%;
 
     --radius: 0.75rem;
 
+    /* Sidebar: #0D1428 */
     --sidebar-background: 224 55% 10%;
     --sidebar-foreground: 210 40% 96%;
     --sidebar-primary: 199 89% 48%;
-    --sidebar-primary-foreground: 222 60% 8%;
+    --sidebar-primary-foreground: 224 55% 8%;
     --sidebar-accent: 222 30% 16%;
     --sidebar-accent-foreground: 210 40% 96%;
-    --sidebar-border: 222 30% 20%;
+    /* Sidebar border: #1E2A45 */
+    --sidebar-border: 222 40% 19%;
     --sidebar-ring: 199 89% 48%;
   }
 
+  /* Dark mode mirrors root (always dark) */
   .dark {
-    --background: 222 60% 8%;
+    --background: 224 55% 8%;
     --foreground: 210 40% 96%;
-
     --card: 222 47% 11%;
     --card-foreground: 210 40% 96%;
-
     --popover: 222 47% 11%;
     --popover-foreground: 210 40% 96%;
-
     --primary: 199 89% 48%;
-    --primary-foreground: 222 60% 8%;
-
-    --secondary: 215 25% 27%;
+    --primary-foreground: 224 55% 8%;
+    --primary-dark: 200 98% 39%;
+    --secondary: 215 16% 47%;
     --secondary-foreground: 210 40% 96%;
-
     --muted: 222 30% 16%;
     --muted-foreground: 215 20% 65%;
-
     --accent: 222 30% 16%;
     --accent-foreground: 210 40% 96%;
-
     --destructive: 0 84% 60%;
     --destructive-foreground: 210 40% 96%;
-
-    --border: 222 30% 20%;
-    --input: 222 30% 20%;
+    --success: 160 84% 39%;
+    --success-foreground: 210 40% 96%;
+    --warning: 38 92% 50%;
+    --warning-foreground: 224 55% 8%;
+    --border: 222 40% 19%;
+    --input: 222 40% 19%;
     --ring: 199 89% 48%;
-
     --sidebar-background: 224 55% 10%;
     --sidebar-foreground: 210 40% 96%;
     --sidebar-primary: 199 89% 48%;
-    --sidebar-primary-foreground: 222 60% 8%;
+    --sidebar-primary-foreground: 224 55% 8%;
     --sidebar-accent: 222 30% 16%;
     --sidebar-accent-foreground: 210 40% 96%;
-    --sidebar-border: 222 30% 20%;
+    --sidebar-border: 222 40% 19%;
     --sidebar-ring: 199 89% 48%;
   }
 }
@@ -105,9 +118,29 @@
   }
 }
 
-/* Glassmorphism card utility */
 @layer components {
+  /* Glassmorphism card */
   .glass-card {
-    @apply bg-card/80 backdrop-blur-sm border border-border rounded-lg shadow-lg shadow-primary/5;
+    @apply bg-card/80 backdrop-blur-sm border border-border rounded-lg;
+    box-shadow: 0 4px 24px -4px hsl(199 89% 48% / 0.06), 0 0 0 1px hsl(222 40% 19% / 0.5);
+  }
+
+  /* Primary gradient button */
+  .btn-primary-gradient {
+    background: linear-gradient(135deg, hsl(199, 89%, 48%), hsl(200, 98%, 39%));
+    box-shadow: 0 2px 12px -2px hsl(199 89% 48% / 0.35);
+    @apply text-primary-foreground font-semibold transition-all;
+  }
+  .btn-primary-gradient:hover {
+    box-shadow: 0 4px 20px -2px hsl(199 89% 48% / 0.5);
+    filter: brightness(1.08);
+  }
+
+  /* Striped table rows */
+  .table-striped tr:nth-child(even) td {
+    background-color: hsl(222 30% 14%);
+  }
+  .table-striped tr:hover td {
+    background-color: hsl(222 30% 18%);
   }
 }
