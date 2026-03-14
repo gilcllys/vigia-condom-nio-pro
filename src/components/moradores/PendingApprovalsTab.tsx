@@ -42,57 +42,31 @@ export default function PendingApprovalsTab({ condoId }: PendingApprovalsTabProp
     setLoading(true);
     console.log('[PendingApprovals] condoId usado na query:', condoId);
 
-    // Get pending user_condos for this condo, then fetch user details
-    const { data: pendingLinks, error: linksError } = await supabase
-      .from('user_condos')
-      .select('user_id')
-      .eq('condo_id', condoId)
-      .eq('status', 'pendente');
+    const { data, error } = await supabase.rpc('list_pending_approvals', {
+      p_condo_id: condoId,
+    });
 
-    console.log('[PendingApprovals] user_condos resultado bruto:', pendingLinks);
-    if (linksError) console.error('[PendingApprovals] user_condos erro:', linksError);
+    console.log('[PendingApprovals] RPC resultado bruto:', data);
+    if (error) console.error('[PendingApprovals] RPC erro:', error);
 
-    if (linksError || !pendingLinks?.length) {
+    if (error || !data?.length) {
       setUsers([]);
       setLoading(false);
       return;
     }
 
-    const userIds = pendingLinks.map((link) => link.user_id);
-
-    const { data: usersData, error: usersError } = await supabase
-      .from('users')
-      .select('id, full_name, email, cpf_rg, birth_date, created_at')
-      .in('id', userIds)
-      .order('created_at', { ascending: true });
-
-    console.log('[PendingApprovals] users resultado bruto:', usersData);
-    if (usersError) console.error('[PendingApprovals] users erro:', usersError);
-
-    if (usersError) {
-      setLoading(false);
-      return;
-    }
-
-    // Enrich with resident data
-    const enriched: PendingUser[] = [];
-    for (const user of usersData ?? []) {
-      const { data: resident } = await supabase
-        .from('residents')
-        .select('block, unit, unit_label')
-        .eq('user_id', user.id)
-        .eq('condo_id', condoId)
-        .maybeSingle();
-
-      enriched.push({
-        ...user,
-        document: user.cpf_rg ?? null,
-        document_type: null,
-        block: resident?.block ?? null,
-        unit: resident?.unit ?? null,
-        unit_label: resident?.unit_label ?? null,
-      });
-    }
+    const enriched: PendingUser[] = (data as any[]).map((row) => ({
+      id: row.user_id,
+      full_name: row.full_name,
+      email: row.email,
+      document: row.cpf_rg ?? null,
+      document_type: null,
+      birth_date: row.birth_date,
+      created_at: row.created_at,
+      block: row.block ?? null,
+      unit: row.unit ?? null,
+      unit_label: row.unit_label ?? null,
+    }));
 
     setUsers(enriched);
     setLoading(false);
