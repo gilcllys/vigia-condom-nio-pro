@@ -40,23 +40,37 @@ export default function PendingApprovalsTab({ condoId }: PendingApprovalsTabProp
 
   const fetchPending = async () => {
     setLoading(true);
-    // Get pending users for this condo
-    const { data, error } = await supabase
-      .from('users')
-      .select('id, full_name, email, document, document_type, birth_date, created_at')
+    // Get pending user_condos for this condo, then fetch user details
+    const { data: pendingLinks, error: linksError } = await supabase
+      .from('user_condos')
+      .select('user_id')
       .eq('condo_id', condoId)
-      .eq('status', 'pendente')
+      .eq('status', 'pendente');
+
+    if (linksError || !pendingLinks?.length) {
+      if (linksError) console.error('Error fetching pending user_condos:', linksError);
+      setUsers([]);
+      setLoading(false);
+      return;
+    }
+
+    const userIds = pendingLinks.map((link) => link.user_id);
+
+    const { data: usersData, error: usersError } = await supabase
+      .from('users')
+      .select('id, full_name, email, cpf_rg, birth_date, created_at')
+      .in('id', userIds)
       .order('created_at', { ascending: true });
 
-    if (error) {
-      console.error('Error fetching pending users:', error);
+    if (usersError) {
+      console.error('Error fetching users:', usersError);
       setLoading(false);
       return;
     }
 
     // Enrich with resident data
     const enriched: PendingUser[] = [];
-    for (const user of data ?? []) {
+    for (const user of usersData ?? []) {
       const { data: resident } = await supabase
         .from('residents')
         .select('block, unit, unit_label')
@@ -66,6 +80,8 @@ export default function PendingApprovalsTab({ condoId }: PendingApprovalsTabProp
 
       enriched.push({
         ...user,
+        document: user.cpf_rg ?? null,
+        document_type: null,
         block: resident?.block ?? null,
         unit: resident?.unit ?? null,
         unit_label: resident?.unit_label ?? null,
