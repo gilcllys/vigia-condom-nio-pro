@@ -230,7 +230,13 @@ export default function Login() {
     <div className="flex min-h-screen items-center justify-center bg-background px-4">
       <Card className="w-full max-w-md glass-card">
         <CardHeader className="text-center space-y-4">
-          <img src={nfevigiaLogo} alt="NFeVigia" className="h-14 mx-auto object-contain" style={{ mixBlendMode: 'screen' }} />
+          <div className="flex items-center justify-center gap-3">
+            <img src={nfevigiaShield} alt="NFeVigia" className="h-12 w-12 object-contain" />
+            <span className="text-2xl font-bold tracking-tight">
+              <span className="text-foreground">NFe</span>
+              <span className="text-primary">Vigia</span>
+            </span>
+          </div>
           <CardDescription className="text-muted-foreground">Acesse sua conta</CardDescription>
         </CardHeader>
         <CardContent>
