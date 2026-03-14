@@ -82,7 +82,7 @@ export default function ApprovalsTab() {
     const docIds = docs.map((d: any) => d.id);
     const { data: approvals } = await supabase
       .from('fiscal_document_approvals')
-      .select('id, fiscal_document_id, user_id, decision, voted_at, justification')
+      .select('id, fiscal_document_id, approver_user_id, approver_role, decision, voted_at, justification')
       .in('fiscal_document_id', docIds);
 
     // Fetch user names and roles for approvers
