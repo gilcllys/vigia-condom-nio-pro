@@ -128,9 +128,9 @@ export function PendingApprovalsCards() {
   };
 
   const cards = [
-    { show: pendingBudgets.count > 0, icon: DollarSign, label: 'Orçamentos aguardando aprovação', count: pendingBudgets.count, expiry: pendingBudgets.minExpiry },
-    { show: pendingNFs.count > 0, icon: FileText, label: 'NFs aguardando aprovação', count: pendingNFs.count, expiry: pendingNFs.minExpiry },
-    { show: pendingFinal.count > 0, icon: CheckCircle2, label: 'OS aguardando aprovação final', count: pendingFinal.count, expiry: pendingFinal.minExpiry },
+    { show: pendingBudgets.count > 0, icon: DollarSign, label: 'Orçamentos aguardando aprovação', count: pendingBudgets.count, expiry: pendingBudgets.minExpiry, path: '/ordens-servico' },
+    { show: pendingNFs.count > 0, icon: FileText, label: 'NFs aguardando aprovação (OS)', count: pendingNFs.count, expiry: pendingNFs.minExpiry, path: '/ordens-servico' },
+    { show: pendingFinal.count > 0, icon: CheckCircle2, label: 'OS aguardando aprovação final', count: pendingFinal.count, expiry: pendingFinal.minExpiry, path: '/ordens-servico' },
     { show: isSindico && minervaCount > 0, icon: Gavel, label: 'Votos de minerva pendentes', count: minervaCount, expiry: null, path: '/ordens-servico' },
     { show: (isApprover || isSindico) && pendingNFDocs > 0, icon: FileText, label: 'NFs aguardando aprovação', count: pendingNFDocs, expiry: null, path: '/almoxarifado' },
   ].filter(c => c.show);
