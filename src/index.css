@@ -125,6 +125,15 @@
     box-shadow: 0 4px 24px -4px hsl(199 89% 48% / 0.06), 0 0 0 1px hsl(222 40% 19% / 0.5);
   }
 
+  /* Premium card with glow */
+  .premium-card {
+    @apply bg-card/90 backdrop-blur-sm border border-border rounded-lg relative;
+    box-shadow:
+      0 4px 24px -4px hsl(199 89% 48% / 0.08),
+      0 0 0 1px hsl(222 40% 19% / 0.6),
+      inset 0 1px 0 0 hsl(210 40% 96% / 0.03);
+  }
+
   /* Primary gradient button */
   .btn-primary-gradient {
     background: linear-gradient(135deg, hsl(199, 89%, 48%), hsl(200, 98%, 39%));
@@ -142,5 +151,42 @@
   }
   .table-striped tr:hover td {
     background-color: hsl(222 30% 18%);
+  }
+
+  /* Enterprise grid background */
+  .enterprise-grid {
+    background-image:
+      linear-gradient(hsl(222 40% 19% / 0.3) 1px, transparent 1px),
+      linear-gradient(90deg, hsl(222 40% 19% / 0.3) 1px, transparent 1px);
+    background-size: 48px 48px;
+  }
+
+  /* Premium table */
+  .premium-table thead th {
+    @apply bg-muted/50 text-xs uppercase tracking-wider text-muted-foreground font-semibold border-b-2 border-primary/20;
+  }
+  .premium-table tbody tr {
+    @apply border-b border-border/50 transition-colors;
+  }
+  .premium-table tbody tr:nth-child(even) {
+    background-color: hsl(222 30% 12%);
+  }
+  .premium-table tbody tr:hover {
+    background-color: hsl(222 30% 16%);
+  }
+
+  /* Premium input */
+  .premium-input {
+    @apply bg-muted/30 border-border focus-visible:ring-primary/40 focus-visible:border-primary/50;
+    transition: box-shadow 0.2s ease;
+  }
+  .premium-input:focus {
+    box-shadow: 0 0 0 3px hsl(199 89% 48% / 0.15);
+  }
+
+  /* Premium badge */
+  .badge-premium {
+    @apply border backdrop-blur-sm font-medium;
+    border-color: hsl(222 40% 19% / 0.8);
   }
 }

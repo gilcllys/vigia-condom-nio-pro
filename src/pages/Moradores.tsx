@@ -50,13 +50,13 @@ const ROLE_LABELS: Record<string, string> = {
   ADMIN: 'Admin',
 };
 
-const ROLE_VARIANTS: Record<string, 'default' | 'secondary' | 'destructive' | 'outline'> = {
-  SINDICO: 'default',
-  ADMIN: 'default',
-  SUBSINDICO: 'secondary',
-  CONSELHO: 'secondary',
-  ZELADOR: 'outline',
-  MORADOR: 'outline',
+const ROLE_COLORS: Record<string, string> = {
+  SINDICO: 'bg-primary/15 text-primary border-primary/30',
+  ADMIN: 'bg-primary/15 text-primary border-primary/30',
+  SUBSINDICO: 'bg-warning/15 text-warning border-warning/30',
+  CONSELHO: 'bg-success/15 text-success border-success/30',
+  ZELADOR: 'bg-secondary/20 text-secondary-foreground border-secondary/30',
+  MORADOR: 'bg-muted/40 text-muted-foreground border-border',
 };
 
 const emptyForm: ResidentForm = { full_name: '', document: '', email: '', phone: '', block: '', unit: '', unit_label: '' };
@@ -160,101 +160,167 @@ export default function Moradores() {
   const updateField = (field: keyof ResidentForm, value: string) => setForm((prev) => ({ ...prev, [field]: value }));
 
   return (
-    <div className="space-y-6">
-      <div>
+    <div className="space-y-6 enterprise-grid min-h-full -m-6 p-6">
+      {/* Page Header */}
+      <div className="space-y-1">
         <h1 className="text-2xl font-bold tracking-tight text-foreground">Moradores</h1>
-        <p className="text-muted-foreground">Gerencie os moradores do seu condomínio.</p>
+        <p className="text-sm text-muted-foreground">Gerencie os moradores e permissões do seu condomínio.</p>
       </div>
 
       <Tabs defaultValue="lista">
-        <TabsList>
-          <TabsTrigger value="lista">Lista de Moradores</TabsTrigger>
-          {canManageRoles && <TabsTrigger value="pendentes">Aguardando Aprovação</TabsTrigger>}
+        <TabsList className="bg-muted/30 border border-border/50 backdrop-blur-sm">
+          <TabsTrigger value="lista" className="data-[state=active]:bg-primary/15 data-[state=active]:text-primary data-[state=active]:shadow-none">
+            Lista de Moradores
+          </TabsTrigger>
+          {canManageRoles && (
+            <TabsTrigger value="pendentes" className="data-[state=active]:bg-primary/15 data-[state=active]:text-primary data-[state=active]:shadow-none">
+              Aguardando Aprovação
+            </TabsTrigger>
+          )}
         </TabsList>
 
-        <TabsContent value="lista">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between pb-2 gap-2 flex-wrap">
-              <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-                <Users className="h-4 w-4" />
+        <TabsContent value="lista" className="mt-4">
+          <Card className="premium-card overflow-hidden">
+            <CardHeader className="flex flex-row items-center justify-between pb-4 gap-3 flex-wrap border-b border-border/50 bg-muted/20">
+              <CardTitle className="text-sm font-semibold text-muted-foreground flex items-center gap-2 uppercase tracking-wider">
+                <Users className="h-4 w-4 text-primary" />
                 Moradores
+                {!loading && (
+                  <span className="ml-1 text-xs font-normal text-muted-foreground/60">({filtered.length})</span>
+                )}
               </CardTitle>
               <div className="flex items-center gap-2 flex-wrap">
                 {canManageRoles && (
                   <>
-                    <Button size="sm" variant="outline" onClick={() => setInviteDialogOpen(true)}>
-                      <Link2 className="h-4 w-4 mr-1" />
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="border-border/60 bg-muted/20 hover:bg-muted/40 hover:border-primary/30 transition-all"
+                      onClick={() => setInviteDialogOpen(true)}
+                    >
+                      <Link2 className="h-4 w-4 mr-1.5 text-primary" />
                       Gerar link de convite
                     </Button>
-                    <Button size="sm" variant="outline" onClick={() => setEmployeeDialogOpen(true)}>
-                      <UserPlus className="h-4 w-4 mr-1" />
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="border-border/60 bg-muted/20 hover:bg-muted/40 hover:border-primary/30 transition-all"
+                      onClick={() => setEmployeeDialogOpen(true)}
+                    >
+                      <UserPlus className="h-4 w-4 mr-1.5 text-primary" />
                       Adicionar Funcionário
                     </Button>
                   </>
                 )}
-                <Button size="sm" onClick={openCreate}>
-                  <Plus className="h-4 w-4 mr-1" />
+                <Button
+                  size="sm"
+                  className="btn-primary-gradient"
+                  onClick={openCreate}
+                >
+                  <Plus className="h-4 w-4 mr-1.5" />
                   Novo Morador
                 </Button>
               </div>
             </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                <Input placeholder="Buscar por nome..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9" />
+            <CardContent className="space-y-4 pt-4">
+              {/* Search */}
+              <div className="relative max-w-md">
+                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground/60" />
+                <Input
+                  placeholder="Buscar por nome..."
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  className="pl-9 premium-input"
+                />
               </div>
 
+              {/* Table */}
               {loading ? (
-                <p className="text-sm text-muted-foreground py-4 text-center">Carregando...</p>
+                <div className="py-12 text-center">
+                  <div className="inline-flex items-center gap-2 text-sm text-muted-foreground">
+                    <div className="h-4 w-4 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
+                    Carregando moradores...
+                  </div>
+                </div>
               ) : filtered.length === 0 ? (
-                <p className="text-sm text-muted-foreground py-4 text-center">
-                  {search ? 'Nenhum morador encontrado.' : 'Nenhum morador cadastrado.'}
-                </p>
+                <div className="py-12 text-center">
+                  <Users className="h-10 w-10 text-muted-foreground/30 mx-auto mb-3" />
+                  <p className="text-sm text-muted-foreground">
+                    {search ? 'Nenhum morador encontrado.' : 'Nenhum morador cadastrado.'}
+                  </p>
+                </div>
               ) : (
-                <div className="overflow-x-auto">
-                  <Table>
+                <div className="overflow-x-auto rounded-lg border border-border/50">
+                  <Table className="premium-table">
                     <TableHeader>
-                      <TableRow>
-                        <TableHead>Nome</TableHead>
-                        <TableHead>Função</TableHead>
-                        <TableHead>Email</TableHead>
-                        <TableHead>Telefone</TableHead>
-                        <TableHead>Endereço</TableHead>
-                        <TableHead className="w-[130px]">Ações</TableHead>
+                      <TableRow className="border-b-0">
+                        <TableHead className="py-3 px-4">Nome</TableHead>
+                        <TableHead className="py-3 px-4">Função</TableHead>
+                        <TableHead className="py-3 px-4">Email</TableHead>
+                        <TableHead className="py-3 px-4">Telefone</TableHead>
+                        <TableHead className="py-3 px-4">Endereço</TableHead>
+                        <TableHead className="py-3 px-4 w-[130px]">Ações</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
                       {filtered.map((resident) => {
                         const hasAccount = !!resident.matched_user_id;
                         return (
-                          <TableRow key={resident.resident_id}>
-                            <TableCell className="font-medium">{resident.full_name}</TableCell>
-                            <TableCell>
+                          <TableRow key={resident.resident_id} className="group">
+                            <TableCell className="font-medium py-3 px-4 text-foreground">
+                              {resident.full_name}
+                            </TableCell>
+                            <TableCell className="py-3 px-4">
                               {resident.matched_role ? (
-                                <Badge variant={ROLE_VARIANTS[resident.matched_role] ?? 'outline'}>
+                                <Badge
+                                  variant="outline"
+                                  className={`badge-premium text-xs ${ROLE_COLORS[resident.matched_role] ?? 'bg-muted/40 text-muted-foreground border-border'}`}
+                                >
                                   {ROLE_LABELS[resident.matched_role] ?? resident.matched_role}
                                 </Badge>
                               ) : (
-                                <span className="text-muted-foreground text-xs">—</span>
+                                <span className="text-muted-foreground/50 text-xs">—</span>
                               )}
                             </TableCell>
-                            <TableCell>{resident.email ?? '—'}</TableCell>
-                            <TableCell>{resident.phone ?? '—'}</TableCell>
-                            <TableCell>{formatAddress(resident)}</TableCell>
-                            <TableCell>
-                              <div className="flex items-center gap-1">
+                            <TableCell className="py-3 px-4 text-muted-foreground text-sm">
+                              {resident.email ?? '—'}
+                            </TableCell>
+                            <TableCell className="py-3 px-4 text-muted-foreground text-sm">
+                              {resident.phone ?? '—'}
+                            </TableCell>
+                            <TableCell className="py-3 px-4 text-muted-foreground text-sm">
+                              {formatAddress(resident)}
+                            </TableCell>
+                            <TableCell className="py-3 px-4">
+                              <div className="flex items-center gap-0.5 opacity-70 group-hover:opacity-100 transition-opacity">
                                 {canManageRoles && (
                                   <Button
-                                    variant="ghost" size="icon"
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-8 w-8 hover:bg-primary/10 hover:text-primary"
                                     onClick={() => hasAccount ? openRoleChange(resident) : undefined}
                                     disabled={!hasAccount}
-                                    title={hasAccount ? 'Alterar função' : 'Morador sem conta de acesso — peça que ele faça o cadastro primeiro'}
+                                    title={hasAccount ? 'Alterar função' : 'Morador sem conta de acesso'}
                                   >
                                     <Shield className={`h-4 w-4 ${!hasAccount ? 'opacity-30' : ''}`} />
                                   </Button>
                                 )}
-                                <Button variant="ghost" size="icon" onClick={() => openEdit(resident)}><Pencil className="h-4 w-4" /></Button>
-                                <Button variant="ghost" size="icon" onClick={() => openDelete(resident)}><Trash2 className="h-4 w-4 text-destructive" /></Button>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-8 w-8 hover:bg-primary/10 hover:text-primary"
+                                  onClick={() => openEdit(resident)}
+                                >
+                                  <Pencil className="h-4 w-4" />
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-8 w-8 hover:bg-destructive/10 hover:text-destructive"
+                                  onClick={() => openDelete(resident)}
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
                               </div>
                             </TableCell>
                           </TableRow>
@@ -269,7 +335,7 @@ export default function Moradores() {
         </TabsContent>
 
         {canManageRoles && (
-          <TabsContent value="pendentes">
+          <TabsContent value="pendentes" className="mt-4">
             {condoId && <PendingApprovalsTab condoId={condoId} />}
           </TabsContent>
         )}
@@ -277,36 +343,36 @@ export default function Moradores() {
 
       {/* Create / Edit Modal */}
       <Dialog open={modalOpen} onOpenChange={setModalOpen}>
-        <DialogContent className="max-h-[calc(100vh-32px)] w-full max-w-[min(720px,calc(100vw-32px))] flex flex-col px-4 sm:px-6 overflow-y-auto">
+        <DialogContent className="max-h-[calc(100vh-32px)] w-full max-w-[min(720px,calc(100vw-32px))] flex flex-col px-4 sm:px-6 overflow-y-auto premium-card border-border">
           <DialogHeader>
-            <DialogTitle>{editingResident ? 'Editar Morador' : 'Novo Morador'}</DialogTitle>
+            <DialogTitle className="text-lg font-bold">{editingResident ? 'Editar Morador' : 'Novo Morador'}</DialogTitle>
             <DialogDescription>{editingResident ? 'Atualize os dados do morador.' : 'Preencha os dados para cadastrar um novo morador.'}</DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-2 overflow-y-auto flex-1">
-            <div className="space-y-2"><Label htmlFor="full_name">Nome completo *</Label><Input id="full_name" value={form.full_name} onChange={(e) => updateField('full_name', e.target.value)} /></div>
-            <div className="space-y-2"><Label htmlFor="document">Documento</Label><Input id="document" value={form.document} onChange={(e) => updateField('document', e.target.value)} /></div>
-            <div className="space-y-2"><Label htmlFor="email">Email</Label><Input id="email" type="email" value={form.email} onChange={(e) => updateField('email', e.target.value)} /></div>
-            <div className="space-y-2"><Label htmlFor="phone">Telefone</Label><Input id="phone" value={form.phone} onChange={(e) => updateField('phone', e.target.value)} /></div>
-            <div className="space-y-2"><Label htmlFor="block">Bloco (opcional)</Label><Input id="block" placeholder="Ex: Bloco 26" value={form.block} onChange={(e) => updateField('block', e.target.value)} /></div>
-            <div className="space-y-2"><Label htmlFor="unit">Unidade / Apto / Casa (opcional)</Label><Input id="unit" placeholder="Ex: Apto 203" value={form.unit} onChange={(e) => updateField('unit', e.target.value)} /></div>
-            <div className="space-y-2"><Label htmlFor="unit_label">Complemento (opcional)</Label><Input id="unit_label" placeholder="Ex: Quadra B Lote 8" value={form.unit_label} onChange={(e) => updateField('unit_label', e.target.value)} /></div>
+            <div className="space-y-2"><Label htmlFor="full_name" className="text-sm font-medium text-foreground">Nome completo *</Label><Input id="full_name" className="premium-input" value={form.full_name} onChange={(e) => updateField('full_name', e.target.value)} /></div>
+            <div className="space-y-2"><Label htmlFor="document" className="text-sm font-medium text-foreground">Documento</Label><Input id="document" className="premium-input" value={form.document} onChange={(e) => updateField('document', e.target.value)} /></div>
+            <div className="space-y-2"><Label htmlFor="email" className="text-sm font-medium text-foreground">Email</Label><Input id="email" type="email" className="premium-input" value={form.email} onChange={(e) => updateField('email', e.target.value)} /></div>
+            <div className="space-y-2"><Label htmlFor="phone" className="text-sm font-medium text-foreground">Telefone</Label><Input id="phone" className="premium-input" value={form.phone} onChange={(e) => updateField('phone', e.target.value)} /></div>
+            <div className="space-y-2"><Label htmlFor="block" className="text-sm font-medium text-foreground">Bloco (opcional)</Label><Input id="block" className="premium-input" placeholder="Ex: Bloco 26" value={form.block} onChange={(e) => updateField('block', e.target.value)} /></div>
+            <div className="space-y-2"><Label htmlFor="unit" className="text-sm font-medium text-foreground">Unidade / Apto / Casa (opcional)</Label><Input id="unit" className="premium-input" placeholder="Ex: Apto 203" value={form.unit} onChange={(e) => updateField('unit', e.target.value)} /></div>
+            <div className="space-y-2"><Label htmlFor="unit_label" className="text-sm font-medium text-foreground">Complemento (opcional)</Label><Input id="unit_label" className="premium-input" placeholder="Ex: Quadra B Lote 8" value={form.unit_label} onChange={(e) => updateField('unit_label', e.target.value)} /></div>
           </div>
-          <DialogFooter className="sticky bottom-0 bg-background pt-4 border-t border-border">
-            <Button variant="outline" onClick={() => setModalOpen(false)}>Cancelar</Button>
-            <Button onClick={handleSave} disabled={saving}>{saving ? 'Salvando...' : editingResident ? 'Salvar' : 'Cadastrar'}</Button>
+          <DialogFooter className="sticky bottom-0 bg-card pt-4 border-t border-border/50">
+            <Button variant="outline" className="border-border/60" onClick={() => setModalOpen(false)}>Cancelar</Button>
+            <Button className="btn-primary-gradient" onClick={handleSave} disabled={saving}>{saving ? 'Salvando...' : editingResident ? 'Salvar' : 'Cadastrar'}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
       {/* Delete Confirmation */}
       <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
-        <DialogContent>
+        <DialogContent className="premium-card border-border">
           <DialogHeader>
-            <DialogTitle>Excluir Morador</DialogTitle>
-            <DialogDescription>Tem certeza que deseja excluir <strong>{deletingResident?.full_name}</strong>? Esta ação não pode ser desfeita.</DialogDescription>
+            <DialogTitle className="text-lg font-bold">Excluir Morador</DialogTitle>
+            <DialogDescription>Tem certeza que deseja excluir <strong className="text-foreground">{deletingResident?.full_name}</strong>? Esta ação não pode ser desfeita.</DialogDescription>
           </DialogHeader>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setDeleteDialogOpen(false)}>Cancelar</Button>
+            <Button variant="outline" className="border-border/60" onClick={() => setDeleteDialogOpen(false)}>Cancelar</Button>
             <Button variant="destructive" onClick={handleDelete}>Excluir</Button>
           </DialogFooter>
         </DialogContent>
