@@ -278,10 +278,16 @@ export default function ApprovalsTab() {
                       <p className="font-medium">NF {nf.number}</p>
                       <p className="text-sm text-muted-foreground">{nf.supplier}</p>
                     </div>
-                    <div className="text-right">
+                    <div className="text-right space-y-1">
                       <p className="font-medium">R$ {nf.amount?.toFixed(2)}</p>
                       {nf.issue_date && (
                         <p className="text-xs text-muted-foreground">{new Date(nf.issue_date).toLocaleDateString('pt-BR')}</p>
+                      )}
+                      {nf.file_url && (
+                        <Button size="sm" variant="outline" className="text-xs h-7" onClick={() => window.open(nf.file_url!, '_blank')}>
+                          <FileText className="h-3 w-3 mr-1" />
+                          Ver NF
+                        </Button>
                       )}
                     </div>
                   </div>
