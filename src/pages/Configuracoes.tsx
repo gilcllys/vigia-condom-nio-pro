@@ -1,5 +1,6 @@
 import { MfaSecuritySection } from '@/components/security/MfaSecuritySection';
 import JoinCondoSection from '@/components/moradores/JoinCondoSection';
+import FinancialConfigSection from '@/components/configuracoes/FinancialConfigSection';
 
 export default function Configuracoes() {
   return (
@@ -10,6 +11,7 @@ export default function Configuracoes() {
       </div>
 
       <JoinCondoSection />
+      <FinancialConfigSection />
       <MfaSecuritySection />
     </div>
   );

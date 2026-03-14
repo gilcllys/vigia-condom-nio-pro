@@ -43,10 +43,9 @@ export default function FinancialConfigSection() {
   const [saving, setSaving] = useState(false);
 
   const isSindico = role === 'SINDICO' || role === 'ADMIN';
-  if (!isSindico) return null;
 
   useEffect(() => {
-    if (!condoId) return;
+    if (!condoId || !isSindico) { setLoading(false); return; }
     setLoading(true);
     supabase
       .from('condo_financial_config')
@@ -71,7 +70,9 @@ export default function FinancialConfigSection() {
         }
         setLoading(false);
       });
-  }, [condoId]);
+  }, [condoId, isSindico]);
+
+  if (!isSindico) return null;
 
   const num = (v: string) => v.trim() === '' ? null : parseFloat(v);
 
