@@ -22,11 +22,11 @@ interface Approval {
 
 interface PendingNF {
   id: string;
-  document_number: string;
-  issuer_name: string;
-  gross_amount: number;
+  number: string;
+  supplier: string;
+  amount: number;
   issue_date: string | null;
-  approval_status: string;
+  status: string;
   approvals: Approval[];
 }
 
