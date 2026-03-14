@@ -276,7 +276,7 @@ export default function ApprovalsTab() {
                       <p className="text-sm text-muted-foreground">{nf.supplier}</p>
                     </div>
                     <div className="text-right">
-                      <p className="font-medium">R$ {nf.gross_amount?.toFixed(2)}</p>
+                      <p className="font-medium">R$ {nf.amount?.toFixed(2)}</p>
                       {nf.issue_date && (
                         <p className="text-xs text-muted-foreground">{new Date(nf.issue_date).toLocaleDateString('pt-BR')}</p>
                       )}
