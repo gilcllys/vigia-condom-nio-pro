@@ -86,7 +86,7 @@ export default function ApprovalsTab() {
       .in('fiscal_document_id', docIds);
 
     // Fetch user names and roles for approvers
-    const userIds = [...new Set((approvals ?? []).map((a: any) => a.user_id))];
+    const userIds = [...new Set((approvals ?? []).map((a: any) => a.approver_user_id))];
     let userMap: Record<string, { name: string; role: string }> = {};
 
     if (userIds.length > 0) {
