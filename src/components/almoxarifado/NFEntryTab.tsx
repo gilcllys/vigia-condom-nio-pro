@@ -69,6 +69,7 @@ export default function NFEntryTab() {
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
   const [nfData, setNfData] = useState<NFData>(emptyNF);
   const [stockItems, setStockItems] = useState<StockItemOption[]>([]);
+  const [stockCategories, setStockCategories] = useState<StockCategory[]>([]);
   const [destination, setDestination] = useState('almoxarifado');
   const [saving, setSaving] = useState(false);
 
@@ -81,6 +82,13 @@ export default function NFEntryTab() {
       .is('deleted_at', null)
       .order('name')
       .then(({ data }) => setStockItems(data ?? []));
+
+    supabase
+      .from('stock_categories')
+      .select('id, name')
+      .eq('condo_id', condoId)
+      .order('name')
+      .then(({ data }) => setStockCategories(data ?? []));
   }, [condoId]);
 
   const handleFileSelect = async (file: File) => {
