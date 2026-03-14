@@ -121,8 +121,9 @@
 @layer components {
   /* Glassmorphism card */
   .glass-card {
-    @apply bg-card/80 backdrop-blur-sm border border-border rounded-lg;
-    box-shadow: 0 4px 24px -4px hsl(199 89% 48% / 0.06), 0 0 0 1px hsl(222 40% 19% / 0.5);
+    @apply bg-card/80 backdrop-blur-sm rounded-lg;
+    border: 1px solid hsl(222 40% 19% / 0.6);
+    box-shadow: 0 4px 24px -4px hsl(199 89% 48% / 0.06);
   }
 
   /* Premium card with glow */
