@@ -27,6 +27,7 @@ interface PendingNF {
   amount: number;
   issue_date: string | null;
   status: string;
+  file_url: string | null;
   approvals: Approval[];
 }
 
