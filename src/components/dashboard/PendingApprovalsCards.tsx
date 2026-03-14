@@ -117,7 +117,7 @@ export function PendingApprovalsCards() {
 
   if (!showCards || loading) return null;
 
-  const hasAnyPending = pendingBudgets.count > 0 || pendingNFs.count > 0 || pendingFinal.count > 0 || minervaCount > 0;
+  const hasAnyPending = pendingBudgets.count > 0 || pendingNFs.count > 0 || pendingFinal.count > 0 || minervaCount > 0 || pendingNFDocs > 0;
   if (!hasAnyPending) return null;
 
   const expiryLabel = (expiry: string | null) => {
