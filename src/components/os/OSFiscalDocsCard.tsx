@@ -69,13 +69,8 @@ export function OSFiscalDocsCard({ orderId, condoId, canAttach, canCriticalActio
 
   useEffect(() => { fetchDocs(); }, [orderId]);
 
-  const handleDownload = async (fileUrl: string) => {
-    const { data, error } = await supabase.storage
-      .from('service-order-photos')
-      .createSignedUrl(fileUrl, 3600);
-    if (data && !error) {
-      window.open(data.signedUrl, '_blank');
-    }
+  const handleDownload = (fileUrl: string) => {
+    window.open(getPublicStorageUrl(fileUrl), '_blank');
   };
 
   const extractWithOCR = async (selectedFile: File) => {
