@@ -188,7 +188,7 @@ export default function NFEntryTab() {
   const addItem = () => {
     setNfData(prev => ({
       ...prev,
-      itens: [...prev.itens, { nome: '', quantidade: 0, valor_unitario: 0, stock_item_id: '', create_new: true }],
+      itens: [...prev.itens, { nome: '', quantidade: 0, valor_unitario: 0, stock_item_id: '', create_new: true, category_id: '' }],
     }));
   };
 
