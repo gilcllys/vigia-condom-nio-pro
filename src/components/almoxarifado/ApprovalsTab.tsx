@@ -135,16 +135,17 @@ export default function ApprovalsTab() {
 
     setProcessing(true);
 
-    // Update the approval record
+    // Insert approval record
     const { error: approvalError } = await supabase
       .from('fiscal_document_approvals')
-      .update({
+      .insert({
+        fiscal_document_id: nf.id,
+        user_id: internalUserId,
+        condo_id: condoId,
         decision,
         voted_at: new Date().toISOString(),
         justification: decision === 'rejeitado' ? justification.trim() : null,
-      })
-      .eq('fiscal_document_id', nf.id)
-      .eq('user_id', internalUserId);
+      });
 
     if (approvalError) {
       toast({ title: 'Erro ao registrar voto', description: approvalError.message, variant: 'destructive' });
