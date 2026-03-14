@@ -4,6 +4,7 @@ import { useLocation } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { useCondo } from '@/contexts/CondoContext';
 import nfevigiaIcon from '@/assets/nfevigia-icon.png';
+import nfevigiaLogoFull from '@/assets/nfevigia-logo-full.png';
 import {
   Sidebar,
   SidebarContent,
@@ -57,12 +58,8 @@ export function AppSidebar() {
     <Sidebar collapsible="icon" className="border-r border-sidebar-border">
       <SidebarHeader className="border-b border-sidebar-border/60 px-4 py-4">
         {!collapsed ? (
-          <div className="flex items-center gap-2.5">
-            <img src={nfevigiaIcon} alt="NFeVigia" className="h-8 w-8 object-contain drop-shadow-lg" />
-            <span className="text-lg font-bold tracking-tight">
-              <span className="text-sidebar-foreground">NFe</span>
-              <span className="text-primary">Vigia</span>
-            </span>
+          <div className="flex items-center">
+            <img src={nfevigiaLogoFull} alt="NFeVigia" className="h-10 object-contain" style={{ mixBlendMode: 'screen' }} />
           </div>
         ) : (
           <img src={nfevigiaIcon} alt="NFeVigia" className="h-8 w-8 object-contain mx-auto drop-shadow-lg" />
