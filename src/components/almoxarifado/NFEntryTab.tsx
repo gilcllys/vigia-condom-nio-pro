@@ -16,6 +16,12 @@ interface ExtractedItem {
   valor_unitario: number;
   stock_item_id: string;
   create_new: boolean;
+  category_id: string;
+}
+
+interface StockCategory {
+  id: string;
+  name: string;
 }
 
 interface NFData {
@@ -63,6 +69,7 @@ export default function NFEntryTab() {
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
   const [nfData, setNfData] = useState<NFData>(emptyNF);
   const [stockItems, setStockItems] = useState<StockItemOption[]>([]);
+  const [stockCategories, setStockCategories] = useState<StockCategory[]>([]);
   const [destination, setDestination] = useState('almoxarifado');
   const [saving, setSaving] = useState(false);
 
@@ -75,6 +82,13 @@ export default function NFEntryTab() {
       .is('deleted_at', null)
       .order('name')
       .then(({ data }) => setStockItems(data ?? []));
+
+    supabase
+      .from('stock_categories')
+      .select('id, name')
+      .eq('condo_id', condoId)
+      .order('name')
+      .then(({ data }) => setStockCategories(data ?? []));
   }, [condoId]);
 
   const handleFileSelect = async (file: File) => {
@@ -130,6 +144,7 @@ export default function NFEntryTab() {
           valor_unitario: item.valor_unitario || 0,
           stock_item_id: '',
           create_new: true,
+          category_id: '',
         })),
       });
       toast({ title: 'Dados extraídos automaticamente', description: 'Confira e ajuste se necessário.' });
@@ -141,7 +156,7 @@ export default function NFEntryTab() {
         description: 'Preencha os dados manualmente.',
         variant: 'destructive',
       });
-      setNfData({ ...emptyNF, itens: [{ nome: '', quantidade: 0, valor_unitario: 0, stock_item_id: '', create_new: true }] });
+      setNfData({ ...emptyNF, itens: [{ nome: '', quantidade: 0, valor_unitario: 0, stock_item_id: '', create_new: true, category_id: '' }] });
       setStep('review');
     }
   };
@@ -173,7 +188,7 @@ export default function NFEntryTab() {
   const addItem = () => {
     setNfData(prev => ({
       ...prev,
-      itens: [...prev.itens, { nome: '', quantidade: 0, valor_unitario: 0, stock_item_id: '', create_new: true }],
+      itens: [...prev.itens, { nome: '', quantidade: 0, valor_unitario: 0, stock_item_id: '', create_new: true, category_id: '' }],
     }));
   };
 
@@ -236,6 +251,7 @@ export default function NFEntryTab() {
               name: item.nome.trim(),
               unit: 'un',
               min_qty: 0,
+              category_id: item.category_id || null,
             })
             .select('id')
             .single();
@@ -398,6 +414,21 @@ export default function NFEntryTab() {
                     </SelectContent>
                   </Select>
                 </div>
+                {item.create_new && (
+                  <div className="space-y-1">
+                    <Label className="text-xs">Categoria</Label>
+                    <Select
+                      value={item.category_id || '__none__'}
+                      onValueChange={(v) => updateItem(idx, 'category_id', v === '__none__' ? '' : v)}
+                    >
+                      <SelectTrigger><SelectValue placeholder="Selecione uma categoria" /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="__none__">Sem categoria</SelectItem>
+                        {stockCategories.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
               </div>
             ))}
           </div>

@@ -11,7 +11,13 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogD
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
-import { Plus, ArrowUpDown, Package } from 'lucide-react';
+import { Plus, ArrowUpDown, Package, Pencil, FolderPlus, Filter } from 'lucide-react';
+
+interface StockCategory {
+  id: string;
+  name: string;
+  description: string | null;
+}
 
 interface StockItem {
   id: string;
@@ -19,22 +25,49 @@ interface StockItem {
   unit: string;
   min_qty: number;
   current_qty: number;
+  category_id: string | null;
+  category_name: string | null;
+  description: string | null;
 }
 
 interface NewItemForm {
   name: string;
   unit: string;
   min_qty: string;
+  category_id: string;
+  description: string;
+}
+
+interface EditItemForm {
+  name: string;
+  min_qty: string;
+  category_id: string;
+  description: string;
 }
 
 interface MovementForm {
-  move_type: 'entrada' | 'saida';
+  move_type: 'entrada' | 'saida' | 'ajuste';
   qty: string;
   destination: string;
   notes: string;
 }
 
+interface NewCategoryForm {
+  name: string;
+  description: string;
+}
+
 const UNITS = ['un', 'kg', 'L', 'm', 'm²', 'caixa', 'saco', 'rolo'];
+
+const DEFAULT_CATEGORIES = [
+  { name: 'Máquinas e Equipamentos', description: 'Cortadores de grama, lavadoras, etc.' },
+  { name: 'Ferramentas', description: 'Ferramentas manuais e elétricas' },
+  { name: 'Lubrificantes e Químicos', description: 'Óleos, graxas, produtos químicos' },
+  { name: 'Material de Limpeza', description: 'Produtos e utensílios de limpeza' },
+  { name: 'Material Elétrico', description: 'Fios, lâmpadas, disjuntores' },
+  { name: 'Material Hidráulico', description: 'Tubos, conexões, registros' },
+  { name: 'Outros', description: 'Itens não categorizados' },
+];
 
 export default function StockTab() {
   const { condoId, role } = useCondo();
@@ -42,23 +75,66 @@ export default function StockTab() {
   const canCreate = role === 'SINDICO' || role === 'ADMIN';
 
   const [items, setItems] = useState<StockItem[]>([]);
+  const [categories, setCategories] = useState<StockCategory[]>([]);
   const [loading, setLoading] = useState(true);
-  const [newItemOpen, setNewItemOpen] = useState(false);
-  const [newItemForm, setNewItemForm] = useState<NewItemForm>({ name: '', unit: '', min_qty: '' });
-  const [saving, setSaving] = useState(false);
+  const [filterCategory, setFilterCategory] = useState<string>('all');
 
+  // New Item dialog
+  const [newItemOpen, setNewItemOpen] = useState(false);
+  const [newItemForm, setNewItemForm] = useState<NewItemForm>({ name: '', unit: '', min_qty: '', category_id: '', description: '' });
+
+  // Edit Item dialog
+  const [editOpen, setEditOpen] = useState(false);
+  const [editItem, setEditItem] = useState<StockItem | null>(null);
+  const [editForm, setEditForm] = useState<EditItemForm>({ name: '', min_qty: '', category_id: '', description: '' });
+
+  // Movement dialog
   const [moveOpen, setMoveOpen] = useState(false);
   const [moveItem, setMoveItem] = useState<StockItem | null>(null);
   const [moveForm, setMoveForm] = useState<MovementForm>({ move_type: 'entrada', qty: '', destination: 'almoxarifado', notes: '' });
+
+  // New Category dialog
+  const [catOpen, setCatOpen] = useState(false);
+  const [catForm, setCatForm] = useState<NewCategoryForm>({ name: '', description: '' });
+
+  const [saving, setSaving] = useState(false);
+
+  const fetchCategories = async () => {
+    if (!condoId) return;
+    const { data, error } = await supabase
+      .from('stock_categories')
+      .select('id, name, description')
+      .eq('condo_id', condoId)
+      .order('name');
+
+    if (error) {
+      console.error('Error fetching categories:', error);
+      return;
+    }
+
+    // Seed default categories if none exist
+    if (!data || data.length === 0) {
+      const rows = DEFAULT_CATEGORIES.map(c => ({ condo_id: condoId, name: c.name, description: c.description }));
+      const { data: inserted, error: insertErr } = await supabase
+        .from('stock_categories')
+        .insert(rows)
+        .select('id, name, description');
+
+      if (!insertErr && inserted) {
+        setCategories(inserted);
+      }
+    } else {
+      setCategories(data);
+    }
+  };
 
   const fetchItems = async () => {
     if (!condoId) return;
     setLoading(true);
 
-    // Fetch stock_items
     const { data: stockItems, error: itemsError } = await supabase
       .from('stock_items')
-      .select('id, name, unit, min_qty')
+      .select('id, name, unit, min_qty, category_id, description')
       .eq('condo_id', condoId)
       .is('deleted_at', null)
       .order('name');
@@ -70,24 +146,23 @@ export default function StockTab() {
       return;
     }
 
-    // Fetch balances from view
-    const { data: balances, error: balError } = await supabase
+    const { data: balances } = await supabase
       .from('v_stock_balance')
       .select('item_id, balance')
       .eq('condo_id', condoId);
-
-    if (balError) {
-      console.error('Error fetching balances:', balError);
-    }
 
     const balanceMap: Record<string, number> = {};
     (balances ?? []).forEach((b: any) => {
       balanceMap[b.item_id] = Number(b.balance) || 0;
     });
 
+    const catMap: Record<string, string> = {};
+    categories.forEach(c => { catMap[c.id] = c.name; });
+
     const merged: StockItem[] = (stockItems ?? []).map((item: any) => ({
       ...item,
       current_qty: balanceMap[item.id] ?? 0,
+      category_name: item.category_id ? (catMap[item.category_id] || 'Sem categoria') : 'Sem categoria',
     }));
 
     setItems(merged);
@@ -95,8 +170,36 @@ export default function StockTab() {
   };
 
   useEffect(() => {
-    fetchItems();
+    fetchCategories();
   }, [condoId]);
+
+  useEffect(() => {
+    if (categories.length > 0 || !loading) {
+      fetchItems();
+    }
+  }, [condoId, categories]);
+
+  const handleCreateCategory = async () => {
+    if (!condoId) return;
+    if (!catForm.name.trim()) {
+      toast({ title: 'Nome da categoria é obrigatório', variant: 'destructive' });
+      return;
+    }
+    setSaving(true);
+    const { error } = await supabase
+      .from('stock_categories')
+      .insert({ condo_id: condoId, name: catForm.name.trim(), description: catForm.description.trim() || null });
+
+    if (error) {
+      toast({ title: 'Erro ao criar categoria', description: error.message, variant: 'destructive' });
+    } else {
+      toast({ title: 'Categoria criada!' });
+      setCatOpen(false);
+      setCatForm({ name: '', description: '' });
+      fetchCategories();
+    }
+    setSaving(false);
+  };
 
   const handleCreateItem = async () => {
     if (!condoId) return;
@@ -113,6 +216,8 @@ export default function StockTab() {
         name: newItemForm.name.trim(),
         unit: newItemForm.unit,
         min_qty: Number(newItemForm.min_qty),
+        category_id: newItemForm.category_id || null,
+        description: newItemForm.description.trim() || null,
       });
 
     if (error) {
@@ -120,7 +225,45 @@ export default function StockTab() {
     } else {
       toast({ title: 'Item criado com sucesso' });
       setNewItemOpen(false);
-      setNewItemForm({ name: '', unit: '', min_qty: '' });
+      setNewItemForm({ name: '', unit: '', min_qty: '', category_id: '', description: '' });
+      fetchItems();
+    }
+    setSaving(false);
+  };
+
+  const openEdit = (item: StockItem) => {
+    setEditItem(item);
+    setEditForm({
+      name: item.name,
+      min_qty: String(item.min_qty),
+      category_id: item.category_id || '',
+      description: item.description || '',
+    });
+    setEditOpen(true);
+  };
+
+  const handleEditItem = async () => {
+    if (!editItem) return;
+    if (!editForm.name.trim()) {
+      toast({ title: 'Nome é obrigatório', variant: 'destructive' });
+      return;
+    }
+    setSaving(true);
+    const { error } = await supabase
+      .from('stock_items')
+      .update({
+        name: editForm.name.trim(),
+        min_qty: Number(editForm.min_qty) || 0,
+        category_id: editForm.category_id || null,
+        description: editForm.description.trim() || null,
+      })
+      .eq('id', editItem.id);
+
+    if (error) {
+      toast({ title: 'Erro ao atualizar item', description: error.message, variant: 'destructive' });
+    } else {
+      toast({ title: 'Item atualizado!' });
+      setEditOpen(false);
       fetchItems();
     }
     setSaving(false);
@@ -137,6 +280,11 @@ export default function StockTab() {
     const qty = Number(moveForm.qty);
     if (!qty || qty <= 0) {
       toast({ title: 'Quantidade inválida', variant: 'destructive' });
+      return;
+    }
+
+    if (moveForm.move_type === 'ajuste' && !moveForm.notes.trim()) {
+      toast({ title: 'Justificativa é obrigatória para ajustes', variant: 'destructive' });
       return;
     }
 
@@ -162,65 +310,136 @@ export default function StockTab() {
     setSaving(false);
   };
 
+  const filteredItems = filterCategory === 'all'
+    ? items
+    : filterCategory === 'none'
+      ? items.filter(i => !i.category_id)
+      : items.filter(i => i.category_id === filterCategory);
+
   return (
     <>
       <Card>
-        <CardHeader className="flex flex-row items-center justify-between pb-2">
+        <CardHeader className="flex flex-row items-center justify-between pb-2 gap-2 flex-wrap">
           <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
             <Package className="h-4 w-4" />
             Itens em Estoque
           </CardTitle>
-          {canCreate && (
-            <Button size="sm" onClick={() => setNewItemOpen(true)}>
-              <Plus className="h-4 w-4 mr-1" />
-              Novo Item
-            </Button>
-          )}
+          <div className="flex gap-2 flex-wrap">
+            {canCreate && (
+              <>
+                <Button size="sm" variant="outline" onClick={() => setCatOpen(true)}>
+                  <FolderPlus className="h-4 w-4 mr-1" />
+                  Nova Categoria
+                </Button>
+                <Button size="sm" onClick={() => setNewItemOpen(true)}>
+                  <Plus className="h-4 w-4 mr-1" />
+                  Novo Item
+                </Button>
+              </>
+            )}
+          </div>
         </CardHeader>
-        <CardContent>
+        <CardContent className="space-y-4">
+          {/* Filter */}
+          <div className="flex items-center gap-2">
+            <Filter className="h-4 w-4 text-muted-foreground" />
+            <Select value={filterCategory} onValueChange={setFilterCategory}>
+              <SelectTrigger className="w-[220px]">
+                <SelectValue placeholder="Filtrar por categoria" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todas as categorias</SelectItem>
+                <SelectItem value="none">Sem categoria</SelectItem>
+                {categories.map(c => (
+                  <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <span className="text-xs text-muted-foreground">{filteredItems.length} ite{filteredItems.length === 1 ? 'm' : 'ns'}</span>
+          </div>
+
           {loading ? (
             <p className="text-sm text-muted-foreground py-4 text-center">Carregando...</p>
-          ) : items.length === 0 ? (
-            <p className="text-sm text-muted-foreground py-4 text-center">Nenhum item cadastrado.</p>
+          ) : filteredItems.length === 0 ? (
+            <p className="text-sm text-muted-foreground py-4 text-center">Nenhum item encontrado.</p>
           ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Nome</TableHead>
-                  <TableHead>Unidade</TableHead>
-                  <TableHead>Qtd. Atual</TableHead>
-                  <TableHead>Qtd. Mínima</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Ação</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {items.map((item) => (
-                  <TableRow key={item.id}>
-                    <TableCell className="font-medium">{item.name}</TableCell>
-                    <TableCell>{item.unit}</TableCell>
-                    <TableCell>{item.current_qty}</TableCell>
-                    <TableCell>{item.min_qty}</TableCell>
-                    <TableCell>
-                      {item.current_qty > item.min_qty ? (
-                        <Badge className="bg-green-600 text-white hover:bg-green-700">OK</Badge>
-                      ) : (
-                        <Badge variant="destructive">Baixo</Badge>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      <Button size="sm" variant="outline" onClick={() => openMovement(item)}>
-                        <ArrowUpDown className="h-3 w-3 mr-1" />
-                        Movimentar
-                      </Button>
-                    </TableCell>
+            <div className="overflow-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Nome</TableHead>
+                    <TableHead>Categoria</TableHead>
+                    <TableHead>Un.</TableHead>
+                    <TableHead className="text-right">Saldo</TableHead>
+                    <TableHead className="text-right">Mínimo</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Ações</TableHead>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+                </TableHeader>
+                <TableBody>
+                  {filteredItems.map((item) => (
+                    <TableRow key={item.id}>
+                      <TableCell className="font-medium">{item.name}</TableCell>
+                      <TableCell>
+                        <Badge variant="outline" className="text-xs font-normal">
+                          {item.category_name}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>{item.unit}</TableCell>
+                      <TableCell className="text-right">{item.current_qty}</TableCell>
+                      <TableCell className="text-right">{item.min_qty}</TableCell>
+                      <TableCell>
+                        {item.current_qty > item.min_qty ? (
+                          <Badge className="bg-green-600 text-white hover:bg-green-700">OK</Badge>
+                        ) : (
+                          <Badge variant="destructive">Baixo</Badge>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex gap-1">
+                          {canCreate && (
+                            <Button size="sm" variant="ghost" onClick={() => openEdit(item)} title="Editar">
+                              <Pencil className="h-3 w-3" />
+                            </Button>
+                          )}
+                          <Button size="sm" variant="outline" onClick={() => openMovement(item)}>
+                            <ArrowUpDown className="h-3 w-3 mr-1" />
+                            Mov.
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
           )}
         </CardContent>
       </Card>
+
+      {/* New Category Dialog */}
+      <Dialog open={catOpen} onOpenChange={setCatOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Nova Categoria</DialogTitle>
+            <DialogDescription>Crie uma categoria para organizar os itens do estoque.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-2">
+              <Label>Nome *</Label>
+              <Input value={catForm.name} onChange={(e) => setCatForm(p => ({ ...p, name: e.target.value }))} />
+            </div>
+            <div className="space-y-2">
+              <Label>Descrição</Label>
+              <Input value={catForm.description} onChange={(e) => setCatForm(p => ({ ...p, description: e.target.value }))} />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setCatOpen(false)}>Cancelar</Button>
+            <Button onClick={handleCreateCategory} disabled={saving}>{saving ? 'Salvando...' : 'Salvar'}</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* New Item Dialog */}
       <Dialog open={newItemOpen} onOpenChange={setNewItemOpen}>
@@ -235,17 +454,32 @@ export default function StockTab() {
               <Input value={newItemForm.name} onChange={(e) => setNewItemForm(p => ({ ...p, name: e.target.value }))} />
             </div>
             <div className="space-y-2">
-              <Label>Unidade *</Label>
-              <Select value={newItemForm.unit} onValueChange={(v) => setNewItemForm(p => ({ ...p, unit: v }))}>
-                <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
+              <Label>Categoria</Label>
+              <Select value={newItemForm.category_id} onValueChange={(v) => setNewItemForm(p => ({ ...p, category_id: v }))}>
+                <SelectTrigger><SelectValue placeholder="Selecione uma categoria" /></SelectTrigger>
                 <SelectContent>
-                  {UNITS.map(u => <SelectItem key={u} value={u}>{u}</SelectItem>)}
+                  {categories.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Unidade *</Label>
+                <Select value={newItemForm.unit} onValueChange={(v) => setNewItemForm(p => ({ ...p, unit: v }))}>
+                  <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
+                  <SelectContent>
+                    {UNITS.map(u => <SelectItem key={u} value={u}>{u}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>Qtd. mínima *</Label>
+                <Input type="number" min="0" value={newItemForm.min_qty} onChange={(e) => setNewItemForm(p => ({ ...p, min_qty: e.target.value }))} />
+              </div>
+            </div>
             <div className="space-y-2">
-              <Label>Quantidade mínima *</Label>
-              <Input type="number" min="0" value={newItemForm.min_qty} onChange={(e) => setNewItemForm(p => ({ ...p, min_qty: e.target.value }))} />
+              <Label>Descrição</Label>
+              <Textarea value={newItemForm.description} onChange={(e) => setNewItemForm(p => ({ ...p, description: e.target.value }))} placeholder="Detalhes adicionais do item..." />
             </div>
           </div>
           <DialogFooter>
@@ -255,12 +489,49 @@ export default function StockTab() {
         </DialogContent>
       </Dialog>
 
+      {/* Edit Item Dialog */}
+      <Dialog open={editOpen} onOpenChange={setEditOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Editar Item: {editItem?.name}</DialogTitle>
+            <DialogDescription>Edite nome, categoria e quantidade mínima. O saldo só pode ser alterado via movimentação.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-2">
+              <Label>Nome *</Label>
+              <Input value={editForm.name} onChange={(e) => setEditForm(p => ({ ...p, name: e.target.value }))} />
+            </div>
+            <div className="space-y-2">
+              <Label>Categoria</Label>
+              <Select value={editForm.category_id} onValueChange={(v) => setEditForm(p => ({ ...p, category_id: v }))}>
+                <SelectTrigger><SelectValue placeholder="Sem categoria" /></SelectTrigger>
+                <SelectContent>
+                  {categories.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>Qtd. mínima</Label>
+              <Input type="number" min="0" value={editForm.min_qty} onChange={(e) => setEditForm(p => ({ ...p, min_qty: e.target.value }))} />
+            </div>
+            <div className="space-y-2">
+              <Label>Descrição</Label>
+              <Textarea value={editForm.description} onChange={(e) => setEditForm(p => ({ ...p, description: e.target.value }))} />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditOpen(false)}>Cancelar</Button>
+            <Button onClick={handleEditItem} disabled={saving}>{saving ? 'Salvando...' : 'Salvar'}</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* Movement Dialog */}
       <Dialog open={moveOpen} onOpenChange={setMoveOpen}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Movimentar: {moveItem?.name}</DialogTitle>
-            <DialogDescription>Registre uma entrada ou saída de estoque.</DialogDescription>
+            <DialogDescription>Registre uma entrada, saída ou ajuste de estoque.</DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-2">
             <div className="space-y-2">
@@ -270,6 +541,7 @@ export default function StockTab() {
                 <SelectContent>
                   <SelectItem value="entrada">Entrada</SelectItem>
                   <SelectItem value="saida">Saída</SelectItem>
+                  <SelectItem value="ajuste">Ajuste (com justificativa)</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -291,8 +563,12 @@ export default function StockTab() {
               </div>
             )}
             <div className="space-y-2">
-              <Label>Observação</Label>
-              <Textarea value={moveForm.notes} onChange={(e) => setMoveForm(p => ({ ...p, notes: e.target.value }))} />
+              <Label>{moveForm.move_type === 'ajuste' ? 'Justificativa *' : 'Observação'}</Label>
+              <Textarea
+                value={moveForm.notes}
+                onChange={(e) => setMoveForm(p => ({ ...p, notes: e.target.value }))}
+                placeholder={moveForm.move_type === 'ajuste' ? 'Justificativa obrigatória para ajuste...' : 'Observação opcional...'}
+              />
             </div>
           </div>
           <DialogFooter>
