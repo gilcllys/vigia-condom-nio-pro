@@ -65,6 +65,9 @@ export function AppSidebar() {
               <span className="text-primary">Vigia</span>
             </span>
           </div>
+        ) : (
+          <img src={nfevigiaShield} alt="NFeVigia" className="h-8 w-8 object-contain mx-auto" />
+        )}
       </SidebarHeader>
 
       <SidebarContent className="py-2">
