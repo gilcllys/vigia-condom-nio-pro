@@ -262,7 +262,8 @@ export default function ApprovalsTab() {
           <div className="space-y-4">
             {nfs.map((nf) => {
               const myApproval = nf.approvals.find(a => a.user_id === internalUserId);
-              const canVote = myApproval && myApproval.decision === 'pendente';
+              const alreadyVoted = myApproval != null;
+              const canVote = !alreadyVoted;
               const isSindico = role === 'SINDICO' || role === 'ADMIN';
               const hasRejection = nf.approvals.some(a => a.decision === 'rejeitado');
               const allNonSindicoVoted = nf.approvals
