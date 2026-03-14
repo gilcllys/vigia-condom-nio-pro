@@ -137,8 +137,8 @@ export function PendingApprovalsCards() {
 
   return (
     <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-      {cards.map(({ icon: Icon, label, count, expiry }, i) => (
-        <Card key={i} className="border-amber-200 dark:border-amber-800 bg-amber-50/50 dark:bg-amber-950/20 cursor-pointer hover:shadow-md transition-shadow" onClick={() => navigate('/ordens-servico')}>
+      {cards.map(({ icon: Icon, label, count, expiry, path }, i) => (
+        <Card key={i} className="border-amber-200 dark:border-amber-800 bg-amber-50/50 dark:bg-amber-950/20 cursor-pointer hover:shadow-md transition-shadow" onClick={() => navigate(path ?? '/ordens-servico')}>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">{label}</CardTitle>
             <div className="rounded-md bg-amber-100 dark:bg-amber-900 p-2">

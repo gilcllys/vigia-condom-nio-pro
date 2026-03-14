@@ -8,7 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
-import { CheckCircle, XCircle, Clock, Shield } from 'lucide-react';
+import { CheckCircle, XCircle, Clock, Shield, FileText } from 'lucide-react';
 
 interface Approval {
   id: string;
