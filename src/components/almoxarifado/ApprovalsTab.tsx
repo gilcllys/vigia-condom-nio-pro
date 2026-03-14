@@ -142,7 +142,8 @@ export default function ApprovalsTab() {
       .from('fiscal_document_approvals')
       .insert({
         fiscal_document_id: nf.id,
-        user_id: internalUserId,
+        approver_user_id: internalUserId,
+        approver_role: role,
         condo_id: condoId,
         decision,
         voted_at: new Date().toISOString(),
