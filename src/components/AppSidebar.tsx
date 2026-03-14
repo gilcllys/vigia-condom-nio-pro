@@ -18,6 +18,7 @@ import {
   useSidebar,
 } from '@/components/ui/sidebar';
 import { Button } from '@/components/ui/button';
+import { Separator } from '@/components/ui/separator';
 
 type MenuItem = { title: string; url: string; icon: typeof LayoutDashboard };
 
@@ -53,58 +54,66 @@ export function AppSidebar() {
   const menuItems = allMenuItems.filter(item => allowedUrls.includes(item.url));
 
   return (
-    <Sidebar collapsible="icon">
-      <SidebarHeader className="border-b border-sidebar-border px-4 py-4">
+    <Sidebar collapsible="icon" className="border-r border-sidebar-border">
+      <SidebarHeader className="border-b border-sidebar-border/60 px-4 py-4">
         {!collapsed ? (
-          <div className="flex items-center gap-2">
-            <img src={nfevigiaIcon} alt="NFeVigia" className="h-8 w-8 object-contain" />
+          <div className="flex items-center gap-2.5">
+            <img src={nfevigiaIcon} alt="NFeVigia" className="h-8 w-8 object-contain drop-shadow-lg" />
             <span className="text-lg font-bold tracking-tight">
               <span className="text-sidebar-foreground">NFe</span>
               <span className="text-primary">Vigia</span>
             </span>
           </div>
         ) : (
-          <img src={nfevigiaIcon} alt="NFeVigia" className="h-8 w-8 object-contain mx-auto" />
+          <img src={nfevigiaIcon} alt="NFeVigia" className="h-8 w-8 object-contain mx-auto drop-shadow-lg" />
         )}
       </SidebarHeader>
 
-      <SidebarContent>
+      <SidebarContent className="py-2">
         <SidebarGroup>
-          <SidebarGroupLabel className="text-muted-foreground/60 text-xs uppercase tracking-widest">Menu</SidebarGroupLabel>
+          <SidebarGroupLabel className="text-muted-foreground/50 text-[10px] uppercase tracking-[0.15em] font-semibold px-4">
+            Menu
+          </SidebarGroupLabel>
           <SidebarGroupContent>
-            <SidebarMenu>
-              {menuItems.map((item) => (
-                <SidebarMenuItem key={item.title}>
-                  <SidebarMenuButton asChild isActive={location.pathname === item.url || location.pathname.startsWith(item.url + '/')}>
-                    <NavLink
-                      to={item.url}
-                      end={item.url === '/dashboard'}
-                      className="hover:bg-sidebar-accent/50 text-sidebar-foreground/70 transition-colors"
-                      activeClassName="bg-primary/15 text-primary font-medium border-l-2 border-primary"
-                    >
-                      <item.icon className="h-4 w-4" />
-                      {!collapsed && <span>{item.title}</span>}
-                    </NavLink>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
+            <SidebarMenu className="gap-0.5 px-2">
+              {menuItems.map((item) => {
+                const isActive = location.pathname === item.url || location.pathname.startsWith(item.url + '/');
+                return (
+                  <SidebarMenuItem key={item.title}>
+                    <SidebarMenuButton asChild isActive={isActive}>
+                      <NavLink
+                        to={item.url}
+                        end={item.url === '/dashboard'}
+                        className="rounded-md px-3 py-2 text-sidebar-foreground/60 hover:text-sidebar-foreground hover:bg-sidebar-accent/60 transition-all duration-150"
+                        activeClassName="bg-primary/15 text-primary font-medium shadow-[inset_3px_0_0_0_hsl(var(--primary))] !text-primary"
+                      >
+                        <item.icon className="h-4 w-4 shrink-0" />
+                        {!collapsed && <span className="text-sm">{item.title}</span>}
+                      </NavLink>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                );
+              })}
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
       </SidebarContent>
 
-      <SidebarFooter className="border-t border-sidebar-border p-3">
+      <SidebarFooter className="border-t border-sidebar-border/60 p-3">
         {!collapsed && user && (
-          <p className="mb-2 truncate text-xs text-sidebar-foreground/50">{user.email}</p>
+          <>
+            <p className="mb-2 truncate text-xs text-sidebar-foreground/40 px-1">{user.email}</p>
+            <Separator className="mb-2 bg-sidebar-border/40" />
+          </>
         )}
         <Button
           variant="ghost"
           size="sm"
-          className="w-full justify-start gap-2 text-sidebar-foreground/50 hover:text-destructive hover:bg-destructive/10"
+          className="w-full justify-start gap-2 text-sidebar-foreground/40 hover:text-destructive hover:bg-destructive/10 transition-all"
           onClick={signOut}
         >
           <LogOut className="h-4 w-4" />
-          {!collapsed && <span>Sair</span>}
+          {!collapsed && <span className="text-sm">Sair</span>}
         </Button>
       </SidebarFooter>
     </Sidebar>

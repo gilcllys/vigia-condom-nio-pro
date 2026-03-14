@@ -60,14 +60,14 @@ export function CondoSelector() {
       <PopoverTrigger asChild>
         <Button
           variant="ghost"
-          className="h-9 gap-2 px-3 font-medium cursor-pointer"
+          className="h-9 gap-2 px-3 font-medium cursor-pointer hover:bg-muted/40 transition-all border border-transparent hover:border-border/40"
         >
-          <Building2 className="h-4 w-4 text-muted-foreground" />
-          <span className="text-sm">{condoName ?? condos.find(c => c.condo_id === condoId)?.condo_name ?? 'Selecionar'}</span>
-          <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
+          <Building2 className="h-4 w-4 text-primary/70" />
+          <span className="text-sm text-foreground/90">{condoName ?? condos.find(c => c.condo_id === condoId)?.condo_name ?? 'Selecionar'}</span>
+          <ChevronDown className="h-3.5 w-3.5 text-muted-foreground/60" />
         </Button>
       </PopoverTrigger>
-      <PopoverContent align="start" className="w-72 p-1">
+      <PopoverContent align="start" className="w-72 p-1 premium-card border-border">
         {condos.map((condo) => {
           const isActive = condo.condo_id === condoId;
           return (
@@ -75,11 +75,11 @@ export function CondoSelector() {
               key={condo.condo_id}
               onClick={() => handleSelect(condo)}
               disabled={isActive || switching}
-              className="flex w-full items-center gap-3 rounded-sm px-3 py-2 text-sm transition-colors hover:bg-accent hover:text-accent-foreground cursor-pointer disabled:cursor-default disabled:opacity-70"
+              className="flex w-full items-center gap-3 rounded-md px-3 py-2.5 text-sm transition-all hover:bg-primary/10 hover:text-foreground cursor-pointer disabled:cursor-default disabled:opacity-70"
             >
               <div className="flex flex-1 flex-col items-start gap-0.5">
-                <span className="font-medium">{condo.condo_name}</span>
-                <Badge variant="secondary" className="text-xs px-1.5 py-0">
+                <span className="font-medium text-foreground/90">{condo.condo_name}</span>
+                <Badge variant="secondary" className="text-[10px] px-1.5 py-0 bg-muted/50 text-muted-foreground border-border/50">
                   {condo.role}
                 </Badge>
               </div>
