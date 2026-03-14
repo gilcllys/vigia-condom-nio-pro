@@ -136,8 +136,8 @@ export function OSFiscalDocsCard({ orderId, condoId, canAttach, canCriticalActio
     let fileUrl: string | null = null;
     if (file) {
       const ext = file.name.split('.').pop() ?? 'pdf';
-      const path = `service-orders/${orderId}/nf-${crypto.randomUUID()}.${ext}`;
-      const { error: uploadError } = await supabase.storage.from('service-order-photos').upload(path, file, { contentType: file.type });
+      const path = `${condoId}/${crypto.randomUUID()}.${ext}`;
+      const { error: uploadError } = await supabase.storage.from('nfe-vigia').upload(path, file, { contentType: file.type });
       if (!uploadError) fileUrl = path;
     }
 

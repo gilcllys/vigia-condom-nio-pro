@@ -83,7 +83,7 @@ export default function NFEntryTab() {
 
     // Upload to storage
     const ext = file.name.split('.').pop() ?? 'jpg';
-    const path = `nf-uploads/${condoId}/${crypto.randomUUID()}.${ext}`;
+    const path = `${condoId}/${crypto.randomUUID()}.${ext}`;
 
     const { error: uploadError } = await supabase.storage
       .from('nfe-vigia')
