@@ -60,7 +60,7 @@ export default function ApprovalsTab() {
 
     const { data: docs, error } = await supabase
       .from('fiscal_documents')
-      .select('id, number, supplier, amount, issue_date, status')
+      .select('id, number, supplier, amount, issue_date, status, file_url')
       .eq('condo_id', condoId)
       .eq('status', 'PENDENTE')
       .order('created_at', { ascending: false });
