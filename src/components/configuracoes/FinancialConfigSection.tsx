@@ -191,13 +191,13 @@ export default function FinancialConfigSection() {
               </div>
             </div>
 
-            {/* Orçamento anual */}
+            {/* Orçamento mensal */}
             <div className="space-y-3">
-              <h3 className="text-sm font-semibold text-foreground">Orçamento Anual</h3>
+              <h3 className="text-sm font-semibold text-foreground">Orçamento Mensal</h3>
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-1.5">
-                  <Label className="text-xs">Orçamento anual (R$)</Label>
-                  <Input type="number" min={0} step="0.01" value={fields.annual_budget} onChange={set('annual_budget')} placeholder="Ex: 120000" />
+                  <Label className="text-xs">Orçamento mensal (R$)</Label>
+                  <Input type="number" min={0} step="0.01" value={fields.annual_budget} onChange={set('annual_budget')} placeholder="Ex: 10000" />
                 </div>
                 <div className="space-y-1.5">
                   <Label className="text-xs">Alerta ao atingir (%)</Label>
