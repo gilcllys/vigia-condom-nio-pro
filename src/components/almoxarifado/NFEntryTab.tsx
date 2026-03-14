@@ -213,7 +213,7 @@ export default function NFEntryTab() {
           document_number: nfData.numero_nf.trim(),
           issue_date: nfData.data_emissao || null,
           gross_amount: nfData.valor_total,
-          status: 'pendente',
+          status: 'PENDENTE',
           approval_status: 'pendente',
           file_url: fileUrl,
         })
