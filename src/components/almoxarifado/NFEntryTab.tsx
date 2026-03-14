@@ -16,6 +16,12 @@ interface ExtractedItem {
   valor_unitario: number;
   stock_item_id: string;
   create_new: boolean;
+  category_id: string;
+}
+
+interface StockCategory {
+  id: string;
+  name: string;
 }
 
 interface NFData {
