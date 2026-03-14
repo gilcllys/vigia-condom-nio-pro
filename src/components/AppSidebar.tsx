@@ -56,9 +56,9 @@ export function AppSidebar() {
 
   return (
     <Sidebar collapsible="icon" className="border-r border-sidebar-border">
-      <SidebarHeader className="border-b border-sidebar-border/60 px-2 py-4">
+      <SidebarHeader className="border-b border-sidebar-border/60 px-2 py-2">
         {!collapsed ? (
-          <img src={nfevigiaLogoFull} alt="NFeVigia" className="w-full h-auto object-contain" />
+          <img src={nfevigiaLogoFull} alt="NFeVigia" className="w-full max-h-12 object-contain" />
         ) : (
           <img src={nfevigiaShield} alt="NFeVigia" className="h-8 w-8 object-contain mx-auto" />
         )}
