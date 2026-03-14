@@ -26,6 +26,7 @@ export function PendingApprovalsCards() {
   const [internalUserId, setInternalUserId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
+  const [pendingNFDocs, setPendingNFDocs] = useState(0);
   const isSindico = role === 'SINDICO' || role === 'ADMIN';
   const isApprover = role === 'SUBSINDICO' || role === 'CONSELHO';
   const showCards = isSindico || isApprover;
