@@ -4,6 +4,7 @@ import { useLocation } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { useCondo } from '@/contexts/CondoContext';
 import nfevigiaShield from '@/assets/nfevigia-shield.png';
+import nfevigiaLogoFull from '@/assets/nfevigia-logo-full.png';
 import {
   Sidebar,
   SidebarContent,
