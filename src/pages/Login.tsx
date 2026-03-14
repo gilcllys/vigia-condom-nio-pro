@@ -9,7 +9,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { InputOTP, InputOTPGroup, InputOTPSlot } from '@/components/ui/input-otp';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, Info } from 'lucide-react';
-import nfevigiaLogoFull from '@/assets/nfevigia-logo-full.png';
+import nfevigiaShield from '@/assets/nfevigia-shield.png';
 
 export default function Login() {
   const [email, setEmail] = useState('');
@@ -230,8 +230,12 @@ export default function Login() {
     <div className="flex min-h-screen items-center justify-center bg-background px-4">
       <Card className="w-full max-w-md glass-card">
         <CardHeader className="text-center space-y-4">
-          <div className="flex items-center justify-center">
-            <img src={nfevigiaLogoFull} alt="NFeVigia" className="h-14 object-contain" style={{ mixBlendMode: 'screen' }} />
+          <div className="flex items-center justify-center gap-3">
+            <img src={nfevigiaShield} alt="NFeVigia" className="h-16 w-16 object-contain" />
+            <span className="text-3xl font-bold tracking-tight">
+              <span className="text-foreground">NFe</span>
+              <span className="text-primary">Vigia</span>
+            </span>
           </div>
           <CardDescription className="text-muted-foreground">Acesse sua conta</CardDescription>
         </CardHeader>
