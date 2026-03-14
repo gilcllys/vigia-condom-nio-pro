@@ -208,7 +208,7 @@ export default function NFEntryTab() {
         .insert({
           condo_id: condoId,
           document_type: 'NFE',
-          source_type: 'estoque',
+          source_type: 'UPLOAD',
           issuer_name: nfData.fornecedor.trim(),
           document_number: nfData.numero_nf.trim(),
           issue_date: nfData.data_emissao || null,
