@@ -23,6 +23,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    // Intercept recovery tokens in the URL hash and redirect to /reset-password
+    const hash = window.location.hash;
+    if (hash) {
+      const params = new URLSearchParams(hash.substring(1));
+      const type = params.get('type');
+      if (type === 'recovery') {
+        // Let Supabase exchange the token, then navigate
+        window.location.replace('/reset-password');
+        return;
+      }
+    }
+
     let initialized = false;
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
