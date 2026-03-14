@@ -66,8 +66,10 @@ export default function PendingApprovalsTab({ condoId }: PendingApprovalsTabProp
       .in('id', userIds)
       .order('created_at', { ascending: true });
 
+    console.log('[PendingApprovals] users resultado bruto:', usersData);
+    if (usersError) console.error('[PendingApprovals] users erro:', usersError);
+
     if (usersError) {
-      console.error('Error fetching users:', usersError);
       setLoading(false);
       return;
     }
