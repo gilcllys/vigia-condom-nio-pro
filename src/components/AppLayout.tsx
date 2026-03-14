@@ -9,8 +9,8 @@ export function AppLayout() {
       <div className="min-h-screen flex w-full">
         <AppSidebar />
         <div className="flex-1 flex flex-col">
-          <header className="h-14 flex items-center border-b border-border px-4">
-            <SidebarTrigger className="mr-4" />
+          <header className="h-14 flex items-center border-b border-border bg-card/50 backdrop-blur-sm px-4">
+            <SidebarTrigger className="mr-4 text-muted-foreground hover:text-foreground" />
             <CondoSelector />
           </header>
           <main className="flex-1 p-6">
