@@ -251,6 +251,7 @@ export default function NFEntryTab() {
               name: item.nome.trim(),
               unit: 'un',
               min_qty: 0,
+              category_id: item.category_id || null,
             })
             .select('id')
             .single();
