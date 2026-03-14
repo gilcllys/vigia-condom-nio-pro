@@ -40,6 +40,8 @@ export default function PendingApprovalsTab({ condoId }: PendingApprovalsTabProp
 
   const fetchPending = async () => {
     setLoading(true);
+    console.log('[PendingApprovals] condoId usado na query:', condoId);
+
     // Get pending user_condos for this condo, then fetch user details
     const { data: pendingLinks, error: linksError } = await supabase
       .from('user_condos')
@@ -47,8 +49,10 @@ export default function PendingApprovalsTab({ condoId }: PendingApprovalsTabProp
       .eq('condo_id', condoId)
       .eq('status', 'pendente');
 
+    console.log('[PendingApprovals] user_condos resultado bruto:', pendingLinks);
+    if (linksError) console.error('[PendingApprovals] user_condos erro:', linksError);
+
     if (linksError || !pendingLinks?.length) {
-      if (linksError) console.error('Error fetching pending user_condos:', linksError);
       setUsers([]);
       setLoading(false);
       return;
@@ -62,8 +66,10 @@ export default function PendingApprovalsTab({ condoId }: PendingApprovalsTabProp
       .in('id', userIds)
       .order('created_at', { ascending: true });
 
+    console.log('[PendingApprovals] users resultado bruto:', usersData);
+    if (usersError) console.error('[PendingApprovals] users erro:', usersError);
+
     if (usersError) {
-      console.error('Error fetching users:', usersError);
       setLoading(false);
       return;
     }
