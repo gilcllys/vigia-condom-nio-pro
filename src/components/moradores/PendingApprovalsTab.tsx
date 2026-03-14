@@ -96,6 +96,30 @@ export default function PendingApprovalsTab({ condoId }: PendingApprovalsTabProp
       .eq('user_id', user.id)
       .eq('condo_id', condoId);
 
+    // Create resident record if one doesn't exist yet (users via invite don't have one)
+    const { data: existingResident } = await supabase
+      .from('residents')
+      .select('id')
+      .eq('email', user.email.toLowerCase())
+      .eq('condo_id', condoId)
+      .maybeSingle();
+
+    if (!existingResident) {
+      await supabase
+        .from('residents')
+        .insert({
+          condo_id: condoId,
+          full_name: user.full_name,
+          email: user.email.toLowerCase(),
+          block: user.block || null,
+          unit: user.unit || null,
+          unit_label: user.unit_label || null,
+          unit_id: null,
+          document: user.document || null,
+          phone: null,
+        });
+    }
+
     await logActivity({
       condoId,
       action: 'update',
