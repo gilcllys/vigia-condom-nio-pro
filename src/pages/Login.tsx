@@ -58,16 +58,33 @@ export default function Login() {
       return;
     }
 
-    // Check if user status is pending
     const { data: userRow, error: userError } = await supabase
       .from('users')
-      .select('condo_id, status')
+      .select('id, condo_id, status')
       .eq('auth_user_id', userId)
       .maybeSingle();
 
     if (userError) throw userError;
 
-    if (userRow?.status === 'pendente') {
+    const { data: userCondoRows, error: userCondoError } = userRow?.id
+      ? await supabase
+          .from('user_condos')
+          .select('condo_id, status')
+          .eq('user_id', userRow.id)
+      : { data: [], error: null };
+
+    if (userCondoError) throw userCondoError;
+
+    const normalizeStatus = (value: string | null | undefined) => (value ?? '').toLowerCase().trim();
+    const statuses = [
+      normalizeStatus(userRow?.status),
+      ...(userCondoRows ?? []).map((row) => normalizeStatus(row.status)),
+    ].filter(Boolean);
+
+    const activeCondoRow = (userCondoRows ?? []).find((row) => normalizeStatus(row.status) === 'ativo');
+    const hasActiveStatus = statuses.includes('ativo');
+
+    if (!hasActiveStatus && statuses.includes('pendente')) {
       await supabase.auth.signOut();
       toast({
         title: 'Cadastro pendente',
@@ -77,7 +94,7 @@ export default function Login() {
       return;
     }
 
-    if (userRow?.status === 'recusado') {
+    if (!hasActiveStatus && statuses.includes('recusado')) {
       await supabase.auth.signOut();
       toast({
         title: 'Acesso não autorizado',
@@ -87,7 +104,7 @@ export default function Login() {
       return;
     }
 
-    const condoId = userRow?.condo_id ?? null;
+    const condoId = activeCondoRow?.condo_id ?? userRow?.condo_id ?? null;
     if (condoId) {
       localStorage.setItem('nfe_vigia_active_condo', JSON.stringify({ condoId, condoName: null, role: null }));
       navigate('/dashboard', { replace: true });
