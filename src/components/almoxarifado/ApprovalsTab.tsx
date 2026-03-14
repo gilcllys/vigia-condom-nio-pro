@@ -82,11 +82,11 @@ export default function ApprovalsTab() {
     const docIds = docs.map((d: any) => d.id);
     const { data: approvals } = await supabase
       .from('fiscal_document_approvals')
-      .select('id, fiscal_document_id, user_id, decision, voted_at, justification')
+      .select('id, fiscal_document_id, approver_user_id, approver_role, decision, voted_at, justification')
       .in('fiscal_document_id', docIds);
 
     // Fetch user names and roles for approvers
-    const userIds = [...new Set((approvals ?? []).map((a: any) => a.user_id))];
+    const userIds = [...new Set((approvals ?? []).map((a: any) => a.approver_user_id))];
     let userMap: Record<string, { name: string; role: string }> = {};
 
     if (userIds.length > 0) {
@@ -113,8 +113,9 @@ export default function ApprovalsTab() {
         .filter((a: any) => a.fiscal_document_id === doc.id)
         .map((a: any) => ({
           ...a,
-          user_name: userMap[a.user_id]?.name || 'Usuário',
-          user_role: userMap[a.user_id]?.role || '',
+          user_id: a.approver_user_id,
+          user_name: userMap[a.approver_user_id]?.name || 'Usuário',
+          user_role: a.approver_role || userMap[a.approver_user_id]?.role || '',
         })),
     }));
 
@@ -141,7 +142,8 @@ export default function ApprovalsTab() {
       .from('fiscal_document_approvals')
       .insert({
         fiscal_document_id: nf.id,
-        user_id: internalUserId,
+        approver_user_id: internalUserId,
+        approver_role: role,
         condo_id: condoId,
         decision,
         voted_at: new Date().toISOString(),
@@ -157,25 +159,13 @@ export default function ApprovalsTab() {
     // Recalculate approval status
     const { data: allApprovals } = await supabase
       .from('fiscal_document_approvals')
-      .select('user_id, decision')
+      .select('approver_user_id, approver_role, decision')
       .eq('fiscal_document_id', nf.id);
 
     // Get roles of approvers
-    const approverIds = (allApprovals ?? []).map((a: any) => a.user_id);
-    const { data: approverCondos } = await supabase
-      .from('user_condos')
-      .select('user_id, role')
-      .eq('condo_id', condoId)
-      .in('user_id', approverIds);
-
-    const roleMap: Record<string, string> = {};
-    (approverCondos ?? []).forEach((uc: any) => {
-      roleMap[uc.user_id] = uc.role;
-    });
-
     const approvalsWithRoles = (allApprovals ?? []).map((a: any) => ({
       ...a,
-      role: roleMap[a.user_id] || '',
+      role: a.approver_role || '',
     }));
 
     const subsindicoVote = approvalsWithRoles.find((a: any) => a.role === 'SUBSINDICO');
