@@ -12,8 +12,13 @@ export interface FinancialConfig {
   monthly_limit_manutencao: number | null;
   monthly_limit_limpeza: number | null;
   monthly_limit_seguranca: number | null;
-  annual_budget: number | null;
+  annual_budget: number | null; // usado como orçamento mensal
   annual_budget_alert_pct: number | null;
+}
+
+/** Alias semântico: annual_budget armazena o orçamento mensal */
+export function getMonthlyBudget(config: FinancialConfig | null): number | null {
+  return config?.annual_budget ?? null;
 }
 
 export function useFinancialConfig(condoId: string | null) {
