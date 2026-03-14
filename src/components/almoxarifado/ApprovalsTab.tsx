@@ -159,7 +159,7 @@ export default function ApprovalsTab() {
     // Recalculate approval status
     const { data: allApprovals } = await supabase
       .from('fiscal_document_approvals')
-      .select('user_id, decision')
+      .select('approver_user_id, approver_role, decision')
       .eq('fiscal_document_id', nf.id);
 
     // Get roles of approvers
