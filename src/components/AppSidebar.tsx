@@ -3,6 +3,7 @@ import { NavLink } from '@/components/NavLink';
 import { useLocation } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { useCondo } from '@/contexts/CondoContext';
+import nfevigiaIcon from '@/assets/nfevigia-icon.png';
 import {
   Sidebar,
   SidebarContent,
@@ -55,17 +56,21 @@ export function AppSidebar() {
     <Sidebar collapsible="icon">
       <SidebarHeader className="border-b border-sidebar-border px-4 py-4">
         {!collapsed ? (
-          <h1 className="text-lg font-bold text-sidebar-foreground tracking-tight">
-            NFe Vigia
-          </h1>
+          <div className="flex items-center gap-2">
+            <img src={nfevigiaIcon} alt="NFeVigia" className="h-8 w-8 object-contain" />
+            <span className="text-lg font-bold tracking-tight">
+              <span className="text-sidebar-foreground">NFe</span>
+              <span className="text-primary">Vigia</span>
+            </span>
+          </div>
         ) : (
-          <span className="text-lg font-bold text-sidebar-foreground">NV</span>
+          <img src={nfevigiaIcon} alt="NFeVigia" className="h-8 w-8 object-contain mx-auto" />
         )}
       </SidebarHeader>
 
       <SidebarContent>
         <SidebarGroup>
-          <SidebarGroupLabel>Menu</SidebarGroupLabel>
+          <SidebarGroupLabel className="text-muted-foreground/60 text-xs uppercase tracking-widest">Menu</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
               {menuItems.map((item) => (
@@ -74,8 +79,8 @@ export function AppSidebar() {
                     <NavLink
                       to={item.url}
                       end={item.url === '/dashboard'}
-                      className="hover:bg-sidebar-accent/50"
-                      activeClassName="bg-sidebar-accent text-sidebar-accent-foreground font-medium"
+                      className="hover:bg-sidebar-accent/50 text-sidebar-foreground/70 transition-colors"
+                      activeClassName="bg-primary/15 text-primary font-medium border-l-2 border-primary"
                     >
                       <item.icon className="h-4 w-4" />
                       {!collapsed && <span>{item.title}</span>}
@@ -90,12 +95,12 @@ export function AppSidebar() {
 
       <SidebarFooter className="border-t border-sidebar-border p-3">
         {!collapsed && user && (
-          <p className="mb-2 truncate text-xs text-sidebar-foreground/60">{user.email}</p>
+          <p className="mb-2 truncate text-xs text-sidebar-foreground/50">{user.email}</p>
         )}
         <Button
           variant="ghost"
           size="sm"
-          className="w-full justify-start gap-2 text-sidebar-foreground/70 hover:text-destructive"
+          className="w-full justify-start gap-2 text-sidebar-foreground/50 hover:text-destructive hover:bg-destructive/10"
           onClick={signOut}
         >
           <LogOut className="h-4 w-4" />

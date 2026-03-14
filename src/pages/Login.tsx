@@ -9,6 +9,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { InputOTP, InputOTPGroup, InputOTPSlot } from '@/components/ui/input-otp';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, Info } from 'lucide-react';
+import nfevigiaLogo from '@/assets/nfevigia-logo.png';
 
 export default function Login() {
   const [email, setEmail] = useState('');
@@ -121,7 +122,6 @@ export default function Login() {
       const { error } = await supabase.auth.signInWithPassword({ email, password });
       if (error) throw error;
 
-      // Check for verified TOTP factors → require MFA challenge
       const { data: factorsData } = await supabase.auth.mfa.listFactors();
       const verifiedFactors = factorsData?.totp?.filter((f) => f.status === 'verified') ?? [];
 
@@ -142,11 +142,7 @@ export default function Login() {
       } else if (msg.toLowerCase().includes('email not confirmed')) {
         friendly = 'Seu e-mail ainda não foi confirmado. Verifique sua caixa de entrada.';
       }
-      toast({
-        title: 'Erro',
-        description: friendly,
-        variant: 'destructive',
-      });
+      toast({ title: 'Erro', description: friendly, variant: 'destructive' });
     } finally {
       setLoading(false);
     }
@@ -185,8 +181,8 @@ export default function Login() {
   // ── MFA Challenge screen ──
   if (mfaRequired) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-muted/30 px-4">
-        <Card className="w-full max-w-md">
+      <div className="flex min-h-screen items-center justify-center bg-background px-4">
+        <Card className="w-full max-w-md glass-card">
           <CardHeader className="text-center">
             <CardTitle className="text-2xl font-bold tracking-tight">Verificação em 2 etapas</CardTitle>
             <CardDescription>
@@ -206,7 +202,7 @@ export default function Login() {
                 </InputOTPGroup>
               </InputOTP>
             </div>
-            <Button onClick={handleMfaVerify} disabled={mfaCode.length !== 6 || mfaLoading} className="w-full">
+            <Button onClick={handleMfaVerify} disabled={mfaCode.length !== 6 || mfaLoading} className="w-full bg-primary hover:bg-primary/90">
               {mfaLoading && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
               Verificar
             </Button>
@@ -231,23 +227,23 @@ export default function Login() {
 
   // ── Login form ──
   return (
-    <div className="flex min-h-screen items-center justify-center bg-muted/30 px-4">
-      <Card className="w-full max-w-md">
-        <CardHeader className="text-center">
-          <CardTitle className="text-2xl font-bold tracking-tight">NFe Vigia</CardTitle>
-          <CardDescription>Acesse sua conta</CardDescription>
+    <div className="flex min-h-screen items-center justify-center bg-background px-4">
+      <Card className="w-full max-w-md glass-card">
+        <CardHeader className="text-center space-y-4">
+          <img src={nfevigiaLogo} alt="NFeVigia" className="h-12 mx-auto object-contain" />
+          <CardDescription className="text-muted-foreground">Acesse sua conta</CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="email">E-mail</Label>
-              <Input id="email" type="email" placeholder="seu@email.com" value={email} onChange={(e) => setEmail(e.target.value)} required />
+              <Label htmlFor="email" className="text-foreground">E-mail</Label>
+              <Input id="email" type="email" placeholder="seu@email.com" value={email} onChange={(e) => setEmail(e.target.value)} required className="bg-muted/50 border-border focus:border-primary" />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="password">Senha</Label>
-              <Input id="password" type="password" placeholder="••••••••" value={password} onChange={(e) => setPassword(e.target.value)} required minLength={6} />
+              <Label htmlFor="password" className="text-foreground">Senha</Label>
+              <Input id="password" type="password" placeholder="••••••••" value={password} onChange={(e) => setPassword(e.target.value)} required minLength={6} className="bg-muted/50 border-border focus:border-primary" />
             </div>
-            <Button type="submit" className="w-full" disabled={loading}>
+            <Button type="submit" className="w-full bg-primary hover:bg-primary/90 text-primary-foreground font-semibold" disabled={loading}>
               {loading ? 'Aguarde...' : 'Entrar'}
             </Button>
           </form>
@@ -270,7 +266,7 @@ export default function Login() {
 
       {/* Signup info dialog */}
       <Dialog open={showSignupInfo} onOpenChange={setShowSignupInfo}>
-        <DialogContent className="max-w-sm">
+        <DialogContent className="max-w-sm glass-card">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Info className="h-5 w-5 text-primary" />
@@ -288,7 +284,7 @@ export default function Login() {
 
       {/* Forgot password dialog */}
       <Dialog open={forgotOpen} onOpenChange={setForgotOpen}>
-        <DialogContent>
+        <DialogContent className="glass-card">
           <DialogHeader>
             <DialogTitle>Recuperar senha</DialogTitle>
             <DialogDescription>Informe seu e-mail para receber o link de redefinição de senha.</DialogDescription>
@@ -296,9 +292,9 @@ export default function Login() {
           <form onSubmit={handleForgotPassword} className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="forgot-email">E-mail</Label>
-              <Input id="forgot-email" type="email" placeholder="seu@email.com" value={forgotEmail} onChange={(e) => setForgotEmail(e.target.value)} required />
+              <Input id="forgot-email" type="email" placeholder="seu@email.com" value={forgotEmail} onChange={(e) => setForgotEmail(e.target.value)} required className="bg-muted/50 border-border" />
             </div>
-            <Button type="submit" className="w-full" disabled={forgotLoading}>
+            <Button type="submit" className="w-full bg-primary hover:bg-primary/90" disabled={forgotLoading}>
               {forgotLoading ? 'Enviando...' : 'Enviar link de recuperação'}
             </Button>
           </form>
