@@ -414,6 +414,21 @@ export default function NFEntryTab() {
                     </SelectContent>
                   </Select>
                 </div>
+                {item.create_new && (
+                  <div className="space-y-1">
+                    <Label className="text-xs">Categoria</Label>
+                    <Select
+                      value={item.category_id || '__none__'}
+                      onValueChange={(v) => updateItem(idx, 'category_id', v === '__none__' ? '' : v)}
+                    >
+                      <SelectTrigger><SelectValue placeholder="Selecione uma categoria" /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="__none__">Sem categoria</SelectItem>
+                        {stockCategories.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
               </div>
             ))}
           </div>
