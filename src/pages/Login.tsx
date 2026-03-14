@@ -9,7 +9,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { InputOTP, InputOTPGroup, InputOTPSlot } from '@/components/ui/input-otp';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, Info } from 'lucide-react';
-import nfevigiaLogoFull from '@/assets/nfevigia-logo-full.png';
+import nfevigiaShield from '@/assets/nfevigia-shield.png';
 
 export default function Login() {
   const [email, setEmail] = useState('');
