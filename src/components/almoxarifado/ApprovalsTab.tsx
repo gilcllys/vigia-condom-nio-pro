@@ -8,7 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
-import { CheckCircle, XCircle, Clock, Shield } from 'lucide-react';
+import { CheckCircle, XCircle, Clock, Shield, FileText } from 'lucide-react';
 
 interface Approval {
   id: string;
@@ -27,6 +27,7 @@ interface PendingNF {
   amount: number;
   issue_date: string | null;
   status: string;
+  file_url: string | null;
   approvals: Approval[];
 }
 
@@ -59,7 +60,7 @@ export default function ApprovalsTab() {
 
     const { data: docs, error } = await supabase
       .from('fiscal_documents')
-      .select('id, number, supplier, amount, issue_date, status')
+      .select('id, number, supplier, amount, issue_date, status, file_url')
       .eq('condo_id', condoId)
       .eq('status', 'PENDENTE')
       .order('created_at', { ascending: false });
@@ -134,16 +135,17 @@ export default function ApprovalsTab() {
 
     setProcessing(true);
 
-    // Update the approval record
+    // Insert approval record
     const { error: approvalError } = await supabase
       .from('fiscal_document_approvals')
-      .update({
+      .insert({
+        fiscal_document_id: nf.id,
+        user_id: internalUserId,
+        condo_id: condoId,
         decision,
         voted_at: new Date().toISOString(),
         justification: decision === 'rejeitado' ? justification.trim() : null,
-      })
-      .eq('fiscal_document_id', nf.id)
-      .eq('user_id', internalUserId);
+      });
 
     if (approvalError) {
       toast({ title: 'Erro ao registrar voto', description: approvalError.message, variant: 'destructive' });
@@ -260,7 +262,8 @@ export default function ApprovalsTab() {
           <div className="space-y-4">
             {nfs.map((nf) => {
               const myApproval = nf.approvals.find(a => a.user_id === internalUserId);
-              const canVote = myApproval && myApproval.decision === 'pendente';
+              const alreadyVoted = myApproval != null;
+              const canVote = !alreadyVoted;
               const isSindico = role === 'SINDICO' || role === 'ADMIN';
               const hasRejection = nf.approvals.some(a => a.decision === 'rejeitado');
               const allNonSindicoVoted = nf.approvals
@@ -275,10 +278,16 @@ export default function ApprovalsTab() {
                       <p className="font-medium">NF {nf.number}</p>
                       <p className="text-sm text-muted-foreground">{nf.supplier}</p>
                     </div>
-                    <div className="text-right">
+                    <div className="text-right space-y-1">
                       <p className="font-medium">R$ {nf.amount?.toFixed(2)}</p>
                       {nf.issue_date && (
                         <p className="text-xs text-muted-foreground">{new Date(nf.issue_date).toLocaleDateString('pt-BR')}</p>
+                      )}
+                      {nf.file_url && (
+                        <Button size="sm" variant="outline" className="text-xs h-7" onClick={() => window.open(nf.file_url!, '_blank')}>
+                          <FileText className="h-3 w-3 mr-1" />
+                          Ver NF
+                        </Button>
                       )}
                     </div>
                   </div>

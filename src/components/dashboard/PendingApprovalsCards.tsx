@@ -26,6 +26,7 @@ export function PendingApprovalsCards() {
   const [internalUserId, setInternalUserId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
+  const [pendingNFDocs, setPendingNFDocs] = useState(0);
   const isSindico = role === 'SINDICO' || role === 'ADMIN';
   const isApprover = role === 'SUBSINDICO' || role === 'CONSELHO';
   const showCards = isSindico || isApprover;
@@ -66,8 +67,19 @@ export function PendingApprovalsCards() {
         setPendingFinal({ type: 'final', count: 0, minExpiry: null });
       }
 
+      // Fetch pending fiscal_documents for approvers
+      if (isApprover || isSindico) {
+        const { count } = await supabase
+          .schema('nfe_vigia')
+          .from('fiscal_documents')
+          .select('*', { count: 'exact', head: true })
+          .eq('condo_id', condoId)
+          .eq('status', 'PENDENTE');
+        setPendingNFDocs(count ?? 0);
+      }
+
       if (isSindico) {
-        // Síndico sees minerva votes needed (approvals with is_minerva = true and no minerva_justification)
+        // Síndico sees minerva votes needed
         const { data: minerva } = await supabase
           .schema('nfe_vigia')
           .from('approvals')
@@ -78,7 +90,6 @@ export function PendingApprovalsCards() {
 
         setMinervaCount(minerva?.length ?? 0);
 
-        // Also count pending approvals where síndico is approver
         const { data: myApprovals } = await supabase
           .schema('nfe_vigia')
           .from('approvals')
@@ -106,7 +117,7 @@ export function PendingApprovalsCards() {
 
   if (!showCards || loading) return null;
 
-  const hasAnyPending = pendingBudgets.count > 0 || pendingNFs.count > 0 || pendingFinal.count > 0 || minervaCount > 0;
+  const hasAnyPending = pendingBudgets.count > 0 || pendingNFs.count > 0 || pendingFinal.count > 0 || minervaCount > 0 || pendingNFDocs > 0;
   if (!hasAnyPending) return null;
 
   const expiryLabel = (expiry: string | null) => {
@@ -117,16 +128,17 @@ export function PendingApprovalsCards() {
   };
 
   const cards = [
-    { show: pendingBudgets.count > 0, icon: DollarSign, label: 'Orçamentos aguardando aprovação', count: pendingBudgets.count, expiry: pendingBudgets.minExpiry },
-    { show: pendingNFs.count > 0, icon: FileText, label: 'NFs aguardando aprovação', count: pendingNFs.count, expiry: pendingNFs.minExpiry },
-    { show: pendingFinal.count > 0, icon: CheckCircle2, label: 'OS aguardando aprovação final', count: pendingFinal.count, expiry: pendingFinal.minExpiry },
-    { show: isSindico && minervaCount > 0, icon: Gavel, label: 'Votos de minerva pendentes', count: minervaCount, expiry: null },
+    { show: pendingBudgets.count > 0, icon: DollarSign, label: 'Orçamentos aguardando aprovação', count: pendingBudgets.count, expiry: pendingBudgets.minExpiry, path: '/ordens-servico' },
+    { show: pendingNFs.count > 0, icon: FileText, label: 'NFs aguardando aprovação (OS)', count: pendingNFs.count, expiry: pendingNFs.minExpiry, path: '/ordens-servico' },
+    { show: pendingFinal.count > 0, icon: CheckCircle2, label: 'OS aguardando aprovação final', count: pendingFinal.count, expiry: pendingFinal.minExpiry, path: '/ordens-servico' },
+    { show: isSindico && minervaCount > 0, icon: Gavel, label: 'Votos de minerva pendentes', count: minervaCount, expiry: null, path: '/ordens-servico' },
+    { show: (isApprover || isSindico) && pendingNFDocs > 0, icon: FileText, label: 'NFs aguardando aprovação', count: pendingNFDocs, expiry: null, path: '/almoxarifado' },
   ].filter(c => c.show);
 
   return (
     <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-      {cards.map(({ icon: Icon, label, count, expiry }, i) => (
-        <Card key={i} className="border-amber-200 dark:border-amber-800 bg-amber-50/50 dark:bg-amber-950/20 cursor-pointer hover:shadow-md transition-shadow" onClick={() => navigate('/ordens-servico')}>
+      {cards.map(({ icon: Icon, label, count, expiry, path }, i) => (
+        <Card key={i} className="border-amber-200 dark:border-amber-800 bg-amber-50/50 dark:bg-amber-950/20 cursor-pointer hover:shadow-md transition-shadow" onClick={() => navigate(path ?? '/ordens-servico')}>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">{label}</CardTitle>
             <div className="rounded-md bg-amber-100 dark:bg-amber-900 p-2">
