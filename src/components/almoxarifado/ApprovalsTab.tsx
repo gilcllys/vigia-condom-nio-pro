@@ -212,7 +212,7 @@ export default function ApprovalsTab() {
           newStatus = 'aprovado';
           await supabase
             .from('fiscal_documents')
-            .update({ approval_status: 'aprovado' })
+            .update({ status: 'PROCESSADO' })
             .eq('id', nf.id);
         }
       }
