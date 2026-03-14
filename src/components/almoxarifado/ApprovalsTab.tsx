@@ -163,21 +163,9 @@ export default function ApprovalsTab() {
       .eq('fiscal_document_id', nf.id);
 
     // Get roles of approvers
-    const approverIds = (allApprovals ?? []).map((a: any) => a.user_id);
-    const { data: approverCondos } = await supabase
-      .from('user_condos')
-      .select('user_id, role')
-      .eq('condo_id', condoId)
-      .in('user_id', approverIds);
-
-    const roleMap: Record<string, string> = {};
-    (approverCondos ?? []).forEach((uc: any) => {
-      roleMap[uc.user_id] = uc.role;
-    });
-
     const approvalsWithRoles = (allApprovals ?? []).map((a: any) => ({
       ...a,
-      role: roleMap[a.user_id] || '',
+      role: a.approver_role || '',
     }));
 
     const subsindicoVote = approvalsWithRoles.find((a: any) => a.role === 'SUBSINDICO');
