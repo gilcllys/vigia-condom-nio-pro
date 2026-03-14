@@ -189,13 +189,13 @@ export default function ApprovalsTab() {
         newStatus = 'aprovado';
         await supabase
           .from('fiscal_documents')
-          .update({ approval_status: 'aprovado', sindico_voto_minerva: true })
+          .update({ status: 'PROCESSADO' })
           .eq('id', nf.id);
       } else {
         newStatus = 'rejeitado';
         await supabase
           .from('fiscal_documents')
-          .update({ approval_status: 'rejeitado', sindico_voto_minerva: false })
+          .update({ status: 'CANCELADO' })
           .eq('id', nf.id);
       }
     } else if (allVoted) {
