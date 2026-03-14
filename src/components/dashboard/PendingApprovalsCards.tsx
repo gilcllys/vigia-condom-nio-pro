@@ -67,8 +67,19 @@ export function PendingApprovalsCards() {
         setPendingFinal({ type: 'final', count: 0, minExpiry: null });
       }
 
+      // Fetch pending fiscal_documents for approvers
+      if (isApprover || isSindico) {
+        const { count } = await supabase
+          .schema('nfe_vigia')
+          .from('fiscal_documents')
+          .select('*', { count: 'exact', head: true })
+          .eq('condo_id', condoId)
+          .eq('status', 'PENDENTE');
+        setPendingNFDocs(count ?? 0);
+      }
+
       if (isSindico) {
-        // Síndico sees minerva votes needed (approvals with is_minerva = true and no minerva_justification)
+        // Síndico sees minerva votes needed
         const { data: minerva } = await supabase
           .schema('nfe_vigia')
           .from('approvals')
@@ -79,7 +90,6 @@ export function PendingApprovalsCards() {
 
         setMinervaCount(minerva?.length ?? 0);
 
-        // Also count pending approvals where síndico is approver
         const { data: myApprovals } = await supabase
           .schema('nfe_vigia')
           .from('approvals')
