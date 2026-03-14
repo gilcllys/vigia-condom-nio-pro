@@ -58,13 +58,7 @@ export function AppSidebar() {
     <Sidebar collapsible="icon" className="border-r border-sidebar-border">
       <SidebarHeader className="border-b border-sidebar-border/60 px-4 py-4">
         {!collapsed ? (
-          <div className="flex items-center gap-1.5">
-            <img src={nfevigiaShield} alt="NFeVigia" className="h-7 w-7 object-contain" />
-            <span className="text-base font-bold tracking-tight">
-              <span className="text-sidebar-foreground">NFe</span>
-              <span className="text-primary">Vigia</span>
-            </span>
-          </div>
+          <img src={nfevigiaLogoFull} alt="NFeVigia" className="h-8 object-contain" style={{ mixBlendMode: 'screen' }} />
         ) : (
           <img src={nfevigiaShield} alt="NFeVigia" className="h-7 w-7 object-contain mx-auto" />
         )}
