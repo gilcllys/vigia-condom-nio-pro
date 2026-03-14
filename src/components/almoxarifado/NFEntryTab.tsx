@@ -156,7 +156,7 @@ export default function NFEntryTab() {
         description: 'Preencha os dados manualmente.',
         variant: 'destructive',
       });
-      setNfData({ ...emptyNF, itens: [{ nome: '', quantidade: 0, valor_unitario: 0, stock_item_id: '', create_new: true }] });
+      setNfData({ ...emptyNF, itens: [{ nome: '', quantidade: 0, valor_unitario: 0, stock_item_id: '', create_new: true, category_id: '' }] });
       setStep('review');
     }
   };
