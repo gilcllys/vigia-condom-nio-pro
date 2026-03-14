@@ -272,8 +272,8 @@ export default function ApprovalsTab() {
                 <div key={nf.id} className="border rounded-lg p-4 space-y-3">
                   <div className="flex items-start justify-between">
                     <div>
-                      <p className="font-medium">NF {nf.document_number}</p>
-                      <p className="text-sm text-muted-foreground">{nf.issuer_name}</p>
+                      <p className="font-medium">NF {nf.number}</p>
+                      <p className="text-sm text-muted-foreground">{nf.supplier}</p>
                     </div>
                     <div className="text-right">
                       <p className="font-medium">R$ {nf.gross_amount?.toFixed(2)}</p>
