@@ -144,6 +144,7 @@ export default function NFEntryTab() {
           valor_unitario: item.valor_unitario || 0,
           stock_item_id: '',
           create_new: true,
+          category_id: '',
         })),
       });
       toast({ title: 'Dados extraídos automaticamente', description: 'Confira e ajuste se necessário.' });
