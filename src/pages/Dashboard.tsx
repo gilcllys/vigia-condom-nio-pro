@@ -75,6 +75,11 @@ export default function Dashboard() {
       {/* Stat Cards Row */}
       <DashboardStatCards counts={counts} loading={loading} role={role} />
 
+      {/* Risk Analysis Card */}
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <DashboardRiskCard />
+      </div>
+
       {/* Middle row: Approvals + Alerts */}
       <div className="grid gap-6 lg:grid-cols-3">
         <div className="lg:col-span-2">
