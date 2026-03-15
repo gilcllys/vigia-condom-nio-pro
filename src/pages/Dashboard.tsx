@@ -25,6 +25,7 @@ import { DashboardStatCards } from '@/components/dashboard/DashboardStatCards';
 import { DashboardApprovals } from '@/components/dashboard/DashboardApprovals';
 import { DashboardAlerts } from '@/components/dashboard/DashboardAlerts';
 import { DashboardActivities } from '@/components/dashboard/DashboardActivities';
+import { DashboardRiskCard } from '@/components/dashboard/DashboardRiskCard';
 
 export default function Dashboard() {
   const { user } = useAuth();
