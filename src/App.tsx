@@ -20,6 +20,8 @@ import NotasFiscais from "./pages/NotasFiscais";
 import Almoxarifado from "./pages/Almoxarifado";
 import Transparencia from "./pages/Transparencia";
 import Prestadores from "./pages/Prestadores";
+import Aprovacoes from "./pages/Aprovacoes";
+import AprovacaoDetalhe from "./pages/AprovacaoDetalhe";
 import ResetPassword from "./pages/ResetPassword";
 import NotFound from "./pages/NotFound";
 
