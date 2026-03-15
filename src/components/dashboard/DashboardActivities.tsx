@@ -1,20 +1,59 @@
-import { Activity, ChevronRight, User } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { Activity, ChevronRight, User, Inbox } from 'lucide-react';
+import { supabase } from '@/lib/supabase';
+import { useCondo } from '@/contexts/CondoContext';
+import { formatDistanceToNow } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
 
 interface ActivityItem {
-  name: string;
+  id: string;
+  user_name: string;
   action: string;
   detail: string;
-  time: string;
+  created_at: string;
 }
 
-const mockActivities: ActivityItem[] = [
-  { name: 'João Almeida', action: 'aprovou', detail: 'NF #5678', time: 'há 30 min' },
-  { name: 'Ana Souza', action: 'criou nova', detail: 'Ordem de Serviço', time: 'há 1 hora' },
-  { name: 'Paulo Mendes', action: 'adicionou um novo', detail: 'morador', time: 'há 2 horas' },
-  { name: 'Maria Santos', action: 'rejeitou', detail: 'NF #3245', time: 'há 4 horas' },
-];
-
 export function DashboardActivities() {
+  const { condoId } = useCondo();
+  const [activities, setActivities] = useState<ActivityItem[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (!condoId) {
+      setLoading(false);
+      return;
+    }
+
+    const fetchActivities = async () => {
+      setLoading(true);
+
+      // Try fetching from fiscal_document_approvals as recent activity source
+      const { data, error } = await supabase
+        .from('fiscal_document_approvals')
+        .select('id, decision, voted_at, approver_role, fiscal_document_id')
+        .eq('condo_id', condoId)
+        .order('voted_at', { ascending: false })
+        .limit(10);
+
+      if (!error && data && data.length > 0) {
+        const mapped: ActivityItem[] = data.map((row: any) => ({
+          id: row.id,
+          user_name: row.approver_role ?? 'Usuário',
+          action: row.decision === 'APROVADO' ? 'aprovou' : row.decision === 'REJEITADO' ? 'rejeitou' : row.decision?.toLowerCase() ?? 'votou em',
+          detail: `Doc Fiscal #${String(row.fiscal_document_id).slice(0, 8)}`,
+          created_at: row.voted_at,
+        }));
+        setActivities(mapped);
+      } else {
+        setActivities([]);
+      }
+
+      setLoading(false);
+    };
+
+    fetchActivities();
+  }, [condoId]);
+
   return (
     <div className="glass-card">
       <div className="flex items-center justify-between p-5 border-b border-border">
@@ -28,24 +67,35 @@ export function DashboardActivities() {
       </div>
 
       <div className="divide-y divide-border/30">
-        {mockActivities.map((item, i) => (
-          <div key={i} className="flex items-center justify-between px-5 py-4 hover:bg-muted/30 transition-colors">
-            <div className="flex items-center gap-3">
-              <div className="rounded-full bg-muted p-2">
-                <User className="h-4 w-4 text-muted-foreground" />
-              </div>
-              <p className="text-sm text-foreground">
-                <span className="font-semibold">{item.name}</span>{' '}
-                {item.action}{' '}
-                <span className="font-semibold">{item.detail}</span>
-              </p>
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="text-xs text-muted-foreground whitespace-nowrap">{item.time}</span>
-              <ChevronRight className="h-4 w-4 text-muted-foreground" />
-            </div>
+        {loading ? (
+          <div className="px-5 py-8 text-center text-sm text-muted-foreground">Carregando...</div>
+        ) : activities.length === 0 ? (
+          <div className="flex flex-col items-center justify-center px-5 py-10 text-muted-foreground">
+            <Inbox className="h-8 w-8 mb-2 opacity-50" />
+            <p className="text-sm">Nenhuma atividade recente.</p>
           </div>
-        ))}
+        ) : (
+          activities.map((item) => (
+            <div key={item.id} className="flex items-center justify-between px-5 py-4 hover:bg-muted/30 transition-colors">
+              <div className="flex items-center gap-3">
+                <div className="rounded-full bg-muted p-2">
+                  <User className="h-4 w-4 text-muted-foreground" />
+                </div>
+                <p className="text-sm text-foreground">
+                  <span className="font-semibold">{item.user_name}</span>{' '}
+                  {item.action}{' '}
+                  <span className="font-semibold">{item.detail}</span>
+                </p>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-muted-foreground whitespace-nowrap">
+                  {formatDistanceToNow(new Date(item.created_at), { addSuffix: true, locale: ptBR })}
+                </span>
+                <ChevronRight className="h-4 w-4 text-muted-foreground" />
+              </div>
+            </div>
+          ))
+        )}
       </div>
     </div>
   );

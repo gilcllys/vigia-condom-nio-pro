@@ -3,8 +3,7 @@ import { NavLink } from '@/components/NavLink';
 import { useLocation } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { useCondo } from '@/contexts/CondoContext';
-import nfevigiaShield from '@/assets/nfevigia-shield.png';
-import nfevigiaLogoFull from '@/assets/nfevigia-logo-full.png';
+import { NFeVigiaLogo } from '@/components/NFeVigiaLogo';
 import {
   Sidebar,
   SidebarContent,
@@ -58,15 +57,9 @@ export function AppSidebar() {
     <Sidebar collapsible="icon" className="border-r border-sidebar-border/40">
       <SidebarHeader className="border-b border-sidebar-border/30 px-3 py-3">
         {!collapsed ? (
-          <div className="flex items-center gap-2.5">
-            <img src={nfevigiaShield} alt="NFeVigia" className="h-9 w-9 object-contain shrink-0" />
-            <span className="text-xl font-bold tracking-tight">
-              <span className="text-foreground">NFe</span>
-              <span className="text-primary">Vigia</span>
-            </span>
-          </div>
+          <NFeVigiaLogo height={48} />
         ) : (
-          <img src={nfevigiaShield} alt="NFeVigia" className="h-8 w-8 object-contain mx-auto" />
+          <NFeVigiaLogo height={28} />
         )}
       </SidebarHeader>
 
