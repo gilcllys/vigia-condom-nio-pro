@@ -1,6 +1,7 @@
 import { Users, FileText, AlertTriangle, DollarSign, Clock } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Progress } from '@/components/ui/progress';
+import { useNavigate } from 'react-router-dom';
 
 interface DashboardStatCardsProps {
   counts: { residents: number; condos: number; invoices: number };
@@ -9,7 +10,8 @@ interface DashboardStatCardsProps {
 }
 
 export function DashboardStatCards({ counts, loading, role }: DashboardStatCardsProps) {
-  // Budget mock data (replace with real data later)
+  const navigate = useNavigate();
+
   const budgetUsed = 45320;
   const budgetTotal = 60000;
   const budgetPercent = Math.round((budgetUsed / budgetTotal) * 100);
@@ -21,6 +23,7 @@ export function DashboardStatCards({ counts, loading, role }: DashboardStatCards
       value: counts.residents,
       iconColor: 'text-primary',
       iconBg: 'bg-primary/10',
+      path: '/moradores',
     },
     {
       icon: AlertTriangle,
@@ -29,6 +32,7 @@ export function DashboardStatCards({ counts, loading, role }: DashboardStatCards
       iconColor: 'text-warning',
       iconBg: 'bg-warning/10',
       badge: counts.invoices > 0 ? '⚠' : undefined,
+      path: '/notas-fiscais?status=pendente',
     },
     {
       icon: DollarSign,
@@ -36,6 +40,7 @@ export function DashboardStatCards({ counts, loading, role }: DashboardStatCards
       value: null,
       iconColor: 'text-primary',
       iconBg: 'bg-primary/10',
+      path: '/configuracoes',
       custom: (
         <div>
           <p className="text-2xl font-bold tabular-nums text-foreground">
@@ -55,15 +60,20 @@ export function DashboardStatCards({ counts, loading, role }: DashboardStatCards
       iconBg: 'bg-destructive/10',
       badge: '!',
       badgeColor: 'bg-destructive',
+      path: '/aprovacoes',
     },
   ];
 
   return (
     <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-      {cards.map(({ icon: Icon, label, value, iconColor, iconBg, badge, badgeColor, custom }) => (
+      {cards.map(({ icon: Icon, label, value, iconColor, iconBg, badge, badgeColor, custom, path }) => (
         <div
           key={label}
-          className="glass-card p-5 relative overflow-hidden"
+          className="glass-card p-5 relative overflow-hidden cursor-pointer hover:shadow-lg hover:scale-[1.02] transition-all duration-200"
+          onClick={() => navigate(path)}
+          role="button"
+          tabIndex={0}
+          onKeyDown={(e) => e.key === 'Enter' && navigate(path)}
         >
           <div className="flex items-center justify-between mb-3">
             <div className={`rounded-lg p-2.5 ${iconBg}`}>

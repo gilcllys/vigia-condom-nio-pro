@@ -20,6 +20,8 @@ import NotasFiscais from "./pages/NotasFiscais";
 import Almoxarifado from "./pages/Almoxarifado";
 import Transparencia from "./pages/Transparencia";
 import Prestadores from "./pages/Prestadores";
+import Aprovacoes from "./pages/Aprovacoes";
+import AprovacaoDetalhe from "./pages/AprovacaoDetalhe";
 import ResetPassword from "./pages/ResetPassword";
 import NotFound from "./pages/NotFound";
 
@@ -53,6 +55,8 @@ const App = () => (
                 <Route path="/ordens-servico/:id" element={<OrdemServicoDetalhe />} />
                 <Route path="/notas-fiscais" element={<NotasFiscais />} />
                 <Route path="/almoxarifado" element={<Almoxarifado />} />
+                <Route path="/aprovacoes" element={<Aprovacoes />} />
+                <Route path="/aprovacoes/:id" element={<AprovacaoDetalhe />} />
                 <Route path="/transparencia" element={<Transparencia />} />
                 <Route path="/configuracoes" element={<Configuracoes />} />
               </Route>
