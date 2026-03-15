@@ -57,9 +57,9 @@ export function AppSidebar() {
     <Sidebar collapsible="icon" className="border-r border-sidebar-border/40">
       <SidebarHeader className="border-b border-sidebar-border/30 px-3 py-3">
         {!collapsed ? (
-          <NFeVigiaLogo height={48} />
+          <NFeVigiaLogo height={34} />
         ) : (
-          <NFeVigiaLogo height={28} />
+          <NFeVigiaLogo height={24} />
         )}
       </SidebarHeader>
 

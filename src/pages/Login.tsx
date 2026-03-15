@@ -231,7 +231,7 @@ export default function Login() {
       <Card className="w-full max-w-md glass-card">
         <CardHeader className="text-center space-y-4">
           <div className="flex items-center justify-center">
-            <NFeVigiaLogo height={56} />
+            <NFeVigiaLogo height={40} />
           </div>
           <CardDescription className="text-muted-foreground">Acesse sua conta</CardDescription>
         </CardHeader>
