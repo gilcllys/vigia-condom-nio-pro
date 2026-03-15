@@ -27,6 +27,7 @@ const allMenuItems: MenuItem[] = [
   { title: 'Ordens de Serviço', url: '/ordens-servico', icon: ClipboardList },
   { title: 'Notas Fiscais', url: '/notas-fiscais', icon: FileText },
   { title: 'Almoxarifado', url: '/almoxarifado', icon: Warehouse },
+  { title: 'Aprovações', url: '/aprovacoes', icon: ShieldCheck },
   { title: 'Portal da Transparência', url: '/transparencia', icon: Eye },
   { title: 'Moradores', url: '/moradores', icon: Users },
   { title: 'Prestadores', url: '/prestadores', icon: Briefcase },
