@@ -1,4 +1,4 @@
-import { LayoutDashboard, Building2, Users, Settings, LogOut, ClipboardList, FileText, Warehouse, Eye, Briefcase, ShieldCheck } from 'lucide-react';
+import { LayoutDashboard, Building2, Users, Settings, LogOut, ClipboardList, FileText, Warehouse, Eye, Briefcase, ShieldCheck, FileSignature } from 'lucide-react';
 import { NavLink } from '@/components/NavLink';
 import { useLocation } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
@@ -28,6 +28,7 @@ const allMenuItems: MenuItem[] = [
   { title: 'Notas Fiscais', url: '/notas-fiscais', icon: FileText },
   { title: 'Almoxarifado', url: '/almoxarifado', icon: Warehouse },
   { title: 'Aprovações', url: '/aprovacoes', icon: ShieldCheck },
+  { title: 'Contratos', url: '/contratos', icon: FileSignature },
   { title: 'Portal da Transparência', url: '/transparencia', icon: Eye },
   { title: 'Moradores', url: '/moradores', icon: Users },
   { title: 'Prestadores', url: '/prestadores', icon: Briefcase },
@@ -38,10 +39,10 @@ const allMenuItems: MenuItem[] = [
 const MENU_BY_ROLE: Record<string, string[]> = {
   MORADOR: ['/dashboard', '/ordens-servico', '/transparencia'],
   ZELADOR: ['/dashboard', '/ordens-servico', '/almoxarifado', '/transparencia'],
-  SUBSINDICO: ['/dashboard', '/ordens-servico', '/notas-fiscais', '/almoxarifado', '/aprovacoes', '/transparencia'],
-  CONSELHO: ['/dashboard', '/ordens-servico', '/notas-fiscais', '/almoxarifado', '/aprovacoes', '/transparencia'],
-  SINDICO: ['/dashboard', '/ordens-servico', '/notas-fiscais', '/almoxarifado', '/aprovacoes', '/transparencia', '/moradores', '/prestadores', '/configuracoes'],
-  ADMIN: ['/dashboard', '/ordens-servico', '/notas-fiscais', '/almoxarifado', '/aprovacoes', '/transparencia', '/moradores', '/prestadores', '/condominios', '/configuracoes'],
+  SUBSINDICO: ['/dashboard', '/ordens-servico', '/notas-fiscais', '/almoxarifado', '/aprovacoes', '/contratos', '/transparencia'],
+  CONSELHO: ['/dashboard', '/ordens-servico', '/notas-fiscais', '/almoxarifado', '/aprovacoes', '/contratos', '/transparencia'],
+  SINDICO: ['/dashboard', '/ordens-servico', '/notas-fiscais', '/almoxarifado', '/aprovacoes', '/contratos', '/transparencia', '/moradores', '/prestadores', '/configuracoes'],
+  ADMIN: ['/dashboard', '/ordens-servico', '/notas-fiscais', '/almoxarifado', '/aprovacoes', '/contratos', '/transparencia', '/moradores', '/prestadores', '/condominios', '/configuracoes'],
 };
 
 export function AppSidebar() {

@@ -23,6 +23,7 @@ import Prestadores from "./pages/Prestadores";
 import Aprovacoes from "./pages/Aprovacoes";
 import AprovacaoDetalhe from "./pages/AprovacaoDetalhe";
 import ResetPassword from "./pages/ResetPassword";
+import Contratos from "./pages/Contratos";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -57,6 +58,7 @@ const App = () => (
                 <Route path="/almoxarifado" element={<Almoxarifado />} />
                 <Route path="/aprovacoes" element={<Aprovacoes />} />
                 <Route path="/aprovacoes/:id" element={<AprovacaoDetalhe />} />
+                <Route path="/contratos" element={<Contratos />} />
                 <Route path="/transparencia" element={<Transparencia />} />
                 <Route path="/configuracoes" element={<Configuracoes />} />
               </Route>

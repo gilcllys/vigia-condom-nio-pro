@@ -25,6 +25,7 @@ import { DashboardStatCards } from '@/components/dashboard/DashboardStatCards';
 import { DashboardApprovals } from '@/components/dashboard/DashboardApprovals';
 import { DashboardAlerts } from '@/components/dashboard/DashboardAlerts';
 import { DashboardActivities } from '@/components/dashboard/DashboardActivities';
+import { DashboardRiskCard } from '@/components/dashboard/DashboardRiskCard';
 
 export default function Dashboard() {
   const { user } = useAuth();
@@ -73,6 +74,11 @@ export default function Dashboard() {
     <div className="space-y-6">
       {/* Stat Cards Row */}
       <DashboardStatCards counts={counts} loading={loading} role={role} />
+
+      {/* Risk Analysis Card */}
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <DashboardRiskCard />
+      </div>
 
       {/* Middle row: Approvals + Alerts */}
       <div className="grid gap-6 lg:grid-cols-3">
