@@ -38,10 +38,10 @@ const allMenuItems: MenuItem[] = [
 const MENU_BY_ROLE: Record<string, string[]> = {
   MORADOR: ['/dashboard', '/ordens-servico', '/transparencia'],
   ZELADOR: ['/dashboard', '/ordens-servico', '/almoxarifado', '/transparencia'],
-  SUBSINDICO: ['/dashboard', '/ordens-servico', '/notas-fiscais', '/almoxarifado', '/transparencia'],
-  CONSELHO: ['/dashboard', '/ordens-servico', '/notas-fiscais', '/almoxarifado', '/transparencia'],
-  SINDICO: ['/dashboard', '/ordens-servico', '/notas-fiscais', '/almoxarifado', '/transparencia', '/moradores', '/prestadores', '/configuracoes'],
-  ADMIN: ['/dashboard', '/ordens-servico', '/notas-fiscais', '/almoxarifado', '/transparencia', '/moradores', '/prestadores', '/condominios', '/configuracoes'],
+  SUBSINDICO: ['/dashboard', '/ordens-servico', '/notas-fiscais', '/almoxarifado', '/aprovacoes', '/transparencia'],
+  CONSELHO: ['/dashboard', '/ordens-servico', '/notas-fiscais', '/almoxarifado', '/aprovacoes', '/transparencia'],
+  SINDICO: ['/dashboard', '/ordens-servico', '/notas-fiscais', '/almoxarifado', '/aprovacoes', '/transparencia', '/moradores', '/prestadores', '/configuracoes'],
+  ADMIN: ['/dashboard', '/ordens-servico', '/notas-fiscais', '/almoxarifado', '/aprovacoes', '/transparencia', '/moradores', '/prestadores', '/condominios', '/configuracoes'],
 };
 
 export function AppSidebar() {

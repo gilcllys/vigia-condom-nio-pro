@@ -1,24 +1,78 @@
-import { FileText, ChevronRight } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { FileText, ChevronRight, Search } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { useNavigate } from 'react-router-dom';
+import { supabase } from '@/lib/supabase';
+import { useCondo } from '@/contexts/CondoContext';
+import { useFinancialConfig, getRequiredRoles } from '@/hooks/useFinancialConfig';
+import { differenceInHours } from 'date-fns';
 
-interface ApprovalRow {
-  doc: string;
-  value: string;
-  tier: string;
-  tierColor: string;
-  deadline: string;
+interface PendingDoc {
+  id: string;
+  number: string | null;
+  amount: number | null;
+  created_at: string;
+  requiredRoles: string[];
+  tierLabel: string;
 }
 
-const mockApprovals: ApprovalRow[] = [
-  { doc: 'NF #3245', value: 'R$ 1.200,00', tier: 'SUBSÍNDICO', tierColor: 'bg-primary text-primary-foreground', deadline: '2 dias' },
-  { doc: 'NF #5678', value: 'R$ 3.450,00', tier: 'CONSELHO', tierColor: 'bg-warning text-warning-foreground', deadline: '4 dias' },
-  { doc: 'NF #8912', value: 'R$ 5.800,00', tier: 'SÍNDICO', tierColor: 'bg-secondary text-secondary-foreground', deadline: '1 dia' },
-];
+function getTierBadge(roles: string[]): { label: string; className: string } {
+  if (roles.includes('SINDICO')) return { label: 'SÍNDICO', className: 'bg-secondary text-secondary-foreground' };
+  if (roles.includes('CONSELHO')) return { label: 'CONSELHO', className: 'bg-warning text-warning-foreground' };
+  return { label: 'SUBSÍNDICO', className: 'bg-primary text-primary-foreground' };
+}
+
+function getDeadlineLabel(createdAt: string, deadlineHours: number | null): string {
+  if (!deadlineHours) return '—';
+  const deadline = new Date(new Date(createdAt).getTime() + deadlineHours * 60 * 60 * 1000);
+  const hoursLeft = differenceInHours(deadline, new Date());
+  if (hoursLeft <= 0) return 'Prazo expirado';
+  if (hoursLeft < 24) return `${hoursLeft}h restantes`;
+  const days = Math.ceil(hoursLeft / 24);
+  return `${days} dia${days > 1 ? 's' : ''} restante${days > 1 ? 's' : ''}`;
+}
 
 export function DashboardApprovals() {
   const navigate = useNavigate();
+  const { condoId } = useCondo();
+  const { config } = useFinancialConfig(condoId);
+  const [docs, setDocs] = useState<PendingDoc[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (!condoId) { setLoading(false); return; }
+
+    const fetchPending = async () => {
+      setLoading(true);
+      const { data } = await supabase
+        .from('fiscal_documents')
+        .select('id, number, amount, created_at')
+        .eq('condo_id', condoId)
+        .eq('status', 'PENDENTE')
+        .order('created_at', { ascending: false })
+        .limit(5);
+
+      if (data) {
+        setDocs(data.map((d: any) => {
+          const roles = getRequiredRoles(d.amount ?? 0, config);
+          return {
+            id: d.id,
+            number: d.number,
+            amount: d.amount,
+            created_at: d.created_at,
+            requiredRoles: roles,
+            tierLabel: getTierBadge(roles).label,
+          };
+        }));
+      }
+      setLoading(false);
+    };
+
+    fetchPending();
+  }, [condoId, config]);
+
+  const deadlineHours = config?.approval_deadline_hours ?? null;
 
   return (
     <div className="glass-card">
@@ -27,7 +81,7 @@ export function DashboardApprovals() {
           <FileText className="h-5 w-5 text-muted-foreground" />
           <h2 className="text-base font-semibold text-foreground">Aprovações Pendentes</h2>
         </div>
-        <button onClick={() => navigate('/almoxarifado')} className="text-muted-foreground hover:text-primary transition-colors">
+        <button onClick={() => navigate('/aprovacoes')} className="text-muted-foreground hover:text-primary transition-colors">
           <ChevronRight className="h-5 w-5" />
         </button>
       </div>
@@ -41,26 +95,39 @@ export function DashboardApprovals() {
         <span className="text-right">Ações</span>
       </div>
 
-      {/* Rows */}
-      {mockApprovals.map((row) => (
-        <div key={row.doc} className="grid grid-cols-5 gap-4 px-5 py-4 items-center border-b border-border/30 hover:bg-muted/30 transition-colors">
-          <div className="flex items-center gap-2">
-            <FileText className="h-4 w-4 text-muted-foreground" />
-            <span className="text-sm font-medium text-foreground">{row.doc}</span>
-          </div>
-          <span className="text-sm text-foreground">{row.value}</span>
-          <Badge className={`${row.tierColor} text-xs w-fit`}>{row.tier}</Badge>
-          <span className="text-sm text-muted-foreground">{row.deadline}</span>
-          <div className="flex gap-2 justify-end">
-            <Button size="sm" variant="outline" className="h-7 text-xs border-primary/30 text-primary hover:bg-primary/10">
-              Aprovar
-            </Button>
-            <Button size="sm" variant="outline" className="h-7 text-xs border-destructive/30 text-destructive hover:bg-destructive/10">
-              Rejeitar
-            </Button>
-          </div>
-        </div>
-      ))}
+      {loading ? (
+        <div className="px-5 py-8 text-center text-sm text-muted-foreground">Carregando...</div>
+      ) : docs.length === 0 ? (
+        <div className="px-5 py-8 text-center text-sm text-muted-foreground">Nenhuma aprovação pendente.</div>
+      ) : (
+        docs.map((doc) => {
+          const tier = getTierBadge(doc.requiredRoles);
+          return (
+            <div key={doc.id} className="grid grid-cols-5 gap-4 px-5 py-4 items-center border-b border-border/30 hover:bg-muted/30 transition-colors">
+              <div className="flex items-center gap-2">
+                <FileText className="h-4 w-4 text-muted-foreground" />
+                <span className="text-sm font-medium text-foreground">NF #{doc.number ?? '—'}</span>
+              </div>
+              <span className="text-sm text-foreground">
+                {doc.amount != null ? `R$ ${doc.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}` : '—'}
+              </span>
+              <Badge className={`${tier.className} text-xs w-fit`}>{tier.label}</Badge>
+              <span className="text-sm text-muted-foreground">{getDeadlineLabel(doc.created_at, deadlineHours)}</span>
+              <div className="flex justify-end">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-7 text-xs border-primary/30 text-primary hover:bg-primary/10 gap-1"
+                  onClick={() => navigate(`/aprovacoes/${doc.id}`)}
+                >
+                  <Search className="h-3 w-3" />
+                  Analisar
+                </Button>
+              </div>
+            </div>
+          );
+        })
+      )}
     </div>
   );
 }
