@@ -100,6 +100,7 @@ export default function OrdemServicoDetalhe() {
   const [actionLoading, setActionLoading] = useState(false);
   const [pdfLoading, setPdfLoading] = useState(false);
   const [sendingFinalApproval, setSendingFinalApproval] = useState(false);
+  const [stockDialogOpen, setStockDialogOpen] = useState(false);
 
   const fetchAll = async () => {
     if (!id || !condoId) return;
