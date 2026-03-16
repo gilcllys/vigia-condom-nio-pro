@@ -53,6 +53,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   const signOut = async () => {
+    // Deactivate session record
+    const token = localStorage.getItem('nfe_vigia_session_token');
+    if (token) {
+      await supabase.from('user_sessions').update({ is_active: false }).eq('session_token', token);
+      localStorage.removeItem('nfe_vigia_session_token');
+    }
     try { localStorage.removeItem('nfe_vigia_active_condo'); } catch {}
     await supabase.auth.signOut();
   };

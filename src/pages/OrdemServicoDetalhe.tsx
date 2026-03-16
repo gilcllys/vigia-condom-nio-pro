@@ -8,7 +8,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
 import { logActivity } from '@/lib/activity-log';
 import { logSOActivity } from '@/lib/so-activity-log';
-import { ArrowLeft, FileDown, Send } from 'lucide-react';
+import { ArrowLeft, FileDown, Send, Package } from 'lucide-react';
 
 import { OSStatusActions } from '@/components/os/OSStatusActions';
 import { OSInfoCard } from '@/components/os/OSInfoCard';
@@ -20,6 +20,7 @@ import { generateOSPdf } from '@/components/os/os-pdf';
 import { OSFiscalDocsCard } from '@/components/os/OSFiscalDocsCard';
 import { OSBudgetsCard } from '@/components/os/OSBudgetsCard';
 import { OSApprovalCard } from '@/components/os/OSApprovalCard';
+import { OSStockMaterialDialog } from '@/components/os/OSStockMaterialDialog';
 
 interface ServiceOrderDetail {
   id: string;
@@ -99,6 +100,7 @@ export default function OrdemServicoDetalhe() {
   const [actionLoading, setActionLoading] = useState(false);
   const [pdfLoading, setPdfLoading] = useState(false);
   const [sendingFinalApproval, setSendingFinalApproval] = useState(false);
+  const [stockDialogOpen, setStockDialogOpen] = useState(false);
 
   const fetchAll = async () => {
     if (!id || !condoId) return;
@@ -433,8 +435,24 @@ export default function OrdemServicoDetalhe() {
       {/* Timeline + Materials */}
       <div className="grid gap-4 lg:grid-cols-2">
         <OSTimelineCard activities={activities} />
-        <OSMaterialsCard materials={materials} />
+        <div className="space-y-4">
+          <OSMaterialsCard materials={materials} />
+          {(isSindico || isAdmin || isZelador) && order.status === 'EM_EXECUCAO' && (
+            <Button variant="outline" className="w-full gap-2" onClick={() => setStockDialogOpen(true)}>
+              <Package className="h-4 w-4" />
+              Adicionar Material do Almoxarifado
+            </Button>
+          )}
+        </div>
       </div>
+
+      {/* Stock Material Dialog */}
+      <OSStockMaterialDialog
+        open={stockDialogOpen}
+        onOpenChange={setStockDialogOpen}
+        orderId={order.id}
+        onAdded={fetchAll}
+      />
     </div>
   );
 }
