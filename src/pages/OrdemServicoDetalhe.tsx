@@ -8,7 +8,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
 import { logActivity } from '@/lib/activity-log';
 import { logSOActivity } from '@/lib/so-activity-log';
-import { ArrowLeft, FileDown, Send } from 'lucide-react';
+import { ArrowLeft, FileDown, Send, Package } from 'lucide-react';
 
 import { OSStatusActions } from '@/components/os/OSStatusActions';
 import { OSInfoCard } from '@/components/os/OSInfoCard';
