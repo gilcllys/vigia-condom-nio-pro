@@ -245,7 +245,7 @@ export default function Login() {
               <Label htmlFor="password" className="text-foreground">Senha</Label>
               <Input id="password" type="password" placeholder="••••••••" value={password} onChange={(e) => setPassword(e.target.value)} required minLength={6} className="bg-muted/50 border-border focus:border-primary" />
             </div>
-            <Button type="submit" className="w-full bg-primary hover:bg-primary/90 text-primary-foreground font-semibold" disabled={loading}>
+            <Button type="submit" className="w-full bg-primary hover:bg-primary/90 text-primary-foreground font-semibold" disabled={loading || !email.trim() || !password || password.length < 6}>
               {loading ? 'Aguarde...' : 'Entrar'}
             </Button>
           </form>

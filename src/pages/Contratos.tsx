@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Plus, Filter, FileSignature, Calendar, AlertTriangle } from 'lucide-react';
+import { Plus, FileSignature, AlertTriangle, Send } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -15,7 +15,6 @@ import { useCondo } from '@/contexts/CondoContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { differenceInDays, format } from 'date-fns';
-import { ptBR } from 'date-fns/locale';
 
 interface Contract {
   id: string;
@@ -90,6 +89,7 @@ export default function Contratos() {
   const [filterType, setFilterType] = useState('ALL');
   const [newOpen, setNewOpen] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [sendingApproval, setSendingApproval] = useState<string | null>(null);
 
   // Form state
   const [form, setForm] = useState({
@@ -103,6 +103,7 @@ export default function Contratos() {
   });
 
   const canCreate = role === 'SINDICO' || role === 'ADMIN';
+  const isSindico = role === 'SINDICO' || role === 'ADMIN';
 
   const fetchContracts = async () => {
     if (!condoId) return;
@@ -166,6 +167,62 @@ export default function Contratos() {
     }
   };
 
+  const handleSendForApproval = async (contract: Contract) => {
+    if (!condoId) return;
+    setSendingApproval(contract.id);
+
+    // Get approvers (SUBSINDICO + CONSELHO)
+    const { data: approvers } = await supabase
+      .from('user_condos')
+      .select('user_id, role')
+      .eq('condo_id', condoId)
+      .in('role', ['SUBSINDICO', 'CONSELHO'])
+      .eq('status', 'ativo');
+
+    if (!approvers || approvers.length === 0) {
+      toast({ title: 'Nenhum aprovador encontrado', description: 'Cadastre um Subsíndico ou Conselheiro antes.', variant: 'destructive' });
+      setSendingApproval(null);
+      return;
+    }
+
+    // Update contract status
+    const { error: updateError } = await supabase
+      .from('contracts')
+      .update({ status: 'AGUARDANDO_APROVACAO' })
+      .eq('id', contract.id);
+
+    if (updateError) {
+      toast({ title: 'Erro ao enviar para aprovação', description: updateError.message, variant: 'destructive' });
+      setSendingApproval(null);
+      return;
+    }
+
+    // Create approval records in fiscal_document_approvals (reusing same table/flow)
+    const records = approvers.map((a: any) => ({
+      fiscal_document_id: contract.id,
+      condo_id: condoId,
+      approver_user_id: a.user_id,
+      approver_role: a.role,
+      decision: 'pendente',
+      voted_at: null,
+    }));
+
+    const { error: approvalError } = await supabase
+      .from('fiscal_document_approvals')
+      .insert(records);
+
+    if (approvalError) {
+      // Revert status if approval records fail
+      await supabase.from('contracts').update({ status: 'RASCUNHO' }).eq('id', contract.id);
+      toast({ title: 'Erro ao criar registros de aprovação', description: approvalError.message, variant: 'destructive' });
+    } else {
+      toast({ title: 'Contrato enviado para aprovação' });
+      fetchContracts();
+    }
+
+    setSendingApproval(null);
+  };
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -219,16 +276,17 @@ export default function Contratos() {
               <TableHead>Vigência</TableHead>
               <TableHead>Status</TableHead>
               <TableHead>Vencimento</TableHead>
+              {isSindico && <TableHead>Ações</TableHead>}
             </TableRow>
           </TableHeader>
           <TableBody>
             {loading ? (
               <TableRow>
-                <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">Carregando...</TableCell>
+                <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">Carregando...</TableCell>
               </TableRow>
             ) : contracts.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
                   <FileSignature className="h-8 w-8 mx-auto mb-2 text-muted-foreground/50" />
                   Nenhum contrato encontrado.
                 </TableCell>
@@ -261,6 +319,22 @@ export default function Contratos() {
                         </Badge>
                       ) : '—'}
                     </TableCell>
+                    {isSindico && (
+                      <TableCell>
+                        {c.status === 'RASCUNHO' && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="gap-1 text-xs"
+                            onClick={() => handleSendForApproval(c)}
+                            disabled={sendingApproval === c.id}
+                          >
+                            <Send className="h-3 w-3" />
+                            {sendingApproval === c.id ? 'Enviando...' : 'Enviar p/ Aprovação'}
+                          </Button>
+                        )}
+                      </TableCell>
+                    )}
                   </TableRow>
                 );
               })
