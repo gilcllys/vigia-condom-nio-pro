@@ -47,6 +47,8 @@ export default function Login() {
     }
   };
 
+  const sessionToken = crypto.randomUUID();
+
   const navigateAfterLogin = async () => {
     localStorage.removeItem('nfe_vigia_active_condo');
 
@@ -58,6 +60,32 @@ export default function Login() {
       navigate('/login', { replace: true });
       return;
     }
+
+    // Single-session check: look for active sessions for this user
+    const { data: existingSessions } = await supabase
+      .from('user_sessions')
+      .select('id, session_token')
+      .eq('auth_user_id', userId)
+      .eq('is_active', true);
+
+    if (existingSessions && existingSessions.length > 0) {
+      // Another session is active — block login
+      await supabase.auth.signOut();
+      toast({
+        title: 'Sessão ativa detectada',
+        description: 'Este usuário já está com uma sessão ativa. Finalize a sessão anterior para continuar.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    // Register this session
+    await supabase.from('user_sessions').insert({
+      auth_user_id: userId,
+      session_token: sessionToken,
+      is_active: true,
+    });
+    localStorage.setItem('nfe_vigia_session_token', sessionToken);
 
     const { data: userRow, error: userError } = await supabase
       .from('users')
