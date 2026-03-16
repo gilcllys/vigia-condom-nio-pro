@@ -20,6 +20,7 @@ import { generateOSPdf } from '@/components/os/os-pdf';
 import { OSFiscalDocsCard } from '@/components/os/OSFiscalDocsCard';
 import { OSBudgetsCard } from '@/components/os/OSBudgetsCard';
 import { OSApprovalCard } from '@/components/os/OSApprovalCard';
+import { OSStockMaterialDialog } from '@/components/os/OSStockMaterialDialog';
 
 interface ServiceOrderDetail {
   id: string;
