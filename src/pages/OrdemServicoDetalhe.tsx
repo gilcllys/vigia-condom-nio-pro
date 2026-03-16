@@ -435,8 +435,24 @@ export default function OrdemServicoDetalhe() {
       {/* Timeline + Materials */}
       <div className="grid gap-4 lg:grid-cols-2">
         <OSTimelineCard activities={activities} />
-        <OSMaterialsCard materials={materials} />
+        <div className="space-y-4">
+          <OSMaterialsCard materials={materials} />
+          {(isSindico || isAdmin || isZelador) && order.status === 'EM_EXECUCAO' && (
+            <Button variant="outline" className="w-full gap-2" onClick={() => setStockDialogOpen(true)}>
+              <Package className="h-4 w-4" />
+              Adicionar Material do Almoxarifado
+            </Button>
+          )}
+        </div>
       </div>
+
+      {/* Stock Material Dialog */}
+      <OSStockMaterialDialog
+        open={stockDialogOpen}
+        onOpenChange={setStockDialogOpen}
+        orderId={order.id}
+        onAdded={fetchAll}
+      />
     </div>
   );
 }
