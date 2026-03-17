@@ -535,7 +535,7 @@ export default function StockTab() {
           <div className="space-y-4 py-2">
             <div className="space-y-2">
               <Label>Tipo *</Label>
-              <Select value={moveForm.move_type} onValueChange={(v: any) => setMoveForm(p => ({ ...p, move_type: v }))}>
+              <Select value={moveForm.move_type} onValueChange={(v) => setMoveForm(p => ({ ...p, move_type: normalizeStockMoveType(v) }))}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="ENTRADA">Entrada</SelectItem>
