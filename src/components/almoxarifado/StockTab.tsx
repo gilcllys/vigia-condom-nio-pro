@@ -271,7 +271,7 @@ export default function StockTab() {
 
   const openMovement = (item: StockItem) => {
     setMoveItem(item);
-    setMoveForm({ move_type: 'entrada', qty: '', destination: 'almoxarifado', notes: '' });
+    setMoveForm({ move_type: 'ENTRADA', qty: '', destination: 'almoxarifado', notes: '' });
     setMoveOpen(true);
   };
 
