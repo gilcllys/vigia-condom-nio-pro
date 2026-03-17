@@ -65,12 +65,12 @@ export default function AprovacaoDetalhe() {
   // The effective role: prefer direct user_condos lookup, fallback to context
   const role = userCondoRole || contextRole;
 
-  // Get internal user id AND their role from user_condos
+  // Get internal user id AND their role from nfe_vigia.user_condos for the active condo
   useEffect(() => {
     if (!user || !condoId) return;
 
     const fetchUserInfo = async () => {
-      // Fetch internal user id
+      // Fetch internal user id from nfe_vigia.users
       const { data: userData } = await supabase
         .from('users')
         .select('id')
@@ -80,7 +80,7 @@ export default function AprovacaoDetalhe() {
       const userId = userData?.id ?? null;
       setInternalUserId(userId);
 
-      // Fetch role directly from user_condos for this condo
+      // Fetch role from nfe_vigia.user_condos scoped to the active condo
       if (userId) {
         const { data: ucData } = await supabase
           .from('user_condos')
@@ -89,7 +89,7 @@ export default function AprovacaoDetalhe() {
           .eq('condo_id', condoId)
           .maybeSingle();
 
-        setUserCondoRole(ucData?.role ?? null);
+        if (ucData?.role) setUserCondoRole(ucData.role);
       }
     };
 
@@ -150,9 +150,14 @@ export default function AprovacaoDetalhe() {
   const deadlineHours = config?.approval_deadline_hours ?? null;
   const deadline = getDeadlineInfo(doc.created_at, deadlineHours);
 
+  const myApproverRole = role === 'ADMIN' ? 'SINDICO' : role;
   const myVotes = votes.filter(v => v.approver_user_id === internalUserId);
   const myVote = myVotes.find(v => isFinalDecision(v.decision)) ?? myVotes[0];
-  const alreadyVoted = myVote ? isFinalDecision(myVote.decision) : false;
+  // Also check if the role's slot already has a final decision (any user of this role voted)
+  const roleAlreadyDecided = myApproverRole
+    ? votes.some(v => v.approver_role === myApproverRole && isFinalDecision(v.decision))
+    : false;
+  const alreadyVoted = (myVote ? isFinalDecision(myVote.decision) : false) || roleAlreadyDecided;
 
   // Check if the user's role is required for this document
   const roleIsRequired = role ? requiredRoles.includes(role) : false;

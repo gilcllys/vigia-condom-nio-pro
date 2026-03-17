@@ -78,47 +78,60 @@ export default function Aprovacoes() {
     const fetchPending = async () => {
       setLoading(true);
 
-      // Fetch documents with their approval votes
-      let query = supabase
+      // Fetch documents without join to guarantee one row per document
+      let docQuery = supabase
         .from('fiscal_documents')
-        .select('id, number, amount, supplier, created_at, status, fiscal_document_approvals(approver_role, decision)')
+        .select('id, number, amount, supplier, created_at, status')
         .eq('condo_id', condoId)
         .order('created_at', { ascending: false });
 
       if (filterStatus !== 'ALL') {
-        query = query.eq('status', filterStatus);
+        docQuery = docQuery.eq('status', filterStatus);
       }
 
-      const { data } = await query;
+      const { data: docData } = await docQuery;
 
-      if (data) {
-        // Deduplicate by document id (safety net against any join expansion)
-        const seen = new Map<string, any>();
-        for (const d of data as any[]) {
-          if (!seen.has(d.id)) seen.set(d.id, d);
-        }
+      if (!docData || docData.length === 0) {
+        setDocs([]);
+        setLoading(false);
+        return;
+      }
 
-        const mapped = Array.from(seen.values()).map((d) => {
-          const votes: ApprovalVote[] = d.fiscal_document_approvals ?? [];
-          const nextPendingRole = getNextPendingRole(votes);
-          return {
-            id: d.id,
-            number: d.number,
-            amount: d.amount,
-            supplier: d.supplier,
-            created_at: d.created_at,
-            status: d.status,
-            nextPendingRole,
-            requiredRoles: getRequiredRoles(d.amount ?? 0, config),
-          };
-        });
+      // Fetch approvals for these documents in a separate query (no join expansion)
+      const docIds = (docData as any[]).map(d => d.id);
+      const { data: approvalsData } = await supabase
+        .from('fiscal_document_approvals')
+        .select('fiscal_document_id, approver_role, decision')
+        .in('fiscal_document_id', docIds);
 
-        // For PENDENTE filter, only show docs that still have a pending vote
-        if (filterStatus === 'PENDENTE') {
-          setDocs(mapped.filter((d) => d.nextPendingRole !== null));
-        } else {
-          setDocs(mapped);
-        }
+      // Group approvals by fiscal_document_id
+      const approvalsMap = new Map<string, ApprovalVote[]>();
+      for (const a of (approvalsData ?? []) as any[]) {
+        const list = approvalsMap.get(a.fiscal_document_id) ?? [];
+        list.push({ approver_role: a.approver_role, decision: a.decision });
+        approvalsMap.set(a.fiscal_document_id, list);
+      }
+
+      const mapped = (docData as any[]).map(d => {
+        const votes: ApprovalVote[] = approvalsMap.get(d.id) ?? [];
+        const nextPendingRole = getNextPendingRole(votes);
+        return {
+          id: d.id,
+          number: d.number,
+          amount: d.amount,
+          supplier: d.supplier,
+          created_at: d.created_at,
+          status: d.status,
+          nextPendingRole,
+          requiredRoles: getRequiredRoles(d.amount ?? 0, config),
+        };
+      });
+
+      // For PENDENTE filter, only show docs that still have a pending vote
+      if (filterStatus === 'PENDENTE') {
+        setDocs(mapped.filter(d => d.nextPendingRole !== null));
+      } else {
+        setDocs(mapped);
       }
       setLoading(false);
     };
