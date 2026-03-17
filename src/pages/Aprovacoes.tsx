@@ -42,6 +42,12 @@ function getDeadlineInfo(createdAt: string, deadlineHours: number | null): { lab
   return { label: `${days} dia${days > 1 ? 's' : ''}`, expired: false };
 }
 
+function getStatusBadge(status: string): { label: string; variant: 'default' | 'secondary' | 'destructive' | 'outline' } {
+  if (status === 'PROCESSADO') return { label: 'Aprovada', variant: 'secondary' };
+  if (status === 'CANCELADO') return { label: 'Cancelada', variant: 'destructive' };
+  return { label: 'Pendente', variant: 'default' };
+}
+
 export default function Aprovacoes() {
   const navigate = useNavigate();
   const { condoId } = useCondo();
