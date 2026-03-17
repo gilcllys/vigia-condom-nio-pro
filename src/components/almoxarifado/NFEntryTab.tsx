@@ -205,6 +205,12 @@ export default function NFEntryTab() {
       return;
     }
 
+    const invalidItem = nfData.itens.find(item => !item.nome.trim() || !Number.isFinite(item.quantidade) || item.quantidade <= 0);
+    if (invalidItem) {
+      toast({ title: 'Todos os itens precisam de nome e quantidade maior que zero', variant: 'destructive' });
+      return;
+    }
+
     setSaving(true);
 
     try {
