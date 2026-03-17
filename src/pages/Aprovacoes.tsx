@@ -48,6 +48,7 @@ export default function Aprovacoes() {
   const { config } = useFinancialConfig(condoId);
   const [docs, setDocs] = useState<PendingDoc[]>([]);
   const [loading, setLoading] = useState(true);
+  const [filterStatus, setFilterStatus] = useState('ALL');
 
   useEffect(() => {
     if (!condoId) { setLoading(false); return; }
