@@ -77,9 +77,11 @@ export default function Aprovacoes() {
 
     const fetchPending = async () => {
       setLoading(true);
+
+      // Fetch documents with their approval votes
       let query = supabase
         .from('fiscal_documents')
-        .select('id, number, amount, supplier, created_at, status')
+        .select('id, number, amount, supplier, created_at, status, fiscal_document_approvals(approver_role, decision)')
         .eq('condo_id', condoId)
         .order('created_at', { ascending: false });
 
@@ -90,10 +92,27 @@ export default function Aprovacoes() {
       const { data } = await query;
 
       if (data) {
-        setDocs(data.map((d: any) => ({
-          ...d,
-          requiredRoles: getRequiredRoles(d.amount ?? 0, config),
-        })));
+        const mapped = (data as any[]).map((d) => {
+          const votes: ApprovalVote[] = d.fiscal_document_approvals ?? [];
+          const nextPendingRole = getNextPendingRole(votes);
+          return {
+            id: d.id,
+            number: d.number,
+            amount: d.amount,
+            supplier: d.supplier,
+            created_at: d.created_at,
+            status: d.status,
+            nextPendingRole,
+            requiredRoles: getRequiredRoles(d.amount ?? 0, config),
+          };
+        });
+
+        // For PENDENTE filter, only show docs that still have a pending vote
+        if (filterStatus === 'PENDENTE') {
+          setDocs(mapped.filter((d) => d.nextPendingRole !== null));
+        } else {
+          setDocs(mapped);
+        }
       }
       setLoading(false);
     };
