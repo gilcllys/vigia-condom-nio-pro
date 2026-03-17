@@ -1,7 +1,7 @@
 const STORAGE_BASE = 'https://rvgrxtzqkygjxlwlmvvn.supabase.co/storage/v1/object/public';
 
 /** Default bucket for fiscal documents */
-const DEFAULT_BUCKET = 'nf-uploads';
+const DEFAULT_BUCKET = 'nfe-vigia';
 
 /**
  * Builds the full public URL for a file stored in Supabase Storage.
