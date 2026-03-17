@@ -263,7 +263,8 @@ export default function ApprovalsTab() {
             {nfs.map((nf) => {
               const requiredRoles = getRequiredRoles(nf.amount ?? 0, config);
               const isSindico = role === 'SINDICO' || role === 'ADMIN';
-              const myApproval = nf.approvals.find(a => a.user_id === internalUserId);
+              const myApprovals = nf.approvals.filter(a => a.user_id === internalUserId);
+              const myApproval = myApprovals.find(a => isFinalDecision(a.decision)) ?? myApprovals[0];
               const alreadyVoted = myApproval ? isFinalDecision(myApproval.decision) : false;
 
               const lowerRoles = requiredRoles.filter(r => r !== 'SINDICO');
