@@ -269,7 +269,7 @@ export default function AprovacaoDetalhe() {
               <div key={r} className="flex items-center justify-between p-3 rounded-lg bg-muted/30 border border-border/30">
                 <div className="flex items-center gap-3">
                   <Badge variant="outline" className="text-xs">{r === 'SUBSINDICO' ? 'SUBSÍNDICO' : r}</Badge>
-                  {vote ? (
+                    {vote ? (
                     <div className="flex items-center gap-2 text-sm">
                       {vote.decision === 'aprovado' && <CheckCircle2 className="h-4 w-4 text-emerald-600" />}
                       {vote.decision === 'rejeitado' && <XCircle className="h-4 w-4 text-destructive" />}
@@ -285,11 +285,14 @@ export default function AprovacaoDetalhe() {
                         {vote.decision === 'aprovado' ? 'Aprovado' : vote.decision === 'rejeitado' ? 'Rejeitado' : 'Aguardando'}
                       </span>
 
-                      {vote.voted_at && isFinalDecision(vote.decision) && (
-                        <span className="text-muted-foreground">
-                          em {format(new Date(vote.voted_at), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
-                        </span>
-                      )}
+                      {vote.voted_at && isFinalDecision(vote.decision) && (() => {
+                        const d = new Date(vote.voted_at!);
+                        return !isNaN(d.getTime()) ? (
+                          <span className="text-muted-foreground">
+                            em {format(d, "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
+                          </span>
+                        ) : null;
+                      })()}
                     </div>
                   ) : (
                     <span className="text-sm text-muted-foreground flex items-center gap-1">
