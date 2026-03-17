@@ -91,7 +91,7 @@ export default function StockTab() {
   // Movement dialog
   const [moveOpen, setMoveOpen] = useState(false);
   const [moveItem, setMoveItem] = useState<StockItem | null>(null);
-  const [moveForm, setMoveForm] = useState<MovementForm>({ move_type: 'entrada', qty: '', destination: 'almoxarifado', notes: '' });
+  const [moveForm, setMoveForm] = useState<MovementForm>({ move_type: 'ENTRADA', qty: '', destination: 'almoxarifado', notes: '' });
 
   // New Category dialog
   const [catOpen, setCatOpen] = useState(false);
