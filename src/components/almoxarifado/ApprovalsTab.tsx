@@ -19,9 +19,12 @@ interface Approval {
   decision: string;
   voted_at: string | null;
   justification: string | null;
+  approver_role?: string;
   user_name?: string;
   user_role?: string;
 }
+
+const isFinalDecision = (decision: string) => decision === 'aprovado' || decision === 'rejeitado';
 
 interface PendingNF {
   id: string;
