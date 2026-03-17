@@ -295,7 +295,7 @@ export default function StockTab() {
       .insert({
         condo_id: condoId,
         item_id: moveItem.id,
-        move_type: moveForm.move_type,
+        move_type: normalizeStockMoveType(moveForm.move_type),
         qty,
       });
 
