@@ -143,7 +143,7 @@ export default function AprovacaoDetalhe() {
     if (!internalUserId || !condoId || !id || !role) return;
     setSubmitting(true);
 
-    const { error } = await supabase.from('fiscal_document_approvals').insert({
+    const votePayload = {
       fiscal_document_id: id,
       condo_id: condoId,
       approver_user_id: internalUserId,
@@ -151,7 +151,12 @@ export default function AprovacaoDetalhe() {
       decision,
       justification: justification.trim() || null,
       voted_at: new Date().toISOString(),
-    });
+    };
+
+    const existingPendingVote = votes.find(v => v.approver_user_id === internalUserId);
+    const { error } = existingPendingVote
+      ? await supabase.from('fiscal_document_approvals').update(votePayload).eq('id', existingPendingVote.id)
+      : await supabase.from('fiscal_document_approvals').insert(votePayload);
 
     if (error) {
       toast.error('Erro ao registrar decisão.');
@@ -165,14 +170,12 @@ export default function AprovacaoDetalhe() {
       .select('approver_role, decision')
       .eq('fiscal_document_id', id);
 
-    const currentVotes = [...(allVotes ?? []), { approver_role: role, decision }];
-
     if (decision === 'rejeitado') {
       await supabase.from('fiscal_documents').update({ status: 'CANCELADO' }).eq('id', id);
       toast.success('Documento rejeitado.');
     } else {
       const allApproved = requiredRoles.every(r =>
-        currentVotes.some(v => v.approver_role === r && v.decision === 'aprovado')
+        (allVotes ?? []).some(v => v.approver_role === r && v.decision === 'aprovado')
       );
       if (allApproved) {
         await supabase.from('fiscal_documents').update({ status: 'PROCESSADO' }).eq('id', id);
