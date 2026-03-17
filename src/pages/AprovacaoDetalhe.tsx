@@ -29,10 +29,12 @@ interface ApprovalVote {
   id: string;
   approver_role: string;
   decision: string;
-  voted_at: string;
+  voted_at: string | null;
   justification: string | null;
   approver_user_id: string;
 }
+
+const isFinalDecision = (decision: string) => decision === 'aprovado' || decision === 'rejeitado';
 
 function getDeadlineInfo(createdAt: string, deadlineHours: number | null): { label: string; expired: boolean; hoursLeft: number } {
   if (!deadlineHours) return { label: '—', expired: false, hoursLeft: Infinity };
