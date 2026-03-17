@@ -216,8 +216,6 @@ export function OSFiscalDocsCard({ orderId, condoId, canAttach, canCriticalActio
       condo_id: condoId,
       approver_user_id: a.user_id,
       approver_role: a.role,
-      decision: 'pendente',
-      voted_at: null,
     }));
 
     const { error } = await supabase.from('fiscal_document_approvals').insert(approvalRecords);

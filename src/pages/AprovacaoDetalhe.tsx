@@ -86,7 +86,7 @@ export default function AprovacaoDetalhe() {
         setVotes(
           (votesRes.data as ApprovalVote[]).map((vote) => ({
             ...vote,
-            decision: (vote.decision === 'aprovado' || vote.decision === 'rejeitado') && !vote.voted_at
+            decision: (!vote.decision || (vote.decision !== 'aprovado' && vote.decision !== 'rejeitado'))
               ? 'pendente'
               : vote.decision,
           }))

@@ -296,8 +296,6 @@ export default function StockTab() {
         item_id: moveItem.id,
         move_type: moveForm.move_type,
         qty,
-        destination: moveForm.move_type === 'saida' ? moveForm.destination : 'almoxarifado',
-        notes: moveForm.notes.trim() || null,
       });
 
     if (error) {

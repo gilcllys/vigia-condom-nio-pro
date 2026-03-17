@@ -295,8 +295,6 @@ export default function NFEntryTab() {
             item_id: itemId,
             move_type: 'entrada',
             qty: item.quantidade,
-            destination,
-            notes: `NF ${nfData.numero_nf} — ${nfData.fornecedor.trim()}`,
           });
 
         if (movementError) {
@@ -321,8 +319,6 @@ export default function NFEntryTab() {
           condo_id: condoId,
           approver_user_id: a.user_id,
           approver_role: a.role,
-          decision: 'pendente',
-          voted_at: null,
         }));
 
         await supabase

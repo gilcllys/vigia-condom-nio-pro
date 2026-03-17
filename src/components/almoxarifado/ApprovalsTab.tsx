@@ -128,7 +128,7 @@ export default function ApprovalsTab() {
           .filter((a: any) => a.fiscal_document_id === doc.id)
           .map((a: any) => ({
             ...a,
-            decision: (a.decision === 'aprovado' || a.decision === 'rejeitado') && !a.voted_at ? 'pendente' : a.decision,
+            decision: (!a.decision || (!a.voted_at && (a.decision !== 'aprovado' && a.decision !== 'rejeitado'))) ? 'pendente' : a.decision,
             user_id: a.approver_user_id,
             user_name: userMap[a.approver_user_id]?.name || 'Usuário',
             user_role: a.approver_role || userMap[a.approver_user_id]?.role || '',
