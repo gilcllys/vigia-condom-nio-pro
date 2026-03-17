@@ -225,9 +225,7 @@ export function OSFiscalDocsCard({ orderId, condoId, canAttach, canCriticalActio
     if (error) {
       toast({ title: 'Erro ao enviar NF para aprovação', variant: 'destructive' });
     } else {
-      const rangeLabel = amount > alcada3
-        ? `acima de R$ ${alcada3.toLocaleString('pt-BR')} — moradores serão notificados`
-        : `R$ ${amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`;
+      const rangeLabel = `R$ ${amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} — alçada: ${requiredRoles.join(', ')}`;
       await logSOActivity({
         serviceOrderId: orderId,
         action: 'NF_ENVIADA_APROVACAO',
