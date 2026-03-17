@@ -547,7 +547,7 @@ export default function StockTab() {
               <Label>Quantidade *</Label>
               <Input type="number" min="1" value={moveForm.qty} onChange={(e) => setMoveForm(p => ({ ...p, qty: e.target.value }))} />
             </div>
-            {moveForm.move_type === 'saida' && (
+            {moveForm.move_type === 'SAIDA' && (
               <div className="space-y-2">
                 <Label>Destino</Label>
                 <Select value={moveForm.destination} onValueChange={(v) => setMoveForm(p => ({ ...p, destination: v }))}>
