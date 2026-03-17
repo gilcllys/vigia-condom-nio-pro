@@ -92,7 +92,13 @@ export default function Aprovacoes() {
       const { data } = await query;
 
       if (data) {
-        const mapped = (data as any[]).map((d) => {
+        // Deduplicate by document id (safety net against any join expansion)
+        const seen = new Map<string, any>();
+        for (const d of data as any[]) {
+          if (!seen.has(d.id)) seen.set(d.id, d);
+        }
+
+        const mapped = Array.from(seen.values()).map((d) => {
           const votes: ApprovalVote[] = d.fiscal_document_approvals ?? [];
           const nextPendingRole = getNextPendingRole(votes);
           return {
