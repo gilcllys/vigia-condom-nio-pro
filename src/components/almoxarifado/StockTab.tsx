@@ -46,7 +46,7 @@ interface EditItemForm {
 }
 
 interface MovementForm {
-  move_type: 'entrada' | 'saida' | 'ajuste';
+  move_type: 'ENTRADA' | 'SAIDA' | 'AJUSTE';
   qty: string;
   destination: string;
   notes: string;
@@ -91,7 +91,7 @@ export default function StockTab() {
   // Movement dialog
   const [moveOpen, setMoveOpen] = useState(false);
   const [moveItem, setMoveItem] = useState<StockItem | null>(null);
-  const [moveForm, setMoveForm] = useState<MovementForm>({ move_type: 'entrada', qty: '', destination: 'almoxarifado', notes: '' });
+  const [moveForm, setMoveForm] = useState<MovementForm>({ move_type: 'ENTRADA', qty: '', destination: 'almoxarifado', notes: '' });
 
   // New Category dialog
   const [catOpen, setCatOpen] = useState(false);
@@ -271,7 +271,7 @@ export default function StockTab() {
 
   const openMovement = (item: StockItem) => {
     setMoveItem(item);
-    setMoveForm({ move_type: 'entrada', qty: '', destination: 'almoxarifado', notes: '' });
+    setMoveForm({ move_type: 'ENTRADA', qty: '', destination: 'almoxarifado', notes: '' });
     setMoveOpen(true);
   };
 
@@ -283,7 +283,7 @@ export default function StockTab() {
       return;
     }
 
-    if (moveForm.move_type === 'ajuste' && !moveForm.notes.trim()) {
+    if (moveForm.move_type === 'AJUSTE' && !moveForm.notes.trim()) {
       toast({ title: 'Justificativa é obrigatória para ajustes', variant: 'destructive' });
       return;
     }
@@ -537,9 +537,9 @@ export default function StockTab() {
               <Select value={moveForm.move_type} onValueChange={(v: any) => setMoveForm(p => ({ ...p, move_type: v }))}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="entrada">Entrada</SelectItem>
-                  <SelectItem value="saida">Saída</SelectItem>
-                  <SelectItem value="ajuste">Ajuste (com justificativa)</SelectItem>
+                  <SelectItem value="ENTRADA">Entrada</SelectItem>
+                  <SelectItem value="SAIDA">Saída</SelectItem>
+                  <SelectItem value="AJUSTE">Ajuste (com justificativa)</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -547,7 +547,7 @@ export default function StockTab() {
               <Label>Quantidade *</Label>
               <Input type="number" min="1" value={moveForm.qty} onChange={(e) => setMoveForm(p => ({ ...p, qty: e.target.value }))} />
             </div>
-            {moveForm.move_type === 'saida' && (
+            {moveForm.move_type === 'SAIDA' && (
               <div className="space-y-2">
                 <Label>Destino</Label>
                 <Select value={moveForm.destination} onValueChange={(v) => setMoveForm(p => ({ ...p, destination: v }))}>
@@ -561,11 +561,11 @@ export default function StockTab() {
               </div>
             )}
             <div className="space-y-2">
-              <Label>{moveForm.move_type === 'ajuste' ? 'Justificativa *' : 'Observação'}</Label>
+              <Label>{moveForm.move_type === 'AJUSTE' ? 'Justificativa *' : 'Observação'}</Label>
               <Textarea
                 value={moveForm.notes}
                 onChange={(e) => setMoveForm(p => ({ ...p, notes: e.target.value }))}
-                placeholder={moveForm.move_type === 'ajuste' ? 'Justificativa obrigatória para ajuste...' : 'Observação opcional...'}
+                placeholder={moveForm.move_type === 'AJUSTE' ? 'Justificativa obrigatória para ajuste...' : 'Observação opcional...'}
               />
             </div>
           </div>

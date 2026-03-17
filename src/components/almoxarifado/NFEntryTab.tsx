@@ -293,7 +293,7 @@ export default function NFEntryTab() {
           .insert({
             condo_id: condoId,
             item_id: itemId,
-            move_type: 'entrada',
+            move_type: 'ENTRADA',
             qty: item.quantidade,
           });
 
