@@ -11,6 +11,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogD
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
+import { normalizeStockMoveType, STOCK_MOVE_TYPES, type StockMoveType } from '@/lib/stock-move-type';
 import { Plus, ArrowUpDown, Package, Pencil, FolderPlus, Filter } from 'lucide-react';
 
 interface StockCategory {
