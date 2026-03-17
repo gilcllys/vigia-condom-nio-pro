@@ -89,8 +89,18 @@ export default function Aprovacoes() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-foreground">Aprovações Pendentes</h1>
+      <div className="flex items-center justify-between gap-3 flex-wrap">
+        <h1 className="text-2xl font-bold text-foreground">Aprovações de NFs</h1>
+        <Select value={filterStatus} onValueChange={setFilterStatus}>
+          <SelectTrigger className="w-[180px]">
+            <SelectValue placeholder="Filtrar status" />
+          </SelectTrigger>
+          <SelectContent>
+            {STATUS_OPTIONS.map((status) => (
+              <SelectItem key={status.value} value={status.value}>{status.label}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
 
       <div className="glass-card">
