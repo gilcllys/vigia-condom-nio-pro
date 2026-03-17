@@ -156,7 +156,7 @@ export default function Aprovacoes() {
           <div className="px-5 py-12 text-center text-sm text-muted-foreground">Nenhuma NF encontrada para este filtro.</div>
         ) : (
           docs.map((doc) => {
-            const tier = getTierBadge(doc.requiredRoles);
+            const tier = getTierBadgeFromRole(doc.nextPendingRole);
             const deadline = getDeadlineInfo(doc.created_at, deadlineHours);
             return (
               <div key={doc.id} className="grid grid-cols-7 gap-4 px-5 py-4 items-center border-b border-border/30 hover:bg-muted/30 transition-colors">
