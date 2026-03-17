@@ -205,7 +205,6 @@ export function OSFiscalDocsCard({ orderId, condoId, canAttach, canCriticalActio
     }
 
     const { data: approvers } = await supabase
-      .schema('nfe_vigia')
       .from('user_condos')
       .select('user_id, role')
       .eq('condo_id', condoId)
