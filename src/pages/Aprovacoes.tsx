@@ -124,7 +124,7 @@ export default function Aprovacoes() {
             const tier = getTierBadge(doc.requiredRoles);
             const deadline = getDeadlineInfo(doc.created_at, deadlineHours);
             return (
-              <div key={doc.id} className="grid grid-cols-6 gap-4 px-5 py-4 items-center border-b border-border/30 hover:bg-muted/30 transition-colors">
+              <div key={doc.id} className="grid grid-cols-7 gap-4 px-5 py-4 items-center border-b border-border/30 hover:bg-muted/30 transition-colors">
                 <div className="flex items-center gap-2">
                   <FileText className="h-4 w-4 text-muted-foreground" />
                   <span className="text-sm font-medium text-foreground">NF #{doc.number ?? '—'}</span>
@@ -138,6 +138,9 @@ export default function Aprovacoes() {
                   <Clock className="h-3 w-3" />
                   <span className={deadline.expired ? 'text-destructive font-medium' : ''}>{deadline.label}</span>
                 </div>
+                <Badge variant={getStatusBadge(doc.status).variant} className="text-xs w-fit">
+                  {getStatusBadge(doc.status).label}
+                </Badge>
                 <div className="flex justify-end">
                   <Button
                     size="sm"
