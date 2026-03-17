@@ -70,8 +70,9 @@ export function PendingApprovalsCards() {
         // Check which NFs this role should see
         const { data: myVotes } = await supabase
           .from('fiscal_document_approvals')
-          .select('fiscal_document_id')
+          .select('fiscal_document_id, decision')
           .eq('approver_user_id', internalUserId)
+          .in('decision', ['aprovado', 'rejeitado'])
           .in('fiscal_document_id', pendingDocs.map((d: any) => d.id));
 
         const votedIds = new Set((myVotes ?? []).map((v: any) => v.fiscal_document_id));
