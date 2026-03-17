@@ -253,7 +253,8 @@ export default function AprovacaoDetalhe() {
         <h2 className="text-base font-semibold text-foreground">Níveis de Aprovação</h2>
         <div className="space-y-3">
           {requiredRoles.map((r) => {
-            const vote = votes.find(v => v.approver_role === r);
+            const roleVotes = votes.filter(v => v.approver_role === r);
+            const vote = roleVotes.find(v => isFinalDecision(v.decision)) ?? roleVotes[0];
             return (
               <div key={r} className="flex items-center justify-between p-3 rounded-lg bg-muted/30 border border-border/30">
                 <div className="flex items-center gap-3">
