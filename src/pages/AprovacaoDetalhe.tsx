@@ -51,22 +51,50 @@ export default function AprovacaoDetalhe() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { user } = useAuth();
-  const { condoId, role } = useCondo();
+  const { condoId, role: contextRole } = useCondo();
   const { config } = useFinancialConfig(condoId);
 
   const [doc, setDoc] = useState<FiscalDoc | null>(null);
   const [votes, setVotes] = useState<ApprovalVote[]>([]);
   const [internalUserId, setInternalUserId] = useState<string | null>(null);
+  const [userCondoRole, setUserCondoRole] = useState<string | null>(null);
   const [justification, setJustification] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [loading, setLoading] = useState(true);
 
-  // Get internal user id
+  // The effective role: prefer direct user_condos lookup, fallback to context
+  const role = userCondoRole || contextRole;
+
+  // Get internal user id AND their role from user_condos
   useEffect(() => {
-    if (!user) return;
-    supabase.from('users').select('id').eq('auth_user_id', user.id).maybeSingle()
-      .then(({ data }) => setInternalUserId(data?.id ?? null));
-  }, [user]);
+    if (!user || !condoId) return;
+
+    const fetchUserInfo = async () => {
+      // Fetch internal user id
+      const { data: userData } = await supabase
+        .from('users')
+        .select('id')
+        .eq('auth_user_id', user.id)
+        .maybeSingle();
+
+      const userId = userData?.id ?? null;
+      setInternalUserId(userId);
+
+      // Fetch role directly from user_condos for this condo
+      if (userId) {
+        const { data: ucData } = await supabase
+          .from('user_condos')
+          .select('role')
+          .eq('user_id', userId)
+          .eq('condo_id', condoId)
+          .maybeSingle();
+
+        setUserCondoRole(ucData?.role ?? null);
+      }
+    };
+
+    fetchUserInfo();
+  }, [user, condoId]);
 
   // Fetch document and votes
   useEffect(() => {
@@ -124,15 +152,15 @@ export default function AprovacaoDetalhe() {
 
   const myVotes = votes.filter(v => v.approver_user_id === internalUserId);
   const myVote = myVotes.find(v => isFinalDecision(v.decision)) ?? myVotes[0];
-
-  // Considera "votado" apenas quando já foi decisão final
   const alreadyVoted = myVote ? isFinalDecision(myVote.decision) : false;
 
-  // Check if role is required for this document
+  // Check if the user's role is required for this document
   const roleIsRequired = role ? requiredRoles.includes(role) : false;
 
-  // Síndico só pode agir após tiers inferiores decidirem ou prazo expirar
+  // Síndico or ADMIN can act as síndico
   const isSindico = role === 'SINDICO' || role === 'ADMIN';
+
+  // Síndico can only act after lower tiers have decided or deadline expired
   let sindicoBlocked = false;
   let sindicoBlockedReason = '';
 
@@ -158,7 +186,7 @@ export default function AprovacaoDetalhe() {
       fiscal_document_id: id,
       condo_id: condoId,
       approver_user_id: internalUserId,
-      approver_role: role,
+      approver_role: role === 'ADMIN' ? 'SINDICO' : role,
       decision,
       justification: justification.trim() || null,
       voted_at: new Date().toISOString(),
@@ -200,13 +228,16 @@ export default function AprovacaoDetalhe() {
     navigate('/aprovacoes');
   };
 
+  // Determine if we should show the action section
+  const showActionSection = doc.status === 'PENDENTE' && !alreadyVoted && (roleIsRequired || isSindico);
+
   return (
     <div className="space-y-6 max-w-4xl">
       <Button variant="ghost" onClick={() => navigate('/aprovacoes')} className="gap-2">
         <ArrowLeft className="h-4 w-4" /> Voltar às Aprovações
       </Button>
 
-      {/* Document info */}
+      {/* Document info — visible to ALL roles */}
       <div className="glass-card p-6 space-y-4">
         <div className="flex items-center justify-between">
           <h1 className="text-xl font-bold text-foreground flex items-center gap-2">
@@ -270,7 +301,7 @@ export default function AprovacaoDetalhe() {
               <div key={r} className="flex items-center justify-between p-3 rounded-lg bg-muted/30 border border-border/30">
                 <div className="flex items-center gap-3">
                   <Badge variant="outline" className="text-xs">{r === 'SUBSINDICO' ? 'SUBSÍNDICO' : r}</Badge>
-                    {vote ? (
+                  {vote ? (
                     <div className="flex items-center gap-2 text-sm">
                       {vote.decision === 'aprovado' && <CheckCircle2 className="h-4 w-4 text-emerald-600" />}
                       {vote.decision === 'rejeitado' && <XCircle className="h-4 w-4 text-destructive" />}
@@ -287,7 +318,7 @@ export default function AprovacaoDetalhe() {
                       </span>
 
                       {vote.voted_at && isFinalDecision(vote.decision) && (() => {
-                        const d = new Date(vote.voted_at!);
+                        const d = new Date(vote.voted_at);
                         return !isNaN(d.getTime()) ? (
                           <span className="text-muted-foreground">
                             em {format(d, "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
@@ -310,8 +341,8 @@ export default function AprovacaoDetalhe() {
         </div>
       </div>
 
-      {/* Action section */}
-      {doc.status === 'PENDENTE' && (roleIsRequired || isSindico) && !alreadyVoted && (
+      {/* Action section — role-aware */}
+      {showActionSection && (
         <div className="glass-card p-6 space-y-4">
           <h2 className="text-base font-semibold text-foreground">Sua Decisão</h2>
 
