@@ -112,27 +112,28 @@ export default function AprovacaoDetalhe() {
   const deadlineHours = config?.approval_deadline_hours ?? null;
   const deadline = getDeadlineInfo(doc.created_at, deadlineHours);
 
-  // Check if current user already voted
-  const alreadyVoted = votes.some(v => v.approver_user_id === internalUserId);
+  const myVote = votes.find(v => v.approver_user_id === internalUserId);
+
+  // Considera "votado" apenas quando já foi decisão final
+  const alreadyVoted = myVote ? isFinalDecision(myVote.decision) : false;
 
   // Check if role is required for this document
   const roleIsRequired = role ? requiredRoles.includes(role) : false;
 
-  // Síndico approval logic: can only act if deadline expired or lower tiers decided
+  // Síndico só pode agir após tiers inferiores decidirem ou prazo expirar
   const isSindico = role === 'SINDICO' || role === 'ADMIN';
   let sindicoBlocked = false;
   let sindicoBlockedReason = '';
 
   if (isSindico && requiredRoles.includes('SINDICO')) {
     const lowerTiers = requiredRoles.filter(r => r !== 'SINDICO');
-    const lowerVotes = votes.filter(v => lowerTiers.includes(v.approver_role));
     const allLowerDecided = lowerTiers.every(tier =>
-      lowerVotes.some(v => v.approver_role === tier)
+      votes.some(v => v.approver_role === tier && isFinalDecision(v.decision))
     );
 
     if (!allLowerDecided && !deadline.expired) {
       sindicoBlocked = true;
-      sindicoBlockedReason = 'Aguardando prazo dos aprovadores anteriores';
+      sindicoBlockedReason = 'Aguardando decisão dos aprovadores anteriores';
     }
   }
 
