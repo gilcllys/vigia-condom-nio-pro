@@ -199,9 +199,8 @@ export function OSBudgetsCard({ orderId, condoId, isEmergency, isSindico, isAdmi
     console.log('[OSBudgetsCard] Todos user_condos para este condo:', allUserCondos);
 
     const { data: approvers, error: approversError } = await supabase
-      .schema('nfe_vigia')
       .from('user_condos')
-      .select('user_id, role, users!inner(id, full_name)')
+      .select('user_id, role')
       .eq('condo_id', condoId)
       .in('role', ['SUBSINDICO', 'CONSELHO'])
       .eq('status', 'ativo');

@@ -223,14 +223,12 @@ export function OSFiscalDocsCard({ orderId, condoId, canAttach, canCriticalActio
     const approvalRecords = approvers.map((a: any) => ({
       fiscal_document_id: doc.id,
       condo_id: condoId,
-      service_order_id: orderId,
-      approver_id: a.user_id,
+      approver_user_id: a.user_id,
       approver_role: a.role,
       decision: 'pendente',
-      expires_at: expiresAt,
     }));
 
-    const { error } = await supabase.schema('nfe_vigia').from('fiscal_document_approvals').insert(approvalRecords);
+    const { error } = await supabase.from('fiscal_document_approvals').insert(approvalRecords);
 
     if (error) {
       toast({ title: 'Erro ao enviar NF para aprovação', variant: 'destructive' });
