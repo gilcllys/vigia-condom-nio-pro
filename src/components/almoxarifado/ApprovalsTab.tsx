@@ -261,17 +261,26 @@ export default function ApprovalsTab() {
         ) : (
           <div className="space-y-4">
             {nfs.map((nf) => {
-              const myApproval = nf.approvals.find(a => a.user_id === internalUserId);
-              const alreadyVoted = myApproval != null;
-              const canVote = !alreadyVoted;
-              const isSindico = role === 'SINDICO' || role === 'ADMIN';
-              const hasRejection = nf.approvals.some(a => a.decision === 'rejeitado');
-              const allNonSindicoVoted = nf.approvals
-                .filter(a => !['SINDICO', 'ADMIN'].includes(a.user_role ?? ''))
-                .every(a => a.voted_at != null);
-              const sindicoCanVote = isSindico && hasRejection && allNonSindicoVoted;
-              const tierLabel = getTierLabel(nf.amount ?? 0, config);
               const requiredRoles = getRequiredRoles(nf.amount ?? 0, config);
+              const isSindico = role === 'SINDICO' || role === 'ADMIN';
+              const myApproval = nf.approvals.find(a => a.user_id === internalUserId);
+              const alreadyVoted = myApproval ? isFinalDecision(myApproval.decision) : false;
+
+              const lowerRoles = requiredRoles.filter(r => r !== 'SINDICO');
+              const allLowerDecided = lowerRoles.every(tier =>
+                nf.approvals.some(a => (a.approver_role ?? a.user_role) === tier && isFinalDecision(a.decision))
+              );
+
+              const hasRejection = nf.approvals.some(a => a.decision === 'rejeitado');
+              const sindicoCanVoteByTier = isSindico && requiredRoles.includes('SINDICO') && allLowerDecided;
+              const sindicoCanVoteByMinerva = isSindico && hasRejection && allLowerDecided;
+              const canVote = !alreadyVoted && (
+                isSindico
+                  ? (sindicoCanVoteByTier || sindicoCanVoteByMinerva)
+                  : requiredRoles.includes(role ?? '')
+              );
+
+              const tierLabel = getTierLabel(nf.amount ?? 0, config);
 
               return (
                 <div key={nf.id} className="border rounded-lg p-4 space-y-3">
