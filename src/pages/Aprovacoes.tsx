@@ -9,6 +9,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { FileText, Search, Clock } from 'lucide-react';
 import { differenceInHours } from 'date-fns';
 
+interface ApprovalVote {
+  approver_role: string;
+  decision: string | null;
+}
+
 interface PendingDoc {
   id: string;
   number: string | null;
@@ -16,6 +21,7 @@ interface PendingDoc {
   supplier: string | null;
   created_at: string;
   status: string;
+  nextPendingRole: string | null;
   requiredRoles: string[];
 }
 
@@ -26,9 +32,19 @@ const STATUS_OPTIONS = [
   { value: 'CANCELADO', label: 'Canceladas' },
 ];
 
-function getTierBadge(roles: string[]): { label: string; className: string } {
-  if (roles.includes('SINDICO')) return { label: 'SÍNDICO', className: 'bg-secondary text-secondary-foreground' };
-  if (roles.includes('CONSELHO')) return { label: 'CONSELHO', className: 'bg-warning text-warning-foreground' };
+const ROLE_PRIORITY = ['SUBSINDICO', 'CONSELHO', 'SINDICO'];
+
+function getNextPendingRole(votes: ApprovalVote[]): string | null {
+  for (const role of ROLE_PRIORITY) {
+    const vote = votes.find((v) => v.approver_role === role);
+    if (!vote || !vote.decision || vote.decision === 'pendente') return role;
+  }
+  return null;
+}
+
+function getTierBadgeFromRole(role: string | null): { label: string; className: string } {
+  if (role === 'SINDICO') return { label: 'SÍNDICO', className: 'bg-secondary text-secondary-foreground' };
+  if (role === 'CONSELHO') return { label: 'CONSELHO', className: 'bg-warning text-warning-foreground' };
   return { label: 'SUBSÍNDICO', className: 'bg-primary text-primary-foreground' };
 }
 
@@ -61,9 +77,11 @@ export default function Aprovacoes() {
 
     const fetchPending = async () => {
       setLoading(true);
+
+      // Fetch documents with their approval votes
       let query = supabase
         .from('fiscal_documents')
-        .select('id, number, amount, supplier, created_at, status')
+        .select('id, number, amount, supplier, created_at, status, fiscal_document_approvals(approver_role, decision)')
         .eq('condo_id', condoId)
         .order('created_at', { ascending: false });
 
@@ -74,10 +92,27 @@ export default function Aprovacoes() {
       const { data } = await query;
 
       if (data) {
-        setDocs(data.map((d: any) => ({
-          ...d,
-          requiredRoles: getRequiredRoles(d.amount ?? 0, config),
-        })));
+        const mapped = (data as any[]).map((d) => {
+          const votes: ApprovalVote[] = d.fiscal_document_approvals ?? [];
+          const nextPendingRole = getNextPendingRole(votes);
+          return {
+            id: d.id,
+            number: d.number,
+            amount: d.amount,
+            supplier: d.supplier,
+            created_at: d.created_at,
+            status: d.status,
+            nextPendingRole,
+            requiredRoles: getRequiredRoles(d.amount ?? 0, config),
+          };
+        });
+
+        // For PENDENTE filter, only show docs that still have a pending vote
+        if (filterStatus === 'PENDENTE') {
+          setDocs(mapped.filter((d) => d.nextPendingRole !== null));
+        } else {
+          setDocs(mapped);
+        }
       }
       setLoading(false);
     };
@@ -121,7 +156,7 @@ export default function Aprovacoes() {
           <div className="px-5 py-12 text-center text-sm text-muted-foreground">Nenhuma NF encontrada para este filtro.</div>
         ) : (
           docs.map((doc) => {
-            const tier = getTierBadge(doc.requiredRoles);
+            const tier = getTierBadgeFromRole(doc.nextPendingRole);
             const deadline = getDeadlineInfo(doc.created_at, deadlineHours);
             return (
               <div key={doc.id} className="grid grid-cols-7 gap-4 px-5 py-4 items-center border-b border-border/30 hover:bg-muted/30 transition-colors">
