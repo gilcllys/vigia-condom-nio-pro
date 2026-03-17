@@ -139,17 +139,17 @@ export default function ApprovalsTab() {
     const filtered = merged.filter(nf => {
       const requiredRoles = getRequiredRoles(nf.amount ?? 0, config);
       if (role === 'SINDICO' || role === 'ADMIN') {
-        // Síndico sees only alçada 3 or minerva situations
-        const needsSindico = requiredRoles.includes('SINDICO');
-        const hasRejection = nf.approvals.some(a => a.decision === 'rejeitado');
-        const allNonSindicoVoted = nf.approvals
-          .filter(a => !['SINDICO', 'ADMIN'].includes(a.user_role ?? ''))
-          .length > 0 && nf.approvals
-          .filter(a => !['SINDICO', 'ADMIN'].includes(a.user_role ?? ''))
-          .every(a => a.voted_at != null);
-        return needsSindico || (hasRejection && allNonSindicoVoted);
+        const lowerRoles = requiredRoles.filter(r => r !== 'SINDICO');
+        const allLowerDecided = lowerRoles.every(tier =>
+          nf.approvals.some(a => (a.approver_role ?? a.user_role) === tier && isFinalDecision(a.decision))
+        );
+
+        const needsSindicoByTier = requiredRoles.includes('SINDICO') && allLowerDecided;
+        const needsSindicoByRejection = nf.approvals.some(a => a.decision === 'rejeitado') && allLowerDecided;
+        return needsSindicoByTier || needsSindicoByRejection;
       }
-      // SUBSINDICO/CONSELHO see NFs in their tier
+
+      // SUBSINDICO/CONSELHO veem documentos da sua alçada
       return requiredRoles.includes(role ?? '');
     });
 
