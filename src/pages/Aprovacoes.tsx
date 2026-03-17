@@ -9,6 +9,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { FileText, Search, Clock } from 'lucide-react';
 import { differenceInHours } from 'date-fns';
 
+interface ApprovalVote {
+  approver_role: string;
+  decision: string | null;
+}
+
 interface PendingDoc {
   id: string;
   number: string | null;
@@ -16,6 +21,7 @@ interface PendingDoc {
   supplier: string | null;
   created_at: string;
   status: string;
+  nextPendingRole: string | null;
   requiredRoles: string[];
 }
 
