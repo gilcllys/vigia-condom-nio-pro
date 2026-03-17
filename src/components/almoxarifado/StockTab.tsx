@@ -47,7 +47,7 @@ interface EditItemForm {
 }
 
 interface MovementForm {
-  move_type: 'ENTRADA' | 'SAIDA' | 'AJUSTE';
+  move_type: StockMoveType;
   qty: string;
   destination: string;
   notes: string;
