@@ -274,9 +274,10 @@ export default function ApprovalsTab() {
               const hasRejection = nf.approvals.some(a => a.decision === 'rejeitado');
               const sindicoCanVoteByTier = isSindico && requiredRoles.includes('SINDICO') && allLowerDecided;
               const sindicoCanVoteByMinerva = isSindico && hasRejection && allLowerDecided;
+              const sindicoCanVote = sindicoCanVoteByTier || sindicoCanVoteByMinerva;
               const canVote = !alreadyVoted && (
                 isSindico
-                  ? (sindicoCanVoteByTier || sindicoCanVoteByMinerva)
+                  ? sindicoCanVote
                   : requiredRoles.includes(role ?? '')
               );
 
