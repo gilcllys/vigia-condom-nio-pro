@@ -215,8 +215,6 @@ export default function Contratos() {
       condo_id: condoId,
       approver_user_id: a.user_id,
       approver_role: a.role,
-      decision: 'pendente',
-      voted_at: null,
     }));
 
     const { error: approvalError } = await supabase
