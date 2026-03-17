@@ -12,6 +12,7 @@ import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { useToast } from '@/hooks/use-toast';
 import { logSOActivity } from '@/lib/so-activity-log';
+import { getRequiredRoles } from '@/hooks/useFinancialConfig';
 
 interface FiscalDocument {
   id: string;
