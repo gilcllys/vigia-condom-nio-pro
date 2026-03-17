@@ -120,7 +120,7 @@ export default function Contratos() {
 
     const [contractsRes, providersRes] = await Promise.all([
       query,
-      supabase.from('providers').select('id, name').eq('condo_id', condoId),
+      supabase.from('providers').select('id, trade_name').eq('condo_id', condoId),
     ]);
 
     const provs = (providersRes.data ?? []) as Provider[];
