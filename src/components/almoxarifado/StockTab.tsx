@@ -561,11 +561,11 @@ export default function StockTab() {
               </div>
             )}
             <div className="space-y-2">
-              <Label>{moveForm.move_type === 'ajuste' ? 'Justificativa *' : 'Observação'}</Label>
+              <Label>{moveForm.move_type === 'AJUSTE' ? 'Justificativa *' : 'Observação'}</Label>
               <Textarea
                 value={moveForm.notes}
                 onChange={(e) => setMoveForm(p => ({ ...p, notes: e.target.value }))}
-                placeholder={moveForm.move_type === 'ajuste' ? 'Justificativa obrigatória para ajuste...' : 'Observação opcional...'}
+                placeholder={moveForm.move_type === 'AJUSTE' ? 'Justificativa obrigatória para ajuste...' : 'Observação opcional...'}
               />
             </div>
           </div>
