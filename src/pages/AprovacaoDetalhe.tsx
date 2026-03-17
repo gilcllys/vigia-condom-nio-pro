@@ -82,7 +82,16 @@ export default function AprovacaoDetalhe() {
       ]);
 
       if (docRes.data) setDoc(docRes.data as FiscalDoc);
-      if (votesRes.data) setVotes(votesRes.data as ApprovalVote[]);
+      if (votesRes.data) {
+        setVotes(
+          (votesRes.data as ApprovalVote[]).map((vote) => ({
+            ...vote,
+            decision: (vote.decision === 'aprovado' || vote.decision === 'rejeitado') && !vote.voted_at
+              ? 'pendente'
+              : vote.decision,
+          }))
+        );
+      }
       setLoading(false);
     };
 
