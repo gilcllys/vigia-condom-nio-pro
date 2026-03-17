@@ -112,8 +112,6 @@ export function OSStockMaterialDialog({ open, onOpenChange, orderId, onAdded }: 
         item_id: selectedItemId,
         move_type: 'saida',
         qty,
-        destination: 'obra_aberta',
-        notes: `Saída para OS #${orderId.slice(0, 8)}`,
       });
 
     if (moveError) {

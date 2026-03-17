@@ -295,8 +295,6 @@ export default function NFEntryTab() {
             item_id: itemId,
             move_type: 'entrada',
             qty: item.quantidade,
-            destination,
-            notes: `NF ${nfData.numero_nf} — ${nfData.fornecedor.trim()}`,
           });
 
         if (movementError) {
