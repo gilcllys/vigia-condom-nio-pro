@@ -64,6 +64,7 @@ export default function NFEntryTab() {
   const { condoId } = useCondo();
   const { user } = useAuth();
   const { toast } = useToast();
+  const { config } = useFinancialConfig(condoId);
 
   const [step, setStep] = useState<Step>('upload');
   const [fileUrl, setFileUrl] = useState<string | null>(null);
