@@ -294,7 +294,7 @@ export default function NFEntryTab() {
           .insert({
             condo_id: condoId,
             item_id: itemId,
-            move_type: 'ENTRADA',
+            move_type: STOCK_MOVE_TYPES.ENTRADA,
             qty: item.quantidade,
           });
 

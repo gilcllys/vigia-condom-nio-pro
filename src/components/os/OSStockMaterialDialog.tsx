@@ -111,7 +111,7 @@ export function OSStockMaterialDialog({ open, onOpenChange, orderId, onAdded }: 
       .insert({
         condo_id: condoId,
         item_id: selectedItemId,
-        move_type: 'SAIDA',
+        move_type: STOCK_MOVE_TYPES.SAIDA,
         qty,
       });
 
