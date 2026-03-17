@@ -270,25 +270,24 @@ export default function NFEntryTab() {
             item_id: itemId,
             move_type: 'entrada',
             qty: item.quantidade,
-            unit_cost_cents: Math.round(item.valor_unitario * 100),
-            supplier_name: nfData.fornecedor.trim(),
-            fiscal_document_id: fdDoc.id,
             destination,
-            moved_by_user_id: internalUser.id,
-            moved_at: new Date().toISOString(),
+            notes: `NF ${nfData.numero_nf} — ${nfData.fornecedor.trim()}`,
           });
       }
 
       const { data: approvers } = await supabase
         .from('user_condos')
-        .select('user_id')
+        .select('user_id, role')
         .eq('condo_id', condoId)
-        .in('role', ['SUBSINDICO', 'CONSELHO']);
+        .in('role', ['SUBSINDICO', 'CONSELHO'])
+        .eq('status', 'ativo');
 
       if (approvers && approvers.length > 0) {
         const approvalRows = approvers.map((a: any) => ({
           fiscal_document_id: fdDoc.id,
-          user_id: a.user_id,
+          condo_id: condoId,
+          approver_user_id: a.user_id,
+          approver_role: a.role,
           decision: 'pendente',
         }));
 

@@ -120,10 +120,10 @@ export default function Contratos() {
 
     const [contractsRes, providersRes] = await Promise.all([
       query,
-      supabase.from('providers').select('id, name').eq('condo_id', condoId),
+      supabase.from('providers').select('id, trade_name').eq('condo_id', condoId),
     ]);
 
-    const provs = (providersRes.data ?? []) as Provider[];
+    const provs = ((providersRes.data ?? []) as any[]).map(p => ({ id: p.id, name: p.trade_name || p.name || '—' })) as Provider[];
     setProviders(provs);
     const provMap = new Map(provs.map(p => [p.id, p.name]));
 
