@@ -15,8 +15,16 @@ interface PendingDoc {
   amount: number | null;
   supplier: string | null;
   created_at: string;
+  status: string;
   requiredRoles: string[];
 }
+
+const STATUS_OPTIONS = [
+  { value: 'ALL', label: 'Todos' },
+  { value: 'PENDENTE', label: 'Pendentes' },
+  { value: 'PROCESSADO', label: 'Aprovadas' },
+  { value: 'CANCELADO', label: 'Canceladas' },
+];
 
 function getTierBadge(roles: string[]): { label: string; className: string } {
   if (roles.includes('SINDICO')) return { label: 'SÍNDICO', className: 'bg-secondary text-secondary-foreground' };
