@@ -149,12 +149,12 @@ export default function StockTab() {
 
     const { data: balances } = await supabase
       .from('v_stock_balance')
-      .select('item_id, balance')
+      .select('item_id, balance_qty')
       .eq('condo_id', condoId);
 
     const balanceMap: Record<string, number> = {};
     (balances ?? []).forEach((b: any) => {
-      balanceMap[b.item_id] = Number(b.balance) || 0;
+      balanceMap[b.item_id] = Number(b.balance_qty) || 0;
     });
 
     const catMap: Record<string, string> = {};
