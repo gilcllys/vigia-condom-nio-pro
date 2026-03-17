@@ -260,17 +260,25 @@ export default function AprovacaoDetalhe() {
                   <Badge variant="outline" className="text-xs">{r === 'SUBSINDICO' ? 'SUBSÍNDICO' : r}</Badge>
                   {vote ? (
                     <div className="flex items-center gap-2 text-sm">
-                      {vote.decision === 'aprovado' ? (
-                        <CheckCircle2 className="h-4 w-4 text-green-500" />
-                      ) : (
-                        <XCircle className="h-4 w-4 text-destructive" />
+                      {vote.decision === 'aprovado' && <CheckCircle2 className="h-4 w-4 text-emerald-600" />}
+                      {vote.decision === 'rejeitado' && <XCircle className="h-4 w-4 text-destructive" />}
+                      {vote.decision === 'pendente' && <Clock className="h-3 w-3 text-muted-foreground" />}
+
+                      <span className={
+                        vote.decision === 'aprovado'
+                          ? 'text-emerald-600'
+                          : vote.decision === 'rejeitado'
+                            ? 'text-destructive'
+                            : 'text-muted-foreground'
+                      }>
+                        {vote.decision === 'aprovado' ? 'Aprovado' : vote.decision === 'rejeitado' ? 'Rejeitado' : 'Aguardando'}
+                      </span>
+
+                      {vote.voted_at && isFinalDecision(vote.decision) && (
+                        <span className="text-muted-foreground">
+                          em {format(new Date(vote.voted_at), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
+                        </span>
                       )}
-                      <span className={vote.decision === 'aprovado' ? 'text-green-600' : 'text-destructive'}>
-                        {vote.decision === 'aprovado' ? 'Aprovado' : 'Rejeitado'}
-                      </span>
-                      <span className="text-muted-foreground">
-                        em {format(new Date(vote.voted_at), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
-                      </span>
                     </div>
                   ) : (
                     <span className="text-sm text-muted-foreground flex items-center gap-1">
