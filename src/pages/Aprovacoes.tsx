@@ -55,12 +55,17 @@ export default function Aprovacoes() {
 
     const fetchPending = async () => {
       setLoading(true);
-      const { data } = await supabase
+      let query = supabase
         .from('fiscal_documents')
-        .select('id, number, amount, supplier, created_at')
+        .select('id, number, amount, supplier, created_at, status')
         .eq('condo_id', condoId)
-        .eq('status', 'PENDENTE')
         .order('created_at', { ascending: false });
+
+      if (filterStatus !== 'ALL') {
+        query = query.eq('status', filterStatus);
+      }
+
+      const { data } = await query;
 
       if (data) {
         setDocs(data.map((d: any) => ({
@@ -72,7 +77,7 @@ export default function Aprovacoes() {
     };
 
     fetchPending();
-  }, [condoId, config]);
+  }, [condoId, config, filterStatus]);
 
   const deadlineHours = config?.approval_deadline_hours ?? null;
 
