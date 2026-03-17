@@ -118,7 +118,7 @@ export default function Aprovacoes() {
         {loading ? (
           <div className="px-5 py-12 text-center text-sm text-muted-foreground">Carregando...</div>
         ) : docs.length === 0 ? (
-          <div className="px-5 py-12 text-center text-sm text-muted-foreground">Nenhuma aprovação pendente.</div>
+          <div className="px-5 py-12 text-center text-sm text-muted-foreground">Nenhuma NF encontrada para este filtro.</div>
         ) : (
           docs.map((doc) => {
             const tier = getTierBadge(doc.requiredRoles);
