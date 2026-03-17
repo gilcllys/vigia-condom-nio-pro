@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useCondo } from '@/contexts/CondoContext';
+import { STOCK_MOVE_TYPES } from '@/lib/stock-move-type';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -110,7 +111,7 @@ export function OSStockMaterialDialog({ open, onOpenChange, orderId, onAdded }: 
       .insert({
         condo_id: condoId,
         item_id: selectedItemId,
-        move_type: 'SAIDA',
+        move_type: STOCK_MOVE_TYPES.SAIDA,
         qty,
       });
 

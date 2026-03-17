@@ -11,6 +11,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogD
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
+import { normalizeStockMoveType, STOCK_MOVE_TYPES, type StockMoveType } from '@/lib/stock-move-type';
 import { Plus, ArrowUpDown, Package, Pencil, FolderPlus, Filter } from 'lucide-react';
 
 interface StockCategory {
@@ -46,7 +47,7 @@ interface EditItemForm {
 }
 
 interface MovementForm {
-  move_type: 'ENTRADA' | 'SAIDA' | 'AJUSTE';
+  move_type: StockMoveType;
   qty: string;
   destination: string;
   notes: string;
@@ -91,7 +92,7 @@ export default function StockTab() {
   // Movement dialog
   const [moveOpen, setMoveOpen] = useState(false);
   const [moveItem, setMoveItem] = useState<StockItem | null>(null);
-  const [moveForm, setMoveForm] = useState<MovementForm>({ move_type: 'ENTRADA', qty: '', destination: 'almoxarifado', notes: '' });
+  const [moveForm, setMoveForm] = useState<MovementForm>({ move_type: STOCK_MOVE_TYPES.ENTRADA, qty: '', destination: 'almoxarifado', notes: '' });
 
   // New Category dialog
   const [catOpen, setCatOpen] = useState(false);
@@ -271,7 +272,7 @@ export default function StockTab() {
 
   const openMovement = (item: StockItem) => {
     setMoveItem(item);
-    setMoveForm({ move_type: 'ENTRADA', qty: '', destination: 'almoxarifado', notes: '' });
+    setMoveForm({ move_type: STOCK_MOVE_TYPES.ENTRADA, qty: '', destination: 'almoxarifado', notes: '' });
     setMoveOpen(true);
   };
 
@@ -294,7 +295,7 @@ export default function StockTab() {
       .insert({
         condo_id: condoId,
         item_id: moveItem.id,
-        move_type: moveForm.move_type,
+        move_type: normalizeStockMoveType(moveForm.move_type),
         qty,
       });
 
@@ -534,7 +535,7 @@ export default function StockTab() {
           <div className="space-y-4 py-2">
             <div className="space-y-2">
               <Label>Tipo *</Label>
-              <Select value={moveForm.move_type} onValueChange={(v: any) => setMoveForm(p => ({ ...p, move_type: v }))}>
+              <Select value={moveForm.move_type} onValueChange={(v) => setMoveForm(p => ({ ...p, move_type: normalizeStockMoveType(v) }))}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="ENTRADA">Entrada</SelectItem>
