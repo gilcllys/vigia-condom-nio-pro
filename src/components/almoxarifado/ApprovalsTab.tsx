@@ -160,7 +160,7 @@ export default function ApprovalsTab() {
   useEffect(() => { fetchNFs(); }, [condoId, canView, config]);
 
   const handleVote = async (nf: PendingNF, decision: 'aprovado' | 'rejeitado') => {
-    if (!internalUserId || !condoId) return;
+    if (!internalUserId || !condoId || !role) return;
 
     if (decision === 'rejeitado' && !justification.trim()) {
       toast({ title: 'Justificativa obrigatória ao rejeitar', variant: 'destructive' });
