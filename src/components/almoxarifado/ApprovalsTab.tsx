@@ -175,17 +175,21 @@ export default function ApprovalsTab() {
 
     setProcessing(true);
 
-    const { error: approvalError } = await supabase
-      .from('fiscal_document_approvals')
-      .insert({
-        fiscal_document_id: nf.id,
-        approver_user_id: internalUserId,
-        approver_role: role,
-        condo_id: condoId,
-        decision,
-        voted_at: new Date().toISOString(),
-        justification: decision === 'rejeitado' ? justification.trim() : null,
-      });
+    const myPendingApproval = nf.approvals.find(a => a.user_id === internalUserId);
+
+    const votePayload = {
+      fiscal_document_id: nf.id,
+      approver_user_id: internalUserId,
+      approver_role: role,
+      condo_id: condoId,
+      decision,
+      voted_at: new Date().toISOString(),
+      justification: decision === 'rejeitado' ? justification.trim() : null,
+    };
+
+    const { error: approvalError } = myPendingApproval
+      ? await supabase.from('fiscal_document_approvals').update(votePayload).eq('id', myPendingApproval.id)
+      : await supabase.from('fiscal_document_approvals').insert(votePayload);
 
     if (approvalError) {
       toast({ title: 'Erro ao registrar voto', description: approvalError.message, variant: 'destructive' });
