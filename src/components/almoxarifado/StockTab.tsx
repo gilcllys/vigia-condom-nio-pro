@@ -537,9 +537,9 @@ export default function StockTab() {
               <Select value={moveForm.move_type} onValueChange={(v: any) => setMoveForm(p => ({ ...p, move_type: v }))}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="entrada">Entrada</SelectItem>
-                  <SelectItem value="saida">Saída</SelectItem>
-                  <SelectItem value="ajuste">Ajuste (com justificativa)</SelectItem>
+                  <SelectItem value="ENTRADA">Entrada</SelectItem>
+                  <SelectItem value="SAIDA">Saída</SelectItem>
+                  <SelectItem value="AJUSTE">Ajuste (com justificativa)</SelectItem>
                 </SelectContent>
               </Select>
             </div>
