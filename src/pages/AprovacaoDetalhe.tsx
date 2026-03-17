@@ -112,7 +112,8 @@ export default function AprovacaoDetalhe() {
   const deadlineHours = config?.approval_deadline_hours ?? null;
   const deadline = getDeadlineInfo(doc.created_at, deadlineHours);
 
-  const myVote = votes.find(v => v.approver_user_id === internalUserId);
+  const myVotes = votes.filter(v => v.approver_user_id === internalUserId);
+  const myVote = myVotes.find(v => isFinalDecision(v.decision)) ?? myVotes[0];
 
   // Considera "votado" apenas quando já foi decisão final
   const alreadyVoted = myVote ? isFinalDecision(myVote.decision) : false;
