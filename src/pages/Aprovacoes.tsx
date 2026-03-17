@@ -105,12 +105,13 @@ export default function Aprovacoes() {
 
       <div className="glass-card">
         {/* Table header */}
-        <div className="grid grid-cols-6 gap-4 px-5 py-3 text-xs font-medium uppercase tracking-wider text-muted-foreground border-b border-border/50">
+        <div className="grid grid-cols-7 gap-4 px-5 py-3 text-xs font-medium uppercase tracking-wider text-muted-foreground border-b border-border/50">
           <span>Documento</span>
           <span>Fornecedor</span>
           <span>Valor</span>
           <span>Alçada</span>
           <span>Prazo</span>
+          <span>Status</span>
           <span className="text-right">Ações</span>
         </div>
 
