@@ -252,7 +252,7 @@ export default function AprovacaoDetalhe() {
         </div>
 
         {doc.file_url && (
-          <a href={doc.file_url} target="_blank" rel="noopener noreferrer" className="text-sm text-primary hover:underline">
+          <a href={getPublicStorageUrl(doc.file_url)} target="_blank" rel="noopener noreferrer" className="text-sm text-primary hover:underline">
             Ver documento anexado →
           </a>
         )}
