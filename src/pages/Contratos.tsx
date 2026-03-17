@@ -171,6 +171,18 @@ export default function Contratos() {
     if (!condoId) return;
     setSendingApproval(contract.id);
 
+    const { data: existingApprovals } = await supabase
+      .from('fiscal_document_approvals')
+      .select('id')
+      .eq('fiscal_document_id', contract.id)
+      .limit(1);
+
+    if ((existingApprovals?.length ?? 0) > 0) {
+      toast({ title: 'Contrato já foi enviado para aprovação' });
+      setSendingApproval(null);
+      return;
+    }
+
     // Get approvers (SUBSINDICO + CONSELHO)
     const { data: approvers } = await supabase
       .from('user_condos')
