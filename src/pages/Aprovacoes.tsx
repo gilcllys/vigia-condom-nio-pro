@@ -5,6 +5,7 @@ import { useCondo } from '@/contexts/CondoContext';
 import { useFinancialConfig, getRequiredRoles } from '@/hooks/useFinancialConfig';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { FileText, Search, Clock } from 'lucide-react';
 import { differenceInHours } from 'date-fns';
 
