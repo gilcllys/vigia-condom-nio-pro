@@ -32,9 +32,19 @@ const STATUS_OPTIONS = [
   { value: 'CANCELADO', label: 'Canceladas' },
 ];
 
-function getTierBadge(roles: string[]): { label: string; className: string } {
-  if (roles.includes('SINDICO')) return { label: 'SÍNDICO', className: 'bg-secondary text-secondary-foreground' };
-  if (roles.includes('CONSELHO')) return { label: 'CONSELHO', className: 'bg-warning text-warning-foreground' };
+const ROLE_PRIORITY = ['SUBSINDICO', 'CONSELHO', 'SINDICO'];
+
+function getNextPendingRole(votes: ApprovalVote[]): string | null {
+  for (const role of ROLE_PRIORITY) {
+    const vote = votes.find((v) => v.approver_role === role);
+    if (!vote || !vote.decision || vote.decision === 'pendente') return role;
+  }
+  return null;
+}
+
+function getTierBadgeFromRole(role: string | null): { label: string; className: string } {
+  if (role === 'SINDICO') return { label: 'SÍNDICO', className: 'bg-secondary text-secondary-foreground' };
+  if (role === 'CONSELHO') return { label: 'CONSELHO', className: 'bg-warning text-warning-foreground' };
   return { label: 'SUBSÍNDICO', className: 'bg-primary text-primary-foreground' };
 }
 
