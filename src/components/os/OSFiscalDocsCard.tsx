@@ -183,26 +183,19 @@ export function OSFiscalDocsCard({ orderId, condoId, canAttach, canCriticalActio
       .eq('condo_id', condoId)
       .maybeSingle();
 
-    const alcada1 = config?.alcada_1_limite ?? 500;
-    const alcada2 = config?.alcada_2_limite ?? 2000;
-    const alcada3 = config?.alcada_3_limite ?? 10000;
-    const deadlineHours = config?.approval_deadline_hours ?? 48;
     const amount = doc.amount;
+    const requiredRoles = getRequiredRoles(amount, config as any);
 
-    let requiredRoles: string[] = [];
-    if (amount <= alcada1) {
-      toast({ title: 'NF abaixo da alçada mínima', description: 'Aprovação apenas do Síndico. Registrada automaticamente.' });
+    const { data: existingApprovals } = await supabase
+      .from('fiscal_document_approvals')
+      .select('id')
+      .eq('fiscal_document_id', doc.id)
+      .limit(1);
+
+    if ((existingApprovals?.length ?? 0) > 0) {
+      toast({ title: 'Esta NF já foi enviada para aprovação' });
       setSubmitting(null);
       return;
-    } else if (amount <= alcada2) {
-      requiredRoles = ['SUBSINDICO'];
-    } else if (amount <= alcada3) {
-      requiredRoles = ['SUBSINDICO', 'CONSELHO'];
-    } else {
-      requiredRoles = ['SUBSINDICO', 'CONSELHO'];
-      await supabase.schema('nfe_vigia').from('fiscal_documents')
-        .update({ notify_residents: true })
-        .eq('id', doc.id);
     }
 
     const { data: approvers } = await supabase
@@ -218,14 +211,13 @@ export function OSFiscalDocsCard({ orderId, condoId, canAttach, canCriticalActio
       return;
     }
 
-    const expiresAt = new Date(Date.now() + deadlineHours * 60 * 60 * 1000).toISOString();
-
     const approvalRecords = approvers.map((a: any) => ({
       fiscal_document_id: doc.id,
       condo_id: condoId,
       approver_user_id: a.user_id,
       approver_role: a.role,
       decision: 'pendente',
+      voted_at: null,
     }));
 
     const { error } = await supabase.from('fiscal_document_approvals').insert(approvalRecords);
