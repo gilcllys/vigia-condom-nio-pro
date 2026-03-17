@@ -19,9 +19,12 @@ interface Approval {
   decision: string;
   voted_at: string | null;
   justification: string | null;
+  approver_role?: string;
   user_name?: string;
   user_role?: string;
 }
+
+const isFinalDecision = (decision: string) => decision === 'aprovado' || decision === 'rejeitado';
 
 interface PendingNF {
   id: string;
@@ -125,6 +128,7 @@ export default function ApprovalsTab() {
           .filter((a: any) => a.fiscal_document_id === doc.id)
           .map((a: any) => ({
             ...a,
+            decision: (a.decision === 'aprovado' || a.decision === 'rejeitado') && !a.voted_at ? 'pendente' : a.decision,
             user_id: a.approver_user_id,
             user_name: userMap[a.approver_user_id]?.name || 'Usuário',
             user_role: a.approver_role || userMap[a.approver_user_id]?.role || '',
@@ -136,17 +140,17 @@ export default function ApprovalsTab() {
     const filtered = merged.filter(nf => {
       const requiredRoles = getRequiredRoles(nf.amount ?? 0, config);
       if (role === 'SINDICO' || role === 'ADMIN') {
-        // Síndico sees only alçada 3 or minerva situations
-        const needsSindico = requiredRoles.includes('SINDICO');
-        const hasRejection = nf.approvals.some(a => a.decision === 'rejeitado');
-        const allNonSindicoVoted = nf.approvals
-          .filter(a => !['SINDICO', 'ADMIN'].includes(a.user_role ?? ''))
-          .length > 0 && nf.approvals
-          .filter(a => !['SINDICO', 'ADMIN'].includes(a.user_role ?? ''))
-          .every(a => a.voted_at != null);
-        return needsSindico || (hasRejection && allNonSindicoVoted);
+        const lowerRoles = requiredRoles.filter(r => r !== 'SINDICO');
+        const allLowerDecided = lowerRoles.every(tier =>
+          nf.approvals.some(a => (a.approver_role ?? a.user_role) === tier && isFinalDecision(a.decision))
+        );
+
+        const needsSindicoByTier = requiredRoles.includes('SINDICO') && allLowerDecided;
+        const needsSindicoByRejection = nf.approvals.some(a => a.decision === 'rejeitado') && allLowerDecided;
+        return needsSindicoByTier || needsSindicoByRejection;
       }
-      // SUBSINDICO/CONSELHO see NFs in their tier
+
+      // SUBSINDICO/CONSELHO veem documentos da sua alçada
       return requiredRoles.includes(role ?? '');
     });
 
@@ -157,7 +161,7 @@ export default function ApprovalsTab() {
   useEffect(() => { fetchNFs(); }, [condoId, canView, config]);
 
   const handleVote = async (nf: PendingNF, decision: 'aprovado' | 'rejeitado') => {
-    if (!internalUserId || !condoId) return;
+    if (!internalUserId || !condoId || !role) return;
 
     if (decision === 'rejeitado' && !justification.trim()) {
       toast({ title: 'Justificativa obrigatória ao rejeitar', variant: 'destructive' });
@@ -172,17 +176,21 @@ export default function ApprovalsTab() {
 
     setProcessing(true);
 
-    const { error: approvalError } = await supabase
-      .from('fiscal_document_approvals')
-      .insert({
-        fiscal_document_id: nf.id,
-        approver_user_id: internalUserId,
-        approver_role: role,
-        condo_id: condoId,
-        decision,
-        voted_at: new Date().toISOString(),
-        justification: decision === 'rejeitado' ? justification.trim() : null,
-      });
+    const myPendingApproval = nf.approvals.find(a => a.user_id === internalUserId);
+
+    const votePayload = {
+      fiscal_document_id: nf.id,
+      approver_user_id: internalUserId,
+      approver_role: role,
+      condo_id: condoId,
+      decision,
+      voted_at: new Date().toISOString(),
+      justification: decision === 'rejeitado' ? justification.trim() : null,
+    };
+
+    const { error: approvalError } = myPendingApproval
+      ? await supabase.from('fiscal_document_approvals').update(votePayload).eq('id', myPendingApproval.id)
+      : await supabase.from('fiscal_document_approvals').insert(votePayload);
 
     if (approvalError) {
       toast({ title: 'Erro ao registrar voto', description: approvalError.message, variant: 'destructive' });
@@ -254,17 +262,28 @@ export default function ApprovalsTab() {
         ) : (
           <div className="space-y-4">
             {nfs.map((nf) => {
-              const myApproval = nf.approvals.find(a => a.user_id === internalUserId);
-              const alreadyVoted = myApproval != null;
-              const canVote = !alreadyVoted;
-              const isSindico = role === 'SINDICO' || role === 'ADMIN';
-              const hasRejection = nf.approvals.some(a => a.decision === 'rejeitado');
-              const allNonSindicoVoted = nf.approvals
-                .filter(a => !['SINDICO', 'ADMIN'].includes(a.user_role ?? ''))
-                .every(a => a.voted_at != null);
-              const sindicoCanVote = isSindico && hasRejection && allNonSindicoVoted;
-              const tierLabel = getTierLabel(nf.amount ?? 0, config);
               const requiredRoles = getRequiredRoles(nf.amount ?? 0, config);
+              const isSindico = role === 'SINDICO' || role === 'ADMIN';
+              const myApprovals = nf.approvals.filter(a => a.user_id === internalUserId);
+              const myApproval = myApprovals.find(a => isFinalDecision(a.decision)) ?? myApprovals[0];
+              const alreadyVoted = myApproval ? isFinalDecision(myApproval.decision) : false;
+
+              const lowerRoles = requiredRoles.filter(r => r !== 'SINDICO');
+              const allLowerDecided = lowerRoles.every(tier =>
+                nf.approvals.some(a => (a.approver_role ?? a.user_role) === tier && isFinalDecision(a.decision))
+              );
+
+              const hasRejection = nf.approvals.some(a => a.decision === 'rejeitado');
+              const sindicoCanVoteByTier = isSindico && requiredRoles.includes('SINDICO') && allLowerDecided;
+              const sindicoCanVoteByMinerva = isSindico && hasRejection && allLowerDecided;
+              const sindicoCanVote = sindicoCanVoteByTier || sindicoCanVoteByMinerva;
+              const canVote = !alreadyVoted && (
+                isSindico
+                  ? sindicoCanVote
+                  : requiredRoles.includes(role ?? '')
+              );
+
+              const tierLabel = getTierLabel(nf.amount ?? 0, config);
 
               return (
                 <div key={nf.id} className="border rounded-lg p-4 space-y-3">

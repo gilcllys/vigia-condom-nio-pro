@@ -5,6 +5,7 @@ import { useCondo } from '@/contexts/CondoContext';
 import { useFinancialConfig, getRequiredRoles } from '@/hooks/useFinancialConfig';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { FileText, Search, Clock } from 'lucide-react';
 import { differenceInHours } from 'date-fns';
 
@@ -14,8 +15,16 @@ interface PendingDoc {
   amount: number | null;
   supplier: string | null;
   created_at: string;
+  status: string;
   requiredRoles: string[];
 }
+
+const STATUS_OPTIONS = [
+  { value: 'ALL', label: 'Todos' },
+  { value: 'PENDENTE', label: 'Pendentes' },
+  { value: 'PROCESSADO', label: 'Aprovadas' },
+  { value: 'CANCELADO', label: 'Canceladas' },
+];
 
 function getTierBadge(roles: string[]): { label: string; className: string } {
   if (roles.includes('SINDICO')) return { label: 'SÍNDICO', className: 'bg-secondary text-secondary-foreground' };
@@ -33,24 +42,36 @@ function getDeadlineInfo(createdAt: string, deadlineHours: number | null): { lab
   return { label: `${days} dia${days > 1 ? 's' : ''}`, expired: false };
 }
 
+function getStatusBadge(status: string): { label: string; variant: 'default' | 'secondary' | 'destructive' | 'outline' } {
+  if (status === 'PROCESSADO') return { label: 'Aprovada', variant: 'secondary' };
+  if (status === 'CANCELADO') return { label: 'Cancelada', variant: 'destructive' };
+  return { label: 'Pendente', variant: 'default' };
+}
+
 export default function Aprovacoes() {
   const navigate = useNavigate();
   const { condoId } = useCondo();
   const { config } = useFinancialConfig(condoId);
   const [docs, setDocs] = useState<PendingDoc[]>([]);
   const [loading, setLoading] = useState(true);
+  const [filterStatus, setFilterStatus] = useState('ALL');
 
   useEffect(() => {
     if (!condoId) { setLoading(false); return; }
 
     const fetchPending = async () => {
       setLoading(true);
-      const { data } = await supabase
+      let query = supabase
         .from('fiscal_documents')
-        .select('id, number, amount, supplier, created_at')
+        .select('id, number, amount, supplier, created_at, status')
         .eq('condo_id', condoId)
-        .eq('status', 'PENDENTE')
         .order('created_at', { ascending: false });
+
+      if (filterStatus !== 'ALL') {
+        query = query.eq('status', filterStatus);
+      }
+
+      const { data } = await query;
 
       if (data) {
         setDocs(data.map((d: any) => ({
@@ -62,37 +83,48 @@ export default function Aprovacoes() {
     };
 
     fetchPending();
-  }, [condoId, config]);
+  }, [condoId, config, filterStatus]);
 
   const deadlineHours = config?.approval_deadline_hours ?? null;
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-foreground">Aprovações Pendentes</h1>
+      <div className="flex items-center justify-between gap-3 flex-wrap">
+        <h1 className="text-2xl font-bold text-foreground">Aprovações de NFs</h1>
+        <Select value={filterStatus} onValueChange={setFilterStatus}>
+          <SelectTrigger className="w-[180px]">
+            <SelectValue placeholder="Filtrar status" />
+          </SelectTrigger>
+          <SelectContent>
+            {STATUS_OPTIONS.map((status) => (
+              <SelectItem key={status.value} value={status.value}>{status.label}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
 
       <div className="glass-card">
         {/* Table header */}
-        <div className="grid grid-cols-6 gap-4 px-5 py-3 text-xs font-medium uppercase tracking-wider text-muted-foreground border-b border-border/50">
+        <div className="grid grid-cols-7 gap-4 px-5 py-3 text-xs font-medium uppercase tracking-wider text-muted-foreground border-b border-border/50">
           <span>Documento</span>
           <span>Fornecedor</span>
           <span>Valor</span>
           <span>Alçada</span>
           <span>Prazo</span>
+          <span>Status</span>
           <span className="text-right">Ações</span>
         </div>
 
         {loading ? (
           <div className="px-5 py-12 text-center text-sm text-muted-foreground">Carregando...</div>
         ) : docs.length === 0 ? (
-          <div className="px-5 py-12 text-center text-sm text-muted-foreground">Nenhuma aprovação pendente.</div>
+          <div className="px-5 py-12 text-center text-sm text-muted-foreground">Nenhuma NF encontrada para este filtro.</div>
         ) : (
           docs.map((doc) => {
             const tier = getTierBadge(doc.requiredRoles);
             const deadline = getDeadlineInfo(doc.created_at, deadlineHours);
             return (
-              <div key={doc.id} className="grid grid-cols-6 gap-4 px-5 py-4 items-center border-b border-border/30 hover:bg-muted/30 transition-colors">
+              <div key={doc.id} className="grid grid-cols-7 gap-4 px-5 py-4 items-center border-b border-border/30 hover:bg-muted/30 transition-colors">
                 <div className="flex items-center gap-2">
                   <FileText className="h-4 w-4 text-muted-foreground" />
                   <span className="text-sm font-medium text-foreground">NF #{doc.number ?? '—'}</span>
@@ -106,6 +138,9 @@ export default function Aprovacoes() {
                   <Clock className="h-3 w-3" />
                   <span className={deadline.expired ? 'text-destructive font-medium' : ''}>{deadline.label}</span>
                 </div>
+                <Badge variant={getStatusBadge(doc.status).variant} className="text-xs w-fit">
+                  {getStatusBadge(doc.status).label}
+                </Badge>
                 <div className="flex justify-end">
                   <Button
                     size="sm"

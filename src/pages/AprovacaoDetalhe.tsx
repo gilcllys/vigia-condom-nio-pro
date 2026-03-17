@@ -29,10 +29,12 @@ interface ApprovalVote {
   id: string;
   approver_role: string;
   decision: string;
-  voted_at: string;
+  voted_at: string | null;
   justification: string | null;
   approver_user_id: string;
 }
+
+const isFinalDecision = (decision: string) => decision === 'aprovado' || decision === 'rejeitado';
 
 function getDeadlineInfo(createdAt: string, deadlineHours: number | null): { label: string; expired: boolean; hoursLeft: number } {
   if (!deadlineHours) return { label: '—', expired: false, hoursLeft: Infinity };
@@ -80,7 +82,16 @@ export default function AprovacaoDetalhe() {
       ]);
 
       if (docRes.data) setDoc(docRes.data as FiscalDoc);
-      if (votesRes.data) setVotes(votesRes.data as ApprovalVote[]);
+      if (votesRes.data) {
+        setVotes(
+          (votesRes.data as ApprovalVote[]).map((vote) => ({
+            ...vote,
+            decision: (vote.decision === 'aprovado' || vote.decision === 'rejeitado') && !vote.voted_at
+              ? 'pendente'
+              : vote.decision,
+          }))
+        );
+      }
       setLoading(false);
     };
 
@@ -110,27 +121,29 @@ export default function AprovacaoDetalhe() {
   const deadlineHours = config?.approval_deadline_hours ?? null;
   const deadline = getDeadlineInfo(doc.created_at, deadlineHours);
 
-  // Check if current user already voted
-  const alreadyVoted = votes.some(v => v.approver_user_id === internalUserId);
+  const myVotes = votes.filter(v => v.approver_user_id === internalUserId);
+  const myVote = myVotes.find(v => isFinalDecision(v.decision)) ?? myVotes[0];
+
+  // Considera "votado" apenas quando já foi decisão final
+  const alreadyVoted = myVote ? isFinalDecision(myVote.decision) : false;
 
   // Check if role is required for this document
   const roleIsRequired = role ? requiredRoles.includes(role) : false;
 
-  // Síndico approval logic: can only act if deadline expired or lower tiers decided
+  // Síndico só pode agir após tiers inferiores decidirem ou prazo expirar
   const isSindico = role === 'SINDICO' || role === 'ADMIN';
   let sindicoBlocked = false;
   let sindicoBlockedReason = '';
 
   if (isSindico && requiredRoles.includes('SINDICO')) {
     const lowerTiers = requiredRoles.filter(r => r !== 'SINDICO');
-    const lowerVotes = votes.filter(v => lowerTiers.includes(v.approver_role));
     const allLowerDecided = lowerTiers.every(tier =>
-      lowerVotes.some(v => v.approver_role === tier)
+      votes.some(v => v.approver_role === tier && isFinalDecision(v.decision))
     );
 
     if (!allLowerDecided && !deadline.expired) {
       sindicoBlocked = true;
-      sindicoBlockedReason = 'Aguardando prazo dos aprovadores anteriores';
+      sindicoBlockedReason = 'Aguardando decisão dos aprovadores anteriores';
     }
   }
 
@@ -140,7 +153,7 @@ export default function AprovacaoDetalhe() {
     if (!internalUserId || !condoId || !id || !role) return;
     setSubmitting(true);
 
-    const { error } = await supabase.from('fiscal_document_approvals').insert({
+    const votePayload = {
       fiscal_document_id: id,
       condo_id: condoId,
       approver_user_id: internalUserId,
@@ -148,7 +161,12 @@ export default function AprovacaoDetalhe() {
       decision,
       justification: justification.trim() || null,
       voted_at: new Date().toISOString(),
-    });
+    };
+
+    const existingPendingVote = votes.find(v => v.approver_user_id === internalUserId);
+    const { error } = existingPendingVote
+      ? await supabase.from('fiscal_document_approvals').update(votePayload).eq('id', existingPendingVote.id)
+      : await supabase.from('fiscal_document_approvals').insert(votePayload);
 
     if (error) {
       toast.error('Erro ao registrar decisão.');
@@ -162,14 +180,12 @@ export default function AprovacaoDetalhe() {
       .select('approver_role, decision')
       .eq('fiscal_document_id', id);
 
-    const currentVotes = [...(allVotes ?? []), { approver_role: role, decision }];
-
     if (decision === 'rejeitado') {
       await supabase.from('fiscal_documents').update({ status: 'CANCELADO' }).eq('id', id);
       toast.success('Documento rejeitado.');
     } else {
       const allApproved = requiredRoles.every(r =>
-        currentVotes.some(v => v.approver_role === r && v.decision === 'aprovado')
+        (allVotes ?? []).some(v => v.approver_role === r && v.decision === 'aprovado')
       );
       if (allApproved) {
         await supabase.from('fiscal_documents').update({ status: 'PROCESSADO' }).eq('id', id);
@@ -247,24 +263,33 @@ export default function AprovacaoDetalhe() {
         <h2 className="text-base font-semibold text-foreground">Níveis de Aprovação</h2>
         <div className="space-y-3">
           {requiredRoles.map((r) => {
-            const vote = votes.find(v => v.approver_role === r);
+            const roleVotes = votes.filter(v => v.approver_role === r);
+            const vote = roleVotes.find(v => isFinalDecision(v.decision)) ?? roleVotes[0];
             return (
               <div key={r} className="flex items-center justify-between p-3 rounded-lg bg-muted/30 border border-border/30">
                 <div className="flex items-center gap-3">
                   <Badge variant="outline" className="text-xs">{r === 'SUBSINDICO' ? 'SUBSÍNDICO' : r}</Badge>
                   {vote ? (
                     <div className="flex items-center gap-2 text-sm">
-                      {vote.decision === 'aprovado' ? (
-                        <CheckCircle2 className="h-4 w-4 text-green-500" />
-                      ) : (
-                        <XCircle className="h-4 w-4 text-destructive" />
+                      {vote.decision === 'aprovado' && <CheckCircle2 className="h-4 w-4 text-emerald-600" />}
+                      {vote.decision === 'rejeitado' && <XCircle className="h-4 w-4 text-destructive" />}
+                      {vote.decision === 'pendente' && <Clock className="h-3 w-3 text-muted-foreground" />}
+
+                      <span className={
+                        vote.decision === 'aprovado'
+                          ? 'text-emerald-600'
+                          : vote.decision === 'rejeitado'
+                            ? 'text-destructive'
+                            : 'text-muted-foreground'
+                      }>
+                        {vote.decision === 'aprovado' ? 'Aprovado' : vote.decision === 'rejeitado' ? 'Rejeitado' : 'Aguardando'}
+                      </span>
+
+                      {vote.voted_at && isFinalDecision(vote.decision) && (
+                        <span className="text-muted-foreground">
+                          em {format(new Date(vote.voted_at), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
+                        </span>
                       )}
-                      <span className={vote.decision === 'aprovado' ? 'text-green-600' : 'text-destructive'}>
-                        {vote.decision === 'aprovado' ? 'Aprovado' : 'Rejeitado'}
-                      </span>
-                      <span className="text-muted-foreground">
-                        em {format(new Date(vote.voted_at), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
-                      </span>
                     </div>
                   ) : (
                     <span className="text-sm text-muted-foreground flex items-center gap-1">

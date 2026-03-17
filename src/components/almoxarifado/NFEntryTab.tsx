@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useCondo } from '@/contexts/CondoContext';
 import { useAuth } from '@/contexts/AuthContext';
+import { useFinancialConfig, getRequiredRoles } from '@/hooks/useFinancialConfig';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -63,6 +64,7 @@ export default function NFEntryTab() {
   const { condoId } = useCondo();
   const { user } = useAuth();
   const { toast } = useToast();
+  const { config } = useFinancialConfig(condoId);
 
   const [step, setStep] = useState<Step>('upload');
   const [fileUrl, setFileUrl] = useState<string | null>(null);
@@ -203,6 +205,12 @@ export default function NFEntryTab() {
       return;
     }
 
+    const invalidItem = nfData.itens.find(item => !item.nome.trim() || !Number.isFinite(item.quantidade) || item.quantidade <= 0);
+    if (invalidItem) {
+      toast({ title: 'Todos os itens precisam de nome e quantidade maior que zero', variant: 'destructive' });
+      return;
+    }
+
     setSaving(true);
 
     try {
@@ -229,6 +237,7 @@ export default function NFEntryTab() {
           issue_date: nfData.data_emissao || null,
           amount: nfData.valor_total,
           status: 'PENDENTE',
+          file_url: fileUrl,
           created_by: internalUser.id,
         })
         .select('id')
@@ -241,29 +250,45 @@ export default function NFEntryTab() {
       }
 
       for (const item of nfData.itens) {
+        const itemName = item.nome.trim();
         let itemId = item.stock_item_id;
 
         if (item.create_new || !itemId) {
-          const { data: newItem, error: newItemErr } = await supabase
+          const { data: existingItem } = await supabase
             .from('stock_items')
-            .insert({
-              condo_id: condoId,
-              name: item.nome.trim(),
-              unit: 'un',
-              min_qty: 0,
-              category_id: item.category_id || null,
-            })
             .select('id')
-            .single();
+            .eq('condo_id', condoId)
+            .eq('name', itemName)
+            .is('deleted_at', null)
+            .maybeSingle();
 
-          if (newItemErr || !newItem) {
-            console.error('Error creating stock item:', newItemErr);
-            continue;
+          if (existingItem?.id) {
+            itemId = existingItem.id;
+          } else {
+            const { data: newItem, error: newItemErr } = await supabase
+              .from('stock_items')
+              .insert({
+                condo_id: condoId,
+                name: itemName,
+                unit: 'un',
+                min_qty: 0,
+                category_id: item.category_id || null,
+              })
+              .select('id')
+              .single();
+
+            if (newItemErr || !newItem) {
+              throw new Error(`Erro ao criar item "${itemName}": ${newItemErr?.message ?? 'desconhecido'}`);
+            }
+            itemId = newItem.id;
           }
-          itemId = newItem.id;
         }
 
-        await supabase
+        if (!itemId) {
+          throw new Error(`Item sem vínculo de estoque: ${itemName}`);
+        }
+
+        const { error: movementError } = await supabase
           .from('stock_movements')
           .insert({
             condo_id: condoId,
@@ -273,14 +298,22 @@ export default function NFEntryTab() {
             destination,
             notes: `NF ${nfData.numero_nf} — ${nfData.fornecedor.trim()}`,
           });
+
+        if (movementError) {
+          throw new Error(`Erro ao lançar entrada do item "${itemName}": ${movementError.message}`);
+        }
       }
 
+      const requiredRoles = getRequiredRoles(nfData.valor_total ?? 0, config);
       const { data: approvers } = await supabase
         .from('user_condos')
         .select('user_id, role')
         .eq('condo_id', condoId)
-        .in('role', ['SUBSINDICO', 'CONSELHO'])
+        .in('role', requiredRoles)
         .eq('status', 'ativo');
+
+      const foundRoles = new Set((approvers ?? []).map((a: any) => a.role));
+      const missingRoles = requiredRoles.filter(r => !foundRoles.has(r));
 
       if (approvers && approvers.length > 0) {
         const approvalRows = approvers.map((a: any) => ({
@@ -289,6 +322,7 @@ export default function NFEntryTab() {
           approver_user_id: a.user_id,
           approver_role: a.role,
           decision: 'pendente',
+          voted_at: null,
         }));
 
         await supabase
@@ -296,7 +330,12 @@ export default function NFEntryTab() {
           .insert(approvalRows);
       }
 
-      toast({ title: 'NF salva! Aguardando aprovação do subsíndico e conselheiros.' });
+      if (missingRoles.length > 0) {
+        toast({ title: 'NF salva com alerta', description: `Faltam aprovadores para: ${missingRoles.join(', ')}`, variant: 'destructive' });
+      } else {
+        toast({ title: `NF salva! Aguardando aprovação: ${requiredRoles.join(', ')}` });
+      }
+
       setStep('upload');
       setFileUrl(null);
       setUploadedFile(null);
