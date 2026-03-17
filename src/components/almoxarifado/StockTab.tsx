@@ -283,7 +283,7 @@ export default function StockTab() {
       return;
     }
 
-    if (moveForm.move_type === 'ajuste' && !moveForm.notes.trim()) {
+    if (moveForm.move_type === 'AJUSTE' && !moveForm.notes.trim()) {
       toast({ title: 'Justificativa é obrigatória para ajustes', variant: 'destructive' });
       return;
     }
