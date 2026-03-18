@@ -226,12 +226,12 @@ export function OSBudgetsCard({ orderId, condoId, isEmergency, isSindico, isAdmi
     }));
 
     // Delete any existing budget approvals before inserting (idempotent re-submission)
-    await supabase.schema('nfe_vigia').from('approvals')
+    await supabase.schema('nfe_vigia').from('service_order_approvals')
       .delete()
       .eq('service_order_id', orderId)
       .eq('approval_type', 'ORCAMENTO');
 
-    const { error } = await supabase.schema('nfe_vigia').from('approvals').insert(approvalRecords);
+    const { error } = await supabase.schema('nfe_vigia').from('service_order_approvals').insert(approvalRecords);
 
     if (error) {
       toast({ title: 'Erro ao enviar para aprovação', description: error.message, variant: 'destructive' });

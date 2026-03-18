@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/lib/supabase';
 import { useCondo } from '@/contexts/CondoContext';
@@ -6,9 +6,11 @@ import { useFinancialConfig, getRequiredRoles } from '@/hooks/useFinancialConfig
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { FileText, Search, Clock, Clipboard, FileCheck } from 'lucide-react';
+import { cn } from '@/lib/utils';
+import { FileText, Search, Clock, ClipboardList, FileCheck2 } from 'lucide-react';
 import { differenceInHours } from 'date-fns';
+
+type ActiveTab = 'nf' | 'os' | 'contratos';
 
 // ─── NF types ───────────────────────────────────────────────────────────────
 
@@ -106,6 +108,9 @@ export default function Aprovacoes() {
   // OS state
   const [pendingOS, setPendingOS] = useState<PendingOS[]>([]);
   const [loadingOS, setLoadingOS] = useState(true);
+
+  // Tab state
+  const [activeTab, setActiveTab] = useState<ActiveTab>('nf');
 
   // ── Fetch NFs ──────────────────────────────────────────────────────────────
 
@@ -210,7 +215,7 @@ export default function Aprovacoes() {
       const orderIds = (orders as any[]).map(o => o.id);
       const { data: approvalsData } = await supabase
         .schema('nfe_vigia')
-        .from('approvals')
+        .from('service_order_approvals')
         .select('service_order_id, approver_id, decision')
         .in('service_order_id', orderIds)
         .eq('approval_type', 'ORCAMENTO');
@@ -250,31 +255,41 @@ export default function Aprovacoes() {
 
   // ── Render ────────────────────────────────────────────────────────────────
 
+  const TAB_ITEMS: { value: ActiveTab; label: string; icon: React.ReactNode; badge?: number }[] = [
+    { value: 'nf', label: 'Notas Fiscais', icon: <FileText className="h-4 w-4" /> },
+    { value: 'os', label: 'Orçamentos de OS', icon: <ClipboardList className="h-4 w-4" />, badge: pendingOS.length > 0 ? pendingOS.length : undefined },
+    { value: 'contratos', label: 'Contratos', icon: <FileCheck2 className="h-4 w-4" /> },
+  ];
+
   return (
     <div className="space-y-6">
       <h1 className="text-2xl font-bold text-foreground">Aprovações</h1>
 
-      <Tabs defaultValue="nf">
-        <TabsList className="mb-4">
-          <TabsTrigger value="nf" className="flex items-center gap-2">
-            <FileText className="h-4 w-4" />
-            Notas Fiscais
-          </TabsTrigger>
-          <TabsTrigger value="os" className="flex items-center gap-2">
-            <Clipboard className="h-4 w-4" />
-            Orçamentos de OS
-            {pendingOS.length > 0 && (
-              <Badge variant="default" className="ml-1 text-xs px-1.5 py-0">{pendingOS.length}</Badge>
+      {/* Tab bar */}
+      <div className="inline-flex h-10 items-center justify-start rounded-md bg-muted p-1 text-muted-foreground gap-0.5">
+        {TAB_ITEMS.map((tab) => (
+          <button
+            key={tab.value}
+            type="button"
+            onClick={() => setActiveTab(tab.value)}
+            className={cn(
+              'inline-flex items-center gap-2 whitespace-nowrap rounded-sm px-3 py-1.5 text-sm font-medium transition-all',
+              activeTab === tab.value
+                ? 'bg-background text-foreground shadow-sm'
+                : 'hover:bg-background/50 hover:text-foreground'
             )}
-          </TabsTrigger>
-          <TabsTrigger value="contratos" className="flex items-center gap-2">
-            <FileCheck className="h-4 w-4" />
-            Contratos
-          </TabsTrigger>
-        </TabsList>
+          >
+            {tab.icon}
+            {tab.label}
+            {tab.badge !== undefined && (
+              <Badge variant="default" className="ml-1 text-xs px-1.5 py-0">{tab.badge}</Badge>
+            )}
+          </button>
+        ))}
+      </div>
 
-        {/* ── Tab: NFs ─────────────────────────────────────────────────────── */}
-        <TabsContent value="nf">
+      {/* ── Tab: NFs ─────────────────────────────────────────────────────── */}
+      {activeTab === 'nf' && (
           <div className="flex items-center justify-between gap-3 flex-wrap mb-4">
             <p className="text-sm text-muted-foreground">Aprovações de Notas Fiscais do almoxarifado</p>
             <Select value={filterStatus} onValueChange={setFilterStatus}>
@@ -342,10 +357,10 @@ export default function Aprovacoes() {
               })
             )}
           </div>
-        </TabsContent>
+      )}
 
-        {/* ── Tab: OS Orçamentos ───────────────────────────────────────────── */}
-        <TabsContent value="os">
+      {/* ── Tab: OS Orçamentos ───────────────────────────────────────────── */}
+      {activeTab === 'os' && (
           <div className="mb-4">
             <p className="text-sm text-muted-foreground">Ordens de Serviço aguardando aprovação de orçamentos</p>
           </div>
@@ -409,18 +424,17 @@ export default function Aprovacoes() {
               ))
             )}
           </div>
-        </TabsContent>
+      )}
 
-        {/* ── Tab: Contratos ───────────────────────────────────────────────── */}
-        <TabsContent value="contratos">
+      {/* ── Tab: Contratos ───────────────────────────────────────────────── */}
+      {activeTab === 'contratos' && (
           <div className="mb-4">
             <p className="text-sm text-muted-foreground">Contratos aguardando aprovação</p>
           </div>
           <div className="glass-card px-5 py-12 text-center text-sm text-muted-foreground">
             Aprovação de contratos será disponibilizada em breve.
           </div>
-        </TabsContent>
-      </Tabs>
+      )}
     </div>
   );
 }

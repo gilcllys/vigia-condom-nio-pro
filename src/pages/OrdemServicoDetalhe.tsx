@@ -236,7 +236,7 @@ export default function OrdemServicoDetalhe() {
     const expiresAt = new Date(Date.now() + deadlineHours * 60 * 60 * 1000).toISOString();
 
     // Delete existing final approvals before re-sending (idempotent)
-    await supabase.schema('nfe_vigia').from('approvals')
+    await supabase.schema('nfe_vigia').from('service_order_approvals')
       .delete()
       .eq('service_order_id', order.id)
       .eq('approval_type', 'FINAL');
@@ -251,7 +251,7 @@ export default function OrdemServicoDetalhe() {
       expires_at: expiresAt,
     }));
 
-    const { error } = await supabase.schema('nfe_vigia').from('approvals').insert(records);
+    const { error } = await supabase.schema('nfe_vigia').from('service_order_approvals').insert(records);
 
     if (error) {
       toast({ title: 'Erro ao enviar para aprovação final', variant: 'destructive' });
