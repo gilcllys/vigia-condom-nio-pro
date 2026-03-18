@@ -3,7 +3,6 @@ import { supabase } from '@/lib/supabase';
 import { useCondo } from '@/contexts/CondoContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { useFinancialConfig, getRequiredRoles } from '@/hooks/useFinancialConfig';
-import { STOCK_MOVE_TYPES } from '@/lib/stock-move-type';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -143,8 +142,8 @@ export default function NFEntryTab() {
         valor_total: extracted.valor_total || 0,
         itens: (extracted.itens || []).map((item: any) => ({
           nome: item.descricao || item.nome || '',
-          quantidade: item.quantidade || 0,
-          valor_unitario: item.valor_unitario || 0,
+          quantidade: Number(item.quantidade) || 0,
+          valor_unitario: Number(item.valor_unitario) || 0,
           stock_item_id: '',
           create_new: true,
           category_id: '',
@@ -289,17 +288,18 @@ export default function NFEntryTab() {
           throw new Error(`Item sem vínculo de estoque: ${itemName}`);
         }
 
-        const { error: movementError } = await supabase
-          .from('stock_movements')
+        // Vincula o item à NF para criação do movimento de estoque após aprovação
+        const { error: nfItemError } = await supabase
+          .from('fiscal_document_items')
           .insert({
-            condo_id: condoId,
-            item_id: itemId,
-            move_type: STOCK_MOVE_TYPES.ENTRADA,
+            fiscal_document_id: fdDoc.id,
+            stock_item_id: itemId,
             qty: item.quantidade,
+            unit_price: item.valor_unitario,
           });
 
-        if (movementError) {
-          throw new Error(`Erro ao lançar entrada do item "${itemName}": ${movementError.message}`);
+        if (nfItemError) {
+          throw new Error(`Erro ao vincular item "${itemName}" à NF: ${nfItemError.message}`);
         }
       }
 

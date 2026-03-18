@@ -198,9 +198,29 @@ export default function ApprovalsTab() {
       return;
     }
 
-    // If rejected → update NF status immediately
+    // If rejected → cancel NF and reverse any ENTRADA movements already created
     if (decision === 'rejeitado') {
       await supabase.from('fiscal_documents').update({ status: 'CANCELADO' }).eq('id', nf.id);
+
+      // Reverse any ENTRADA stock movements linked to this NF (safety net)
+      const { data: existingMovements } = await supabase
+        .from('stock_movements')
+        .select('item_id, qty')
+        .eq('fiscal_document_id', nf.id)
+        .eq('move_type', 'ENTRADA');
+
+      if (existingMovements && existingMovements.length > 0) {
+        await supabase.from('stock_movements').insert(
+          existingMovements.map((mv: any) => ({
+            condo_id: condoId,
+            item_id: mv.item_id,
+            move_type: 'SAIDA',
+            qty: mv.qty,
+            fiscal_document_id: nf.id,
+          }))
+        );
+      }
+
       toast({ title: 'NF rejeitada.' });
       setRejectId(null);
       setJustification('');
@@ -224,6 +244,25 @@ export default function ApprovalsTab() {
 
     if (allRequired) {
       await supabase.from('fiscal_documents').update({ status: 'PROCESSADO' }).eq('id', nf.id);
+
+      // Create ENTRADA stock movements for each item linked to this NF
+      const { data: nfItems } = await supabase
+        .from('fiscal_document_items')
+        .select('stock_item_id, qty')
+        .eq('fiscal_document_id', nf.id);
+
+      if (nfItems && nfItems.length > 0) {
+        await supabase.from('stock_movements').insert(
+          nfItems.map((item: any) => ({
+            condo_id: condoId,
+            item_id: item.stock_item_id,
+            move_type: 'ENTRADA',
+            qty: item.qty,
+            fiscal_document_id: nf.id,
+          }))
+        );
+      }
+
       toast({ title: 'NF aprovada!' });
     } else {
       const remaining = requiredRoles.filter(r => !approvedRoles.includes(r));
