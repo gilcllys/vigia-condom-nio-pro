@@ -103,10 +103,28 @@ export const CondoProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       .schema('nfe_vigia')
       .rpc('get_my_condo_id');
 
+    let fallbackRole: string | null = null;
+    if (fallback && user) {
+      const { data: userRow } = await supabase
+        .from('users')
+        .select('id')
+        .eq('auth_user_id', user.id)
+        .maybeSingle();
+      if (userRow?.id) {
+        const { data: ucRow } = await supabase
+          .from('user_condos')
+          .select('role')
+          .eq('user_id', userRow.id)
+          .eq('condo_id', fallback)
+          .maybeSingle();
+        if (ucRow?.role) fallbackRole = ucRow.role;
+      }
+    }
+
     const newState: CondoState = {
       condoId: fallback ?? null,
       condoName: null,
-      role: null,
+      role: fallbackRole,
     };
     setState(newState);
     writeCache(newState);
@@ -124,15 +142,35 @@ export const CondoProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
 
     const row = Array.isArray(data) ? data[0] : data;
+
+    // Always fetch role directly from user_condos — authoritative per-condo permission
+    let role: string | null = row?.out_role ?? row?.role ?? null;
+    if (user) {
+      const { data: userRow } = await supabase
+        .from('users')
+        .select('id')
+        .eq('auth_user_id', user.id)
+        .maybeSingle();
+      if (userRow?.id) {
+        const { data: ucRow } = await supabase
+          .from('user_condos')
+          .select('role')
+          .eq('user_id', userRow.id)
+          .eq('condo_id', targetCondoId)
+          .maybeSingle();
+        if (ucRow?.role) role = ucRow.role;
+      }
+    }
+
     const newState: CondoState = {
       condoId: row?.out_condo_id ?? row?.condo_id ?? targetCondoId,
       condoName: row?.out_condo_name ?? row?.condo_name ?? null,
-      role: row?.out_role ?? row?.role ?? null,
+      role,
     };
     setState(newState);
     writeCache(newState);
     return true;
-  }, []);
+  }, [user]);
 
   useEffect(() => {
     // Load cache immediately, then validate with server

@@ -37,9 +37,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     let initialized = false;
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if (initialized) {
         setSession(session);
+      }
+      // On token expiry or remote sign-out, clean up the local session record
+      if (event === 'SIGNED_OUT' || event === 'TOKEN_REFRESHED') {
+        if (event === 'SIGNED_OUT') {
+          const token = localStorage.getItem('nfe_vigia_session_token');
+          if (token) {
+            supabase.from('user_sessions').delete().eq('session_token', token);
+            localStorage.removeItem('nfe_vigia_session_token');
+          }
+          try { localStorage.removeItem('nfe_vigia_active_condo'); } catch {}
+        }
       }
     });
 
@@ -53,10 +64,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   const signOut = async () => {
-    // Deactivate session record
     const token = localStorage.getItem('nfe_vigia_session_token');
     if (token) {
-      await supabase.from('user_sessions').update({ is_active: false }).eq('session_token', token);
+      await supabase.from('user_sessions').delete().eq('session_token', token);
       localStorage.removeItem('nfe_vigia_session_token');
     }
     try { localStorage.removeItem('nfe_vigia_active_condo'); } catch {}

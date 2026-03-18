@@ -55,45 +55,51 @@ export default function Login() {
     const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
     if (sessionError) throw sessionError;
 
-    const userId = sessionData.session?.user?.id ?? null;
-    if (!userId) {
+    const authUserId = sessionData.session?.user?.id ?? null;
+    if (!authUserId) {
       navigate('/login', { replace: true });
       return;
     }
 
-    // Single-session check: look for active sessions for this user
-    const { data: existingSessions } = await supabase
-      .from('user_sessions')
-      .select('id, session_token')
-      .eq('auth_user_id', userId)
-      .eq('is_active', true);
-
-    if (existingSessions && existingSessions.length > 0) {
-      // Another session is active — block login
-      await supabase.auth.signOut();
-      toast({
-        title: 'Sessão ativa detectada',
-        description: 'Este usuário já está com uma sessão ativa. Finalize a sessão anterior para continuar.',
-        variant: 'destructive',
-      });
-      return;
-    }
-
-    // Register this session
-    await supabase.from('user_sessions').insert({
-      auth_user_id: userId,
-      session_token: sessionToken,
-      is_active: true,
-    });
-    localStorage.setItem('nfe_vigia_session_token', sessionToken);
-
+    // Get internal user record first (needed for session enforcement)
     const { data: userRow, error: userError } = await supabase
       .from('users')
       .select('id, condo_id, status')
-      .eq('auth_user_id', userId)
+      .eq('auth_user_id', authUserId)
       .maybeSingle();
 
     if (userError) throw userError;
+
+    // Single-session enforcement using internal user_id and expires_at
+    if (userRow?.id) {
+      const { data: existingSessions } = await supabase
+        .from('user_sessions')
+        .select('id')
+        .eq('user_id', userRow.id)
+        .gt('expires_at', new Date().toISOString());
+
+      if (existingSessions && existingSessions.length > 0) {
+        await supabase.auth.signOut();
+        toast({
+          title: 'Sessão ativa detectada',
+          description: 'Este usuário já possui uma sessão ativa em outro dispositivo. Encerre a sessão anterior para continuar.',
+          variant: 'destructive',
+        });
+        return;
+      }
+
+      // Register this session
+      const expiresAt = sessionData.session?.expires_at
+        ? new Date(sessionData.session.expires_at * 1000).toISOString()
+        : new Date(Date.now() + 3600 * 1000).toISOString();
+
+      await supabase.from('user_sessions').insert({
+        user_id: userRow.id,
+        session_token: sessionToken,
+        expires_at: expiresAt,
+      });
+      localStorage.setItem('nfe_vigia_session_token', sessionToken);
+    }
 
     const { data: userCondoRows, error: userCondoError } = userRow?.id
       ? await supabase
