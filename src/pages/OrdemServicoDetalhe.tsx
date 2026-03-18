@@ -235,11 +235,18 @@ export default function OrdemServicoDetalhe() {
 
     const expiresAt = new Date(Date.now() + deadlineHours * 60 * 60 * 1000).toISOString();
 
+    // Delete existing final approvals before re-sending (idempotent)
+    await supabase.schema('nfe_vigia').from('approvals')
+      .delete()
+      .eq('service_order_id', order.id)
+      .eq('approval_type', 'FINAL');
+
     const records = approvers.map((a: any) => ({
       service_order_id: order.id,
       condo_id: condoId,
       approver_id: a.user_id,
-      approver_role: 'FINAL',
+      approver_role: a.role,
+      approval_type: 'FINAL',
       decision: 'pendente',
       expires_at: expiresAt,
     }));

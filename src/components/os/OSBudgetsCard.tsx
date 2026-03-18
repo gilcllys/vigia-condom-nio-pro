@@ -220,15 +220,26 @@ export function OSBudgetsCard({ orderId, condoId, isEmergency, isSindico, isAdmi
       condo_id: condoId,
       approver_id: a.user_id,
       approver_role: a.role,
+      approval_type: 'ORCAMENTO',
       decision: 'pendente',
       expires_at: expiresAt,
     }));
 
+    // Delete any existing budget approvals before inserting (idempotent re-submission)
+    await supabase.schema('nfe_vigia').from('approvals')
+      .delete()
+      .eq('service_order_id', orderId)
+      .eq('approval_type', 'ORCAMENTO');
+
     const { error } = await supabase.schema('nfe_vigia').from('approvals').insert(approvalRecords);
 
     if (error) {
-      toast({ title: 'Erro ao enviar para aprovação', variant: 'destructive' });
+      toast({ title: 'Erro ao enviar para aprovação', description: error.message, variant: 'destructive' });
     } else {
+      // Update service order status to AGUARDANDO_APROVACAO
+      await supabase.schema('nfe_vigia').from('service_orders')
+        .update({ status: 'AGUARDANDO_APROVACAO' })
+        .eq('id', orderId);
       await logSOActivity({
         serviceOrderId: orderId,
         action: 'ENVIADA_APROVACAO',
