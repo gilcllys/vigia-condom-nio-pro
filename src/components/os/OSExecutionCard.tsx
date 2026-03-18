@@ -22,8 +22,10 @@ interface Props {
 }
 
 const executorTypeLabel: Record<string, string> = {
-  INTERNO: 'Interno (equipe do condomínio)',
-  TERCEIRIZADO: 'Terceirizado (empresa externa)',
+  INTERNO: 'Equipe Interna',
+  TERCEIRIZADO: 'Prestador Externo',
+  EQUIPE_INTERNA: 'Equipe Interna',
+  PRESTADOR_EXTERNO: 'Prestador Externo',
 };
 
 export function OSExecutionCard({
@@ -105,8 +107,8 @@ export function OSExecutionCard({
                   <SelectValue placeholder="Selecione..." />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="INTERNO">Interno (equipe do condomínio)</SelectItem>
-                  <SelectItem value="TERCEIRIZADO">Terceirizado (empresa externa)</SelectItem>
+                  <SelectItem value="EQUIPE_INTERNA">Equipe Interna</SelectItem>
+                  <SelectItem value="PRESTADOR_EXTERNO">Prestador Externo</SelectItem>
                 </SelectContent>
               </Select>
             </div>

@@ -30,6 +30,14 @@ interface Material {
   cost: number | null;
 }
 
+interface Approval {
+  approver_role: string;
+  decision: string;
+  justification?: string | null;
+  responded_at?: string | null;
+  is_minerva?: boolean;
+}
+
 const statusLabel: Record<string, string> = {
   ABERTA: 'Aberta',
   EM_EXECUCAO: 'Em Execução',
@@ -41,26 +49,43 @@ const statusLabel: Record<string, string> = {
 const priorityLabel: Record<string, string> = {
   BAIXA: 'Baixa',
   MEDIA: 'Média',
-  ALTA: 'Alta',
+  ALTA: 'Alta (Emergencial)',
 };
 
 const executorTypeLabel: Record<string, string> = {
-  INTERNO: 'Interno',
-  TERCEIRIZADO: 'Terceirizado',
+  INTERNO: 'Equipe Interna',
+  TERCEIRIZADO: 'Prestador Externo',
+  EQUIPE_INTERNA: 'Equipe Interna',
+  PRESTADOR_EXTERNO: 'Prestador Externo',
+};
+
+const roleLabel: Record<string, string> = {
+  SUBSINDICO: 'Subsíndico',
+  CONSELHO: 'Conselheiro',
+  SINDICO: 'Síndico',
+};
+
+const decisionLabel: Record<string, string> = {
+  aprovado: 'Aprovado',
+  rejeitado: 'Rejeitado',
+  neutro: 'Neutro',
+  pendente: 'Pendente',
 };
 
 interface PhotoWithUrl {
   photo_type: string;
   signedUrl: string;
+  observation?: string | null;
 }
 
-export async function generateOSPdf(
+export async function generateOSPdfBlob(
   order: OSData,
   activities: Activity[],
   materials: Material[],
   condoName: string | null,
-  photosWithUrls: PhotoWithUrl[]
-) {
+  photosWithUrls: PhotoWithUrl[],
+  approvals: Approval[] = []
+): Promise<Blob> {
   const doc = new jsPDF('p', 'mm', 'a4');
   const pageWidth = doc.internal.pageSize.getWidth();
   const margin = 15;
@@ -85,9 +110,9 @@ export async function generateOSPdf(
   y += 6;
   addText(`OS #${order.id.slice(0, 8)}`, margin, y, { fontSize: 10, color: [108, 117, 125] });
   if (condoName) {
-    addText(condoName, pageWidth - margin, y, { fontSize: 10, color: [108, 117, 125] });
-    // Right align
     const textWidth = doc.getTextWidth(condoName);
+    doc.setFontSize(10);
+    doc.setTextColor(108, 117, 125);
     doc.text(condoName, pageWidth - margin - textWidth, y);
   }
   y += 4;
@@ -103,9 +128,9 @@ export async function generateOSPdf(
     ['Título', order.title],
     ['Status', statusLabel[order.status] ?? order.status],
     ['Prioridade', priorityLabel[order.priority ?? ''] ?? '—'],
+    ['Executor', executorTypeLabel[order.executor_type ?? ''] ?? '—'],
     ['Local', order.location ?? '—'],
     ['Criada em', format(new Date(order.created_at), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })],
-    ['Aberta por', order.created_by.slice(0, 8) + '…'],
   ];
 
   autoTable(doc, {
@@ -127,35 +152,24 @@ export async function generateOSPdf(
     checkPageBreak(20);
     addText('DESCRIÇÃO', margin, y, { fontSize: 12, bold: true });
     y += 6;
-    addText(order.description, margin, y, { maxWidth: pageWidth - 2 * margin });
     const lines = doc.splitTextToSize(order.description, pageWidth - 2 * margin);
+    doc.setFontSize(9);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(33, 37, 41);
+    doc.text(lines, margin, y);
     y += lines.length * 4.5 + 6;
   }
 
-  // Execution
-  if (order.executor_type || order.executor_name || order.execution_notes) {
-    checkPageBreak(25);
-    addText('EXECUÇÃO DO SERVIÇO', margin, y, { fontSize: 12, bold: true });
-    y += 7;
-
-    const execRows: string[][] = [];
-    if (order.executor_type) execRows.push(['Tipo', executorTypeLabel[order.executor_type] ?? order.executor_type]);
-    if (order.executor_name) execRows.push(['Executor', order.executor_name]);
-    if (order.execution_notes) execRows.push(['Observações', order.execution_notes]);
-
-    autoTable(doc, {
-      startY: y,
-      head: [],
-      body: execRows,
-      theme: 'plain',
-      margin: { left: margin, right: margin },
-      styles: { fontSize: 9, cellPadding: 2 },
-      columnStyles: {
-        0: { fontStyle: 'bold', cellWidth: 35, textColor: [108, 117, 125] },
-        1: { cellWidth: 'auto' },
-      },
-    });
-    y = (doc as any).lastAutoTable.finalY + 6;
+  // Execution notes
+  if (order.execution_notes) {
+    checkPageBreak(20);
+    addText('NOTAS DE EXECUÇÃO', margin, y, { fontSize: 12, bold: true });
+    y += 6;
+    const lines = doc.splitTextToSize(order.execution_notes, pageWidth - 2 * margin);
+    doc.setFontSize(9);
+    doc.setFont('helvetica', 'normal');
+    doc.text(lines, margin, y);
+    y += lines.length * 4.5 + 6;
   }
 
   // Materials
@@ -182,6 +196,32 @@ export async function generateOSPdf(
       margin: { left: margin, right: margin },
       styles: { fontSize: 9, cellPadding: 2.5 },
       headStyles: { fillColor: [33, 37, 41], textColor: [255, 255, 255], fontStyle: 'bold' },
+    });
+    y = (doc as any).lastAutoTable.finalY + 6;
+  }
+
+  // Approvals
+  if (approvals.length > 0) {
+    checkPageBreak(20);
+    addText('APROVAÇÕES', margin, y, { fontSize: 12, bold: true });
+    y += 7;
+
+    const approvalRows = approvals.map((a) => [
+      roleLabel[a.approver_role] ?? a.approver_role,
+      decisionLabel[a.decision] ?? a.decision,
+      a.justification ?? '—',
+      a.responded_at ? format(new Date(a.responded_at), 'dd/MM/yyyy HH:mm', { locale: ptBR }) : '—',
+    ]);
+
+    autoTable(doc, {
+      startY: y,
+      head: [['Papel', 'Decisão', 'Justificativa', 'Respondido em']],
+      body: approvalRows,
+      theme: 'grid',
+      margin: { left: margin, right: margin },
+      styles: { fontSize: 9, cellPadding: 2.5 },
+      headStyles: { fillColor: [33, 37, 41], textColor: [255, 255, 255], fontStyle: 'bold' },
+      columnStyles: { 0: { cellWidth: 30 }, 1: { cellWidth: 25 }, 3: { cellWidth: 35 } },
     });
     y = (doc as any).lastAutoTable.finalY + 6;
   }
@@ -230,20 +270,29 @@ export async function generateOSPdf(
         const blob = await response.blob();
         const base64 = await blobToBase64(blob);
 
-        checkPageBreak(imgHeight + 5);
+        checkPageBreak(imgHeight + 15);
         if (x + imgWidth > pageWidth - margin) {
           x = margin;
-          y += imgHeight + 5;
-          checkPageBreak(imgHeight + 5);
+          y += imgHeight + (photo.observation ? 12 : 5);
+          checkPageBreak(imgHeight + 15);
         }
 
         doc.addImage(base64, 'JPEG', x, y, imgWidth, imgHeight);
+
+        if (photo.observation) {
+          doc.setFontSize(7);
+          doc.setTextColor(108, 117, 125);
+          doc.setFont('helvetica', 'normal');
+          const obsLines = doc.splitTextToSize(photo.observation, imgWidth);
+          doc.text(obsLines, x, y + imgHeight + 3);
+        }
+
         x += imgWidth + 5;
       } catch (e) {
         console.warn('Failed to add photo to PDF:', e);
       }
     }
-    y += imgHeight + 8;
+    y += imgHeight + 15;
   };
 
   await addPhotoSection('FOTOS DO PROBLEMA', problemPhotos);
@@ -263,7 +312,24 @@ export async function generateOSPdf(
     );
   }
 
-  doc.save(`OS-${order.id.slice(0, 8)}.pdf`);
+  return doc.output('blob');
+}
+
+// Keep backward compat alias
+export async function generateOSPdf(
+  order: OSData,
+  activities: Activity[],
+  materials: Material[],
+  condoName: string | null,
+  photosWithUrls: PhotoWithUrl[]
+) {
+  const blob = await generateOSPdfBlob(order, activities, materials, condoName, photosWithUrls);
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `OS-${order.id.slice(0, 8)}.pdf`;
+  a.click();
+  URL.revokeObjectURL(url);
 }
 
 function blobToBase64(blob: Blob): Promise<string> {

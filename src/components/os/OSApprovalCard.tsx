@@ -70,7 +70,7 @@ export function OSApprovalCard({ orderId, condoId, approvalType, title, isSindic
     setLoading(true);
     const { data } = await supabase
       .schema('nfe_vigia')
-      .from('service_order_approvals')
+      .from('approvals')
       .select('*')
       .eq('service_order_id', orderId)
       .eq('approval_type', approvalType)
@@ -100,7 +100,7 @@ export function OSApprovalCard({ orderId, condoId, approvalType, title, isSindic
     const checkExpired = async () => {
       const expired = approvals.filter(a => a.decision === 'pendente' && new Date(a.expires_at) < new Date());
       for (const a of expired) {
-        await supabase.schema('nfe_vigia').from('service_order_approvals')
+        await supabase.schema('nfe_vigia').from('approvals')
           .update({ decision: 'neutro', is_minerva: true, responded_at: new Date().toISOString() })
           .eq('id', a.id);
       }
@@ -119,7 +119,7 @@ export function OSApprovalCard({ orderId, condoId, approvalType, title, isSindic
     }
     setActionLoading(true);
 
-    const { error } = await supabase.schema('nfe_vigia').from('service_order_approvals').update({
+    const { error } = await supabase.schema('nfe_vigia').from('approvals').update({
       decision,
       justification: justification.trim() || null,
       responded_at: new Date().toISOString(),
@@ -161,7 +161,7 @@ export function OSApprovalCard({ orderId, condoId, approvalType, title, isSindic
     setActionLoading(true);
 
     // Update all approvals with minerva info
-    const { error } = await supabase.schema('nfe_vigia').from('service_order_approvals')
+    const { error } = await supabase.schema('nfe_vigia').from('approvals')
       .update({
         is_minerva: true,
         minerva_justification: `Síndico exerceu voto de minerva — ${decision === 'aprovado' ? 'Aprovado' : 'Cancelado'} — Motivo: ${minervaJustification.trim()}`,

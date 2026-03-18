@@ -2,6 +2,8 @@ import { useState, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import { Label } from '@/components/ui/label';
 import { Camera, ImageIcon, Upload, X } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useToast } from '@/hooks/use-toast';
@@ -12,6 +14,7 @@ interface Photo {
   photo_type: string;
   file_url: string;
   file_name?: string | null;
+  observation?: string | null;
   created_at: string;
 }
 
@@ -26,6 +29,7 @@ interface Props {
 export function OSPhotosCard({ orderId, photos, photoUrls, canUploadFinalPhotos, onUploaded }: Props) {
   const { toast } = useToast();
   const [uploading, setUploading] = useState(false);
+  const [uploadObservation, setUploadObservation] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const problemPhotos = photos.filter((p) => p.photo_type === 'PROBLEMA');
@@ -34,6 +38,11 @@ export function OSPhotosCard({ orderId, photos, photoUrls, canUploadFinalPhotos,
   const handleUploadFinalPhotos = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files ?? []);
     if (files.length === 0) return;
+
+    if (!uploadObservation.trim()) {
+      toast({ title: 'Observação é obrigatória para fotos de execução', variant: 'destructive' });
+      return;
+    }
 
     const remaining = 5 - finalPhotos.length;
     if (files.length > remaining) {
@@ -63,6 +72,7 @@ export function OSPhotosCard({ orderId, photos, photoUrls, canUploadFinalPhotos,
           service_order_id: orderId,
           photo_type: 'EXECUCAO_FINAL',
           file_url: path,
+          observation: uploadObservation.trim(),
         });
 
       if (dbError) {
@@ -74,6 +84,7 @@ export function OSPhotosCard({ orderId, photos, photoUrls, canUploadFinalPhotos,
 
     toast({ title: 'Fotos finais enviadas com sucesso' });
     setUploading(false);
+    setUploadObservation('');
     if (fileInputRef.current) fileInputRef.current.value = '';
     onUploaded();
   };
@@ -83,18 +94,23 @@ export function OSPhotosCard({ orderId, photos, photoUrls, canUploadFinalPhotos,
       return <p className="text-sm text-muted-foreground">Nenhuma foto.</p>;
     }
     return (
-      <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
         {items.map((doc) => {
           const signedUrl = photoUrls[doc.id];
           if (!signedUrl) return null;
           return (
-            <a key={doc.id} href={signedUrl} target="_blank" rel="noopener noreferrer">
-              <img
-                src={signedUrl}
-                alt={doc.file_name ?? 'Foto'}
-                className="h-24 w-full rounded-md object-cover border border-border hover:opacity-80 transition-opacity"
-              />
-            </a>
+            <div key={doc.id} className="space-y-1">
+              <a href={signedUrl} target="_blank" rel="noopener noreferrer">
+                <img
+                  src={signedUrl}
+                  alt={doc.file_name ?? 'Foto'}
+                  className="h-24 w-full rounded-md object-cover border border-border hover:opacity-80 transition-opacity"
+                />
+              </a>
+              {doc.observation && (
+                <p className="text-xs text-muted-foreground leading-snug">{doc.observation}</p>
+              )}
+            </div>
           );
         })}
       </div>
@@ -131,7 +147,17 @@ export function OSPhotosCard({ orderId, photos, photoUrls, canUploadFinalPhotos,
           {renderPhotoGrid(finalPhotos)}
 
           {canUploadFinalPhotos && finalPhotos.length < 5 && (
-            <div className="mt-3">
+            <div className="mt-3 space-y-2">
+              <div className="space-y-1">
+                <Label className="text-xs text-muted-foreground">Observação das fotos de execução *</Label>
+                <Textarea
+                  placeholder="Descreva o serviço executado..."
+                  value={uploadObservation}
+                  onChange={(e) => setUploadObservation(e.target.value)}
+                  rows={2}
+                  disabled={uploading}
+                />
+              </div>
               <Input
                 ref={fileInputRef}
                 type="file"

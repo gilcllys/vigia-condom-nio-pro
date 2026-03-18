@@ -31,7 +31,8 @@ interface Provider {
 interface Props {
   orderId: string;
   condoId: string;
-  isEmergency: boolean;
+  priority: string;
+  executorType: string | null;
   isSindico: boolean;
   isAdmin?: boolean;
   canCriticalActions: boolean;
@@ -45,7 +46,7 @@ const statusBadge: Record<string, { label: string; variant: 'default' | 'seconda
   rejeitado: { label: 'Rejeitado', variant: 'destructive' },
 };
 
-export function OSBudgetsCard({ orderId, condoId, isEmergency, isSindico, isAdmin = false, canCriticalActions, status, onSubmittedForApproval }: Props) {
+export function OSBudgetsCard({ orderId, condoId, priority, executorType, isSindico, isAdmin = false, canCriticalActions, status, onSubmittedForApproval }: Props) {
   const { toast } = useToast();
   const [budgets, setBudgets] = useState<Budget[]>([]);
   const [providers, setProviders] = useState<Provider[]>([]);
@@ -59,11 +60,10 @@ export function OSBudgetsCard({ orderId, condoId, isEmergency, isSindico, isAdmi
     amount: '',
     valid_until: '',
   });
-  
+
 
   const isNotFinished = status !== 'FINALIZADA' && status !== 'CANCELADA';
   const canManage = (isSindico || isAdmin || canCriticalActions) && isNotFinished;
-  const minBudgets = isEmergency ? 1 : 3;
 
   const fetchBudgets = async () => {
     setLoading(true);
@@ -90,6 +90,11 @@ export function OSBudgetsCard({ orderId, condoId, isEmergency, isSindico, isAdmi
 
   useEffect(() => { fetchBudgets(); }, [orderId]);
   useEffect(() => { if (condoId) fetchProviders(); }, [condoId]);
+
+  // EQUIPE_INTERNA: skip budgets entirely (after all hooks)
+  if (executorType === 'EQUIPE_INTERNA') return null;
+  // ALTA priority: 0 budgets needed (emergency), BAIXA: 3 required
+  const minBudgets = priority === 'ALTA' ? 0 : 3;
 
   const handleOpenModal = () => {
     setForm({ provider_id: '', description: '', amount: '', valid_until: '' });
@@ -169,7 +174,7 @@ export function OSBudgetsCard({ orderId, condoId, isEmergency, isSindico, isAdmi
     if (pendingBudgets.length < minBudgets) {
       toast({
         title: `Mínimo de ${minBudgets} orçamento(s) pendente(s) necessário(s)`,
-        description: isEmergency
+        description: priority === 'ALTA'
           ? 'OS emergencial requer ao menos 1 orçamento.'
           : 'São necessários ao menos 3 orçamentos para enviar para aprovação.',
         variant: 'destructive',
@@ -199,6 +204,7 @@ export function OSBudgetsCard({ orderId, condoId, isEmergency, isSindico, isAdmi
     console.log('[OSBudgetsCard] Todos user_condos para este condo:', allUserCondos);
 
     const { data: approvers, error: approversError } = await supabase
+      .schema('nfe_vigia')
       .from('user_condos')
       .select('user_id, role')
       .eq('condo_id', condoId)
@@ -226,12 +232,12 @@ export function OSBudgetsCard({ orderId, condoId, isEmergency, isSindico, isAdmi
     }));
 
     // Delete any existing budget approvals before inserting (idempotent re-submission)
-    await supabase.schema('nfe_vigia').from('service_order_approvals')
+    await supabase.schema('nfe_vigia').from('approvals')
       .delete()
       .eq('service_order_id', orderId)
       .eq('approval_type', 'ORCAMENTO');
 
-    const { error } = await supabase.schema('nfe_vigia').from('service_order_approvals').insert(approvalRecords);
+    const { error } = await supabase.schema('nfe_vigia').from('approvals').insert(approvalRecords);
 
     if (error) {
       toast({ title: 'Erro ao enviar para aprovação', description: error.message, variant: 'destructive' });
@@ -283,7 +289,7 @@ export function OSBudgetsCard({ orderId, condoId, isEmergency, isSindico, isAdmi
         ) : budgets.length === 0 ? (
           <div className="text-center py-4">
             <p className="text-sm text-muted-foreground">Nenhum orçamento registrado.</p>
-            {canManage && !isEmergency && (
+            {canManage && priority !== 'ALTA' && (
               <p className="text-xs text-muted-foreground mt-1">
                 Adicione ao menos 3 orçamentos para enviar para aprovação.
               </p>

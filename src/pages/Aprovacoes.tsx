@@ -215,7 +215,7 @@ export default function Aprovacoes() {
       const orderIds = (orders as any[]).map(o => o.id);
       const { data: approvalsData } = await supabase
         .schema('nfe_vigia')
-        .from('service_order_approvals')
+        .from('approvals')
         .select('service_order_id, approver_id, decision')
         .in('service_order_id', orderIds)
         .eq('approval_type', 'ORCAMENTO');

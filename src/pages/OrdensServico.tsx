@@ -51,13 +51,13 @@ interface SOForm {
   description: string;
   location: string;
   priority: string;
-  is_emergency: boolean;
-  emergency_justification: string;
+  executor_type: string;
+  photo_observation: string;
   provider_id: string;
   ticket_id: string;
 }
 
-const emptyForm: SOForm = { title: '', description: '', location: '', priority: 'MEDIA', is_emergency: false, emergency_justification: '', provider_id: '', ticket_id: '' };
+const emptyForm: SOForm = { title: '', description: '', location: '', priority: 'BAIXA', executor_type: 'PRESTADOR_EXTERNO', photo_observation: '', provider_id: '', ticket_id: '' };
 
 const statusLabel: Record<string, string> = {
   ABERTA: 'Aberta',
@@ -87,7 +87,6 @@ const priorityLabel: Record<string, string> = {
 export default function OrdensServico() {
   const { condoId, role } = useCondo();
   const { user } = useAuth();
-  const canSetEmergency = role === 'SINDICO' || role === 'ADMIN';
   const isMorador = role === 'MORADOR';
   const { toast } = useToast();
   const navigate = useNavigate();
@@ -201,8 +200,12 @@ export default function OrdensServico() {
       toast({ title: 'Título é obrigatório', variant: 'destructive' });
       return;
     }
-    if (form.is_emergency && !form.emergency_justification.trim()) {
-      toast({ title: 'Justificativa de emergência é obrigatória', variant: 'destructive' });
+    if (photos.length === 0) {
+      toast({ title: 'Foto inicial é obrigatória', variant: 'destructive' });
+      return;
+    }
+    if (photos.length > 0 && !form.photo_observation.trim()) {
+      toast({ title: 'Observação da foto é obrigatória', variant: 'destructive' });
       return;
     }
 
@@ -230,10 +233,10 @@ export default function OrdensServico() {
         description: form.description.trim() || null,
         location: form.location.trim() || null,
         priority: form.priority,
+        executor_type: form.executor_type,
         status: 'ABERTA',
         created_by: internalUser.id,
-        is_emergency: form.is_emergency,
-        emergency_justification: form.is_emergency ? form.emergency_justification.trim() || null : null,
+        is_emergency: form.priority === 'ALTA',
         provider_id: form.provider_id || null,
         ticket_id: form.ticket_id || null,
       })
@@ -261,7 +264,7 @@ export default function OrdensServico() {
       const path = `service-orders/${soId}/${crypto.randomUUID()}.${ext}`;
       const { error: uploadError } = await supabase.storage.from('service-order-photos').upload(path, photo, { contentType: photo.type });
       if (!uploadError) {
-        await supabase.schema('nfe_vigia').from('service_order_photos').insert({ service_order_id: soId, photo_type: 'PROBLEMA', file_url: path });
+        await supabase.schema('nfe_vigia').from('service_order_photos').insert({ service_order_id: soId, photo_type: 'PROBLEMA', file_url: path, observation: form.photo_observation || null });
       }
     }
 
@@ -410,23 +413,28 @@ export default function OrdensServico() {
               <Label htmlFor="so_location">Local do problema</Label>
               <Input id="so_location" placeholder="Ex: Bloco A, 2º andar" value={form.location} onChange={(e) => updateField('location', e.target.value)} />
             </div>
-            {canSetEmergency && (
-              <>
-                <div className="flex items-center justify-between rounded-lg border border-border p-3">
-                  <div className="flex items-center gap-2">
-                    <AlertTriangle className="h-4 w-4 text-destructive" />
-                    <Label htmlFor="so_emergency" className="cursor-pointer">Emergencial?</Label>
-                  </div>
-                  <Switch id="so_emergency" checked={form.is_emergency} onCheckedChange={(v) => setForm(prev => ({ ...prev, is_emergency: v, emergency_justification: v ? prev.emergency_justification : '' }))} />
-                </div>
-                {form.is_emergency && (
-                  <div className="space-y-2">
-                    <Label htmlFor="so_emergency_just">Justificativa de emergência *</Label>
-                    <Textarea id="so_emergency_just" placeholder="Descreva o motivo da emergência..." value={form.emergency_justification} onChange={(e) => setForm(prev => ({ ...prev, emergency_justification: e.target.value }))} />
-                  </div>
-                )}
-              </>
-            )}
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Prioridade *</Label>
+                <Select value={form.priority} onValueChange={(v) => updateField('priority', v)}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="BAIXA">Baixa</SelectItem>
+                    <SelectItem value="ALTA">Alta (Emergencial)</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>Executor *</Label>
+                <Select value={form.executor_type} onValueChange={(v) => updateField('executor_type', v)}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="PRESTADOR_EXTERNO">Prestador Externo</SelectItem>
+                    <SelectItem value="EQUIPE_INTERNA">Equipe Interna</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
             <div className="space-y-2">
               <Label>Prestador de Serviço</Label>
               <Select value={form.provider_id} onValueChange={(v) => setForm(prev => ({ ...prev, provider_id: v }))}>
@@ -446,7 +454,7 @@ export default function OrdensServico() {
               </Select>
             </div>
             <div className="space-y-2">
-              <Label>Fotos do problema (até 3)</Label>
+              <Label>Foto inicial do problema *</Label>
               <Input type="file" accept="image/*" multiple onChange={handlePhotoChange} disabled={photos.length >= 3} />
               {photos.length > 0 && (
                 <div className="flex gap-2 flex-wrap mt-2">
@@ -466,6 +474,18 @@ export default function OrdensServico() {
                       </button>
                     </div>
                   ))}
+                </div>
+              )}
+              {photos.length > 0 && (
+                <div className="space-y-1">
+                  <Label htmlFor="so_photo_obs" className="text-xs text-muted-foreground">Observação da foto *</Label>
+                  <Textarea
+                    id="so_photo_obs"
+                    placeholder="Descreva o problema observado na foto..."
+                    value={form.photo_observation}
+                    onChange={(e) => updateField('photo_observation', e.target.value)}
+                    rows={2}
+                  />
                 </div>
               )}
             </div>

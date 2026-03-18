@@ -43,7 +43,8 @@ export function PendingApprovalsCards() {
 
       // OS approvals (existing logic)
       const { data: myApprovals } = await supabase
-        .from('service_order_approvals')
+        .schema('nfe_vigia')
+        .from('approvals')
         .select('id, expires_at')
         .eq('condo_id', condoId)
         .eq('approver_id', internalUserId)
@@ -92,7 +93,8 @@ export function PendingApprovalsCards() {
       // Minerva for síndico
       if (isSindico) {
         const { data: minerva } = await supabase
-          .from('service_order_approvals')
+          .schema('nfe_vigia')
+          .from('approvals')
           .select('id')
           .eq('condo_id', condoId)
           .eq('is_minerva', true)
