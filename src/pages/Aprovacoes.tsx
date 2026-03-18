@@ -290,7 +290,8 @@ export default function Aprovacoes() {
 
       {/* ── Tab: NFs ─────────────────────────────────────────────────────── */}
       {activeTab === 'nf' && (
-          <div className="flex items-center justify-between gap-3 flex-wrap mb-4">
+        <>
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
             <p className="text-sm text-muted-foreground">Aprovações de Notas Fiscais do almoxarifado</p>
             <Select value={filterStatus} onValueChange={setFilterStatus}>
               <SelectTrigger className="w-[180px]">
@@ -305,7 +306,7 @@ export default function Aprovacoes() {
           </div>
 
           <div className="glass-card">
-            <div className="grid grid-cols-7 gap-4 px-5 py-3 text-xs font-medium uppercase tracking-wider text-muted-foreground border-b border-border/50">
+            <div className="grid grid-cols-7 gap-4 border-b border-border/50 px-5 py-3 text-xs font-medium uppercase tracking-wider text-muted-foreground">
               <span>Documento</span>
               <span>Fornecedor</span>
               <span>Valor</span>
@@ -324,28 +325,28 @@ export default function Aprovacoes() {
                 const tier = getTierBadgeFromRole(doc.nextPendingRole);
                 const deadline = getDeadlineInfo(doc.created_at, deadlineHours);
                 return (
-                  <div key={doc.id} className="grid grid-cols-7 gap-4 px-5 py-4 items-center border-b border-border/30 hover:bg-muted/30 transition-colors">
+                  <div key={doc.id} className="grid grid-cols-7 items-center gap-4 border-b border-border/30 px-5 py-4 transition-colors hover:bg-muted/30">
                     <div className="flex items-center gap-2">
                       <FileText className="h-4 w-4 text-muted-foreground" />
                       <span className="text-sm font-medium text-foreground">NF #{doc.number ?? '—'}</span>
                     </div>
-                    <span className="text-sm text-foreground truncate">{doc.supplier ?? '—'}</span>
+                    <span className="truncate text-sm text-foreground">{doc.supplier ?? '—'}</span>
                     <span className="text-sm text-foreground">
                       {doc.amount != null ? `R$ ${doc.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}` : '—'}
                     </span>
-                    <Badge className={`${tier.className} text-xs w-fit`}>{tier.label}</Badge>
+                    <Badge className={`${tier.className} w-fit text-xs`}>{tier.label}</Badge>
                     <div className="flex items-center gap-1 text-sm text-muted-foreground">
                       <Clock className="h-3 w-3" />
-                      <span className={deadline.expired ? 'text-destructive font-medium' : ''}>{deadline.label}</span>
+                      <span className={deadline.expired ? 'font-medium text-destructive' : ''}>{deadline.label}</span>
                     </div>
-                    <Badge variant={getStatusBadge(doc.status).variant} className="text-xs w-fit">
+                    <Badge variant={getStatusBadge(doc.status).variant} className="w-fit text-xs">
                       {getStatusBadge(doc.status).label}
                     </Badge>
                     <div className="flex justify-end">
                       <Button
                         size="sm"
                         variant="outline"
-                        className="h-7 text-xs border-primary/30 text-primary hover:bg-primary/10 gap-1"
+                        className="h-7 gap-1 border-primary/30 text-xs text-primary hover:bg-primary/10"
                         onClick={() => navigate(`/aprovacoes/${doc.id}`)}
                       >
                         <Search className="h-3 w-3" />
@@ -357,16 +358,18 @@ export default function Aprovacoes() {
               })
             )}
           </div>
+        </>
       )}
 
       {/* ── Tab: OS Orçamentos ───────────────────────────────────────────── */}
       {activeTab === 'os' && (
+        <>
           <div className="mb-4">
             <p className="text-sm text-muted-foreground">Ordens de Serviço aguardando aprovação de orçamentos</p>
           </div>
 
           <div className="glass-card">
-            <div className="grid grid-cols-6 gap-4 px-5 py-3 text-xs font-medium uppercase tracking-wider text-muted-foreground border-b border-border/50">
+            <div className="grid grid-cols-6 gap-4 border-b border-border/50 px-5 py-3 text-xs font-medium uppercase tracking-wider text-muted-foreground">
               <span className="col-span-2">Ordem de Serviço</span>
               <span>Prioridade</span>
               <span>Votos pendentes</span>
@@ -382,16 +385,16 @@ export default function Aprovacoes() {
               </div>
             ) : (
               pendingOS.map((os) => (
-                <div key={os.id} className="grid grid-cols-6 gap-4 px-5 py-4 items-center border-b border-border/30 hover:bg-muted/30 transition-colors">
+                <div key={os.id} className="grid grid-cols-6 items-center gap-4 border-b border-border/30 px-5 py-4 transition-colors hover:bg-muted/30">
                   <div className="col-span-2 space-y-1">
                     <div className="flex items-center gap-2">
-                      <Clipboard className="h-4 w-4 text-muted-foreground" />
-                      <span className="text-sm font-medium text-foreground truncate">{os.title}</span>
+                      <ClipboardList className="h-4 w-4 text-muted-foreground" />
+                      <span className="truncate text-sm font-medium text-foreground">{os.title}</span>
                       {os.is_emergency && (
                         <Badge variant="destructive" className="text-xs">Emergencial</Badge>
                       )}
                     </div>
-                    <p className="text-xs text-muted-foreground pl-6">OS #{os.id.slice(0, 8)}</p>
+                    <p className="pl-6 text-xs text-muted-foreground">OS #{os.id.slice(0, 8)}</p>
                   </div>
                   <span className="text-sm text-foreground">
                     {os.priority ? (priorityLabel[os.priority] ?? os.priority) : '—'}
@@ -413,7 +416,7 @@ export default function Aprovacoes() {
                     <Button
                       size="sm"
                       variant="outline"
-                      className="h-7 text-xs border-primary/30 text-primary hover:bg-primary/10 gap-1"
+                      className="h-7 gap-1 border-primary/30 text-xs text-primary hover:bg-primary/10"
                       onClick={() => navigate(`/ordens-servico/${os.id}`)}
                     >
                       <Search className="h-3 w-3" />
@@ -424,16 +427,19 @@ export default function Aprovacoes() {
               ))
             )}
           </div>
+        </>
       )}
 
       {/* ── Tab: Contratos ───────────────────────────────────────────────── */}
       {activeTab === 'contratos' && (
+        <>
           <div className="mb-4">
             <p className="text-sm text-muted-foreground">Contratos aguardando aprovação</p>
           </div>
           <div className="glass-card px-5 py-12 text-center text-sm text-muted-foreground">
             Aprovação de contratos será disponibilizada em breve.
           </div>
+        </>
       )}
     </div>
   );
