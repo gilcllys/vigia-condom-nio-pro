@@ -15,16 +15,9 @@ export function DashboardStatCards({ counts, loading, role }: DashboardStatCards
 
   const budgetPercent = budgetTotal > 0 ? Math.min(100, Math.round((budgetUsed / budgetTotal) * 100)) : 0;
 
+  // Order: Orçamento Mensal, NFs Pendentes, Aprovações Pendentes
+  // (Risco de Fraude is rendered first by Dashboard.tsx before these cards)
   const cards = [
-    {
-      icon: AlertTriangle,
-      label: 'NFs Pendentes',
-      value: nfsPendentes,
-      iconColor: 'text-warning',
-      iconBg: 'bg-warning/10',
-      badge: nfsPendentes > 0 ? '⚠' : undefined,
-      path: '/notas-fiscais?status=pendente',
-    },
     {
       icon: DollarSign,
       label: 'Orçamento Mensal',
@@ -44,6 +37,15 @@ export function DashboardStatCards({ counts, loading, role }: DashboardStatCards
       ),
     },
     {
+      icon: AlertTriangle,
+      label: 'NFs Pendentes',
+      value: nfsPendentes,
+      iconColor: 'text-warning',
+      iconBg: 'bg-warning/10',
+      badge: nfsPendentes > 0 ? '⚠' : undefined,
+      path: '/notas-fiscais?status=pendente',
+    },
+    {
       icon: Clock,
       label: 'Aprovações Pendentes',
       value: aprovacoesPendentes,
@@ -56,7 +58,7 @@ export function DashboardStatCards({ counts, loading, role }: DashboardStatCards
   ];
 
   return (
-    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+    <>
       {cards.map(({ icon: Icon, label, value, iconColor, iconBg, badge, badgeColor, custom, path }) => (
         <div
           key={label}
@@ -86,6 +88,6 @@ export function DashboardStatCards({ counts, loading, role }: DashboardStatCards
           )}
         </div>
       ))}
-    </div>
+    </>
   );
 }

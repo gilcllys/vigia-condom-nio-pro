@@ -68,12 +68,10 @@ export default function Dashboard() {
 
   return (
     <div className="space-y-6">
-      {/* Stat Cards Row */}
-      <DashboardStatCards counts={counts} loading={loading} role={role} />
-
-      {/* Risk Analysis Card */}
+      {/* Top row: 4 cards — Risco de Fraude, Orçamento Mensal, NFs Pendentes, Aprovações Pendentes */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <DashboardRiskCard />
+        <DashboardStatCards counts={counts} loading={loading} role={role} />
       </div>
 
       {/* Middle row: Approvals + Alerts */}
