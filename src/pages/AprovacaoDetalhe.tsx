@@ -289,7 +289,7 @@ export default function AprovacaoDetalhe() {
             NF #{doc.number ?? '—'}
           </h1>
           <Badge variant={doc.status === 'PENDENTE' ? 'default' : doc.status === 'PROCESSADO' ? 'secondary' : 'destructive'}>
-            {doc.status}
+            {{ PENDENTE: 'Pendente', PROCESSADO: 'Aprovado', CANCELADO: 'Cancelado' }[doc.status] ?? doc.status}
           </Badge>
         </div>
 
