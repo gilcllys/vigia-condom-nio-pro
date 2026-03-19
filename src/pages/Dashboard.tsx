@@ -2,25 +2,6 @@ import { useEffect, useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useCondo } from '@/contexts/CondoContext';
 import { supabase } from '@/lib/supabase';
-import { Skeleton } from '@/components/ui/skeleton';
-import {
-  Users,
-  FileText,
-  Activity,
-  Bell,
-  CheckCircle2,
-  Info,
-  Plus,
-  Pencil,
-  Trash2,
-  AlertTriangle,
-  DollarSign,
-  ChevronRight,
-  Clock,
-} from 'lucide-react';
-import { formatDistanceToNow } from 'date-fns';
-import { ptBR } from 'date-fns/locale';
-import { PendingApprovalsCards } from '@/components/dashboard/PendingApprovalsCards';
 import { DashboardStatCards } from '@/components/dashboard/DashboardStatCards';
 import { DashboardApprovals } from '@/components/dashboard/DashboardApprovals';
 import { DashboardAlerts } from '@/components/dashboard/DashboardAlerts';
@@ -30,7 +11,7 @@ import { DashboardRiskCard } from '@/components/dashboard/DashboardRiskCard';
 export default function Dashboard() {
   const { user } = useAuth();
   const { condoId, condoName, role } = useCondo();
-  const [counts, setCounts] = useState({ condos: 0, residents: 0, invoices: 0 });
+  const [counts, setCounts] = useState({ nfsPendentes: 0, aprovacoesPendentes: 0, budgetTotal: 0, budgetUsed: 0 });
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -42,26 +23,41 @@ export default function Dashboard() {
     const fetchData = async () => {
       setLoading(true);
 
-      const [condosRes, residentsRes, invoicesRes] = await Promise.all([
-        supabase.schema('nfe_vigia').rpc('get_my_condos'),
+      const startOfMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString();
+
+      const [nfsRes, aprovRes, configRes, spendingRes] = await Promise.all([
         supabase
-          .schema('nfe_vigia')
-          .from('residents')
+          .from('fiscal_documents')
           .select('*', { count: 'exact', head: true })
-          .eq('condo_id', condoId),
+          .eq('condo_id', condoId)
+          .eq('status', 'PENDENTE'),
         supabase
-          .schema('nfe_vigia')
-          .from('invoices')
+          .from('fiscal_document_approvals')
           .select('*', { count: 'exact', head: true })
-          .eq('condo_id', condoId),
+          .eq('condo_id', condoId)
+          .eq('decision', 'PENDENTE'),
+        supabase
+          .from('condo_financial_config')
+          .select('annual_budget')
+          .eq('condo_id', condoId)
+          .maybeSingle(),
+        supabase
+          .from('fiscal_documents')
+          .select('amount')
+          .eq('condo_id', condoId)
+          .eq('status', 'APROVADO')
+          .gte('created_at', startOfMonth),
       ]);
 
-      const condoCount = Array.isArray(condosRes.data) ? condosRes.data.length : 0;
+      const budgetTotal = (configRes.data as { annual_budget: number | null } | null)?.annual_budget ?? 0;
+      const spendingData = spendingRes.data as { amount: number | null }[] | null;
+      const budgetUsed = spendingData?.reduce((sum, d) => sum + (d.amount ?? 0), 0) ?? 0;
 
       setCounts({
-        condos: condoCount,
-        residents: residentsRes.count ?? 0,
-        invoices: invoicesRes.error ? 0 : (invoicesRes.count ?? 0),
+        nfsPendentes: nfsRes.count ?? 0,
+        aprovacoesPendentes: aprovRes.count ?? 0,
+        budgetTotal,
+        budgetUsed,
       });
 
       setLoading(false);

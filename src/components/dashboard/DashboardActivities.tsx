@@ -2,8 +2,18 @@ import { useEffect, useState } from 'react';
 import { Activity, ChevronRight, User, Inbox } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useCondo } from '@/contexts/CondoContext';
-import { formatDistanceToNow } from 'date-fns';
-import { ptBR } from 'date-fns/locale';
+
+function formatDateTime(dateStr: string): string {
+  const date = new Date(dateStr);
+  const now = new Date();
+  const timeStr = date.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const yesterday = new Date(today.getTime() - 24 * 60 * 60 * 1000);
+  const dateDay = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  if (dateDay.getTime() === today.getTime()) return `hoje às ${timeStr}`;
+  if (dateDay.getTime() === yesterday.getTime()) return `ontem às ${timeStr}`;
+  return date.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }) + ` às ${timeStr}`;
+}
 
 interface ActivityItem {
   id: string;
@@ -89,7 +99,7 @@ export function DashboardActivities() {
               </div>
               <div className="flex items-center gap-2">
                 <span className="text-xs text-muted-foreground whitespace-nowrap">
-                  {formatDistanceToNow(new Date(item.created_at), { addSuffix: true, locale: ptBR })}
+                  {formatDateTime(item.created_at)}
                 </span>
                 <ChevronRight className="h-4 w-4 text-muted-foreground" />
               </div>

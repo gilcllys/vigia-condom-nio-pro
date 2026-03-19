@@ -12,7 +12,6 @@ import Cadastro from "./pages/Cadastro";
 import NoCondo from "./pages/NoCondo";
 import Dashboard from "./pages/Dashboard";
 import Condominios from "./pages/Condominios";
-import Moradores from "./pages/Moradores";
 import Configuracoes from "./pages/Configuracoes";
 import OrdensServico from "./pages/OrdensServico";
 import OrdemServicoDetalhe from "./pages/OrdemServicoDetalhe";
@@ -50,7 +49,7 @@ const App = () => (
               >
                 <Route path="/dashboard" element={<Dashboard />} />
                 <Route path="/condominios" element={<Condominios />} />
-                <Route path="/moradores" element={<Moradores />} />
+                <Route path="/moradores" element={<Navigate to="/configuracoes" replace />} />
                 <Route path="/prestadores" element={<Prestadores />} />
                 <Route path="/ordens-servico" element={<OrdensServico />} />
                 <Route path="/ordens-servico/:id" element={<OrdemServicoDetalhe />} />

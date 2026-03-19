@@ -1,37 +1,28 @@
-import { Users, FileText, AlertTriangle, DollarSign, Clock } from 'lucide-react';
+import { AlertTriangle, DollarSign, Clock } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Progress } from '@/components/ui/progress';
 import { useNavigate } from 'react-router-dom';
 
 interface DashboardStatCardsProps {
-  counts: { residents: number; condos: number; invoices: number };
+  counts: { nfsPendentes: number; aprovacoesPendentes: number; budgetTotal: number; budgetUsed: number };
   loading: boolean;
   role: string | null;
 }
 
 export function DashboardStatCards({ counts, loading, role }: DashboardStatCardsProps) {
   const navigate = useNavigate();
+  const { nfsPendentes, aprovacoesPendentes, budgetTotal, budgetUsed } = counts;
 
-  const budgetUsed = 45320;
-  const budgetTotal = 60000;
-  const budgetPercent = Math.round((budgetUsed / budgetTotal) * 100);
+  const budgetPercent = budgetTotal > 0 ? Math.min(100, Math.round((budgetUsed / budgetTotal) * 100)) : 0;
 
   const cards = [
     {
-      icon: Users,
-      label: 'Moradores',
-      value: counts.residents,
-      iconColor: 'text-primary',
-      iconBg: 'bg-primary/10',
-      path: '/moradores',
-    },
-    {
       icon: AlertTriangle,
       label: 'NFs Pendentes',
-      value: counts.invoices,
+      value: nfsPendentes,
       iconColor: 'text-warning',
       iconBg: 'bg-warning/10',
-      badge: counts.invoices > 0 ? '⚠' : undefined,
+      badge: nfsPendentes > 0 ? '⚠' : undefined,
       path: '/notas-fiscais?status=pendente',
     },
     {
@@ -44,7 +35,7 @@ export function DashboardStatCards({ counts, loading, role }: DashboardStatCards
       custom: (
         <div>
           <p className="text-2xl font-bold tabular-nums text-foreground">
-            R$ {budgetUsed.toLocaleString('pt-BR')}
+            R$ {budgetUsed.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
             <span className="text-sm font-normal text-muted-foreground"> / {budgetTotal.toLocaleString('pt-BR')}</span>
           </p>
           <Progress value={budgetPercent} className="mt-2 h-2" />
@@ -55,17 +46,17 @@ export function DashboardStatCards({ counts, loading, role }: DashboardStatCards
     {
       icon: Clock,
       label: 'Aprovações Pendentes',
-      value: 5,
+      value: aprovacoesPendentes,
       iconColor: 'text-destructive',
       iconBg: 'bg-destructive/10',
-      badge: '!',
+      badge: aprovacoesPendentes > 0 ? '!' : undefined,
       badgeColor: 'bg-destructive',
       path: '/aprovacoes',
     },
   ];
 
   return (
-    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
       {cards.map(({ icon: Icon, label, value, iconColor, iconBg, badge, badgeColor, custom, path }) => (
         <div
           key={label}
