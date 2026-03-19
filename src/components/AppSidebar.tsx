@@ -1,4 +1,4 @@
-import { LayoutDashboard, Building2, Settings, LogOut, ClipboardList, FileText, Warehouse, Eye, Briefcase, ShieldCheck, FileSignature } from 'lucide-react';
+import { LayoutDashboard, Building2, Users, Settings, LogOut, ClipboardList, FileText, Warehouse, Eye, Briefcase, ShieldCheck, FileSignature } from 'lucide-react';
 import { NavLink } from '@/components/NavLink';
 import { useLocation } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
@@ -30,6 +30,7 @@ const allMenuItems: MenuItem[] = [
   { title: 'Almoxarifado', url: '/almoxarifado', icon: Warehouse },
   { title: 'Contratos', url: '/contratos', icon: FileSignature },
   { title: 'Portal da Transparência', url: '/transparencia', icon: Eye },
+  { title: 'Moradores', url: '/moradores', icon: Users },
   { title: 'Prestadores', url: '/prestadores', icon: Briefcase },
   { title: 'Configurações', url: '/configuracoes', icon: Settings },
   { title: 'Condomínios', url: '/condominios', icon: Building2 },
@@ -40,8 +41,8 @@ const MENU_BY_ROLE: Record<string, string[]> = {
   ZELADOR: ['/dashboard', '/ordens-servico', '/almoxarifado', '/transparencia'],
   SUBSINDICO: ['/dashboard', '/ordens-servico', '/aprovacoes', '/notas-fiscais', '/almoxarifado', '/contratos', '/transparencia'],
   CONSELHO: ['/dashboard', '/ordens-servico', '/aprovacoes', '/notas-fiscais', '/almoxarifado', '/contratos', '/transparencia'],
-  SINDICO: ['/dashboard', '/ordens-servico', '/aprovacoes', '/notas-fiscais', '/almoxarifado', '/contratos', '/transparencia', '/prestadores', '/configuracoes'],
-  ADMIN: ['/dashboard', '/ordens-servico', '/aprovacoes', '/notas-fiscais', '/almoxarifado', '/contratos', '/transparencia', '/prestadores', '/configuracoes', '/condominios'],
+  SINDICO: ['/dashboard', '/ordens-servico', '/aprovacoes', '/notas-fiscais', '/almoxarifado', '/contratos', '/transparencia', '/moradores', '/prestadores', '/configuracoes'],
+  ADMIN: ['/dashboard', '/ordens-servico', '/aprovacoes', '/notas-fiscais', '/almoxarifado', '/contratos', '/transparencia', '/moradores', '/prestadores', '/configuracoes', '/condominios'],
 };
 
 export function AppSidebar() {
