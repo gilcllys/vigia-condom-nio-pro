@@ -1,4 +1,4 @@
-import { LayoutDashboard, Building2, Users, Settings, LogOut, ClipboardList, FileText, Warehouse, Eye, Briefcase, ShieldCheck, FileSignature } from 'lucide-react';
+import { LayoutDashboard, Building2, Users, Settings, LogOut, ClipboardList, FileText, Warehouse, Eye, Briefcase, ShieldCheck, FileSignature, CreditCard } from 'lucide-react';
 import { NavLink } from '@/components/NavLink';
 import { useLocation } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
@@ -34,6 +34,7 @@ const allMenuItems: MenuItem[] = [
   { title: 'Prestadores', url: '/prestadores', icon: Briefcase },
   { title: 'Configurações', url: '/configuracoes', icon: Settings },
   { title: 'Condomínios', url: '/condominios', icon: Building2 },
+  { title: 'Cobrança', url: '/billing', icon: CreditCard },
 ];
 
 const MENU_BY_ROLE: Record<string, string[]> = {
@@ -41,8 +42,8 @@ const MENU_BY_ROLE: Record<string, string[]> = {
   ZELADOR: ['/dashboard', '/ordens-servico', '/almoxarifado', '/transparencia'],
   SUBSINDICO: ['/dashboard', '/ordens-servico', '/aprovacoes', '/notas-fiscais', '/almoxarifado', '/contratos', '/transparencia'],
   CONSELHO: ['/dashboard', '/ordens-servico', '/aprovacoes', '/notas-fiscais', '/almoxarifado', '/contratos', '/transparencia'],
-  SINDICO: ['/dashboard', '/ordens-servico', '/aprovacoes', '/notas-fiscais', '/almoxarifado', '/contratos', '/transparencia', '/moradores', '/prestadores', '/configuracoes'],
-  ADMIN: ['/dashboard', '/ordens-servico', '/aprovacoes', '/notas-fiscais', '/almoxarifado', '/contratos', '/transparencia', '/moradores', '/prestadores', '/configuracoes', '/condominios'],
+  SINDICO: ['/dashboard', '/ordens-servico', '/aprovacoes', '/notas-fiscais', '/almoxarifado', '/contratos', '/transparencia', '/moradores', '/prestadores', '/configuracoes', '/billing'],
+  ADMIN: ['/dashboard', '/ordens-servico', '/aprovacoes', '/notas-fiscais', '/almoxarifado', '/contratos', '/transparencia', '/moradores', '/prestadores', '/configuracoes', '/condominios', '/billing'],
 };
 
 export function AppSidebar() {

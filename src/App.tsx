@@ -2,7 +2,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate, Outlet } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { CondoProvider } from "@/contexts/CondoContext";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
@@ -24,7 +24,9 @@ import Aprovacoes from "./pages/Aprovacoes";
 import AprovacaoDetalhe from "./pages/AprovacaoDetalhe";
 import ResetPassword from "./pages/ResetPassword";
 import Contratos from "./pages/Contratos";
+import Billing from "./pages/Billing";
 import NotFound from "./pages/NotFound";
+import { BillingGuard } from "@/components/BillingGuard";
 
 const queryClient = new QueryClient();
 
@@ -48,6 +50,8 @@ const App = () => (
                   </ProtectedRoute>
                 }
               >
+                <Route path="/billing" element={<Billing />} />
+                <Route element={<BillingGuard><Outlet /></BillingGuard>}>
                 <Route path="/dashboard" element={<Dashboard />} />
                 <Route path="/condominios" element={<Condominios />} />
                 <Route path="/moradores" element={<Moradores />} />
@@ -61,6 +65,7 @@ const App = () => (
                 <Route path="/contratos" element={<Contratos />} />
                 <Route path="/transparencia" element={<Transparencia />} />
                 <Route path="/configuracoes" element={<Configuracoes />} />
+                </Route>
               </Route>
               <Route path="/" element={<Navigate to="/dashboard" replace />} />
               <Route path="*" element={<NotFound />} />
