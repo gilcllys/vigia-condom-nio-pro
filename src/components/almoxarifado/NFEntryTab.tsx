@@ -10,6 +10,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { Camera, Upload, Loader2, Plus, Trash2, FileText } from 'lucide-react';
+import { sendApprovalEmails } from '@/lib/send-approval-email';
 
 interface ExtractedItem {
   nome: string;
@@ -61,7 +62,7 @@ async function fileToBase64(file: File): Promise<string> {
 }
 
 export default function NFEntryTab() {
-  const { condoId } = useCondo();
+  const { condoId, condoName } = useCondo();
   const { user } = useAuth();
   const { toast } = useToast();
   const { config } = useFinancialConfig(condoId);
@@ -325,6 +326,13 @@ export default function NFEntryTab() {
         await supabase
           .from('fiscal_document_approvals')
           .insert(approvalRows);
+
+        // Notificar aprovadores por e-mail (fire-and-forget)
+        void sendApprovalEmails('NF', approvers.map((a: any) => a.user_id), {
+          title: `NF #${nfData.numero_nf}${nfData.fornecedor ? ` — ${nfData.fornecedor}` : ''}`,
+          amount: nfData.valor_total || undefined,
+          condo_name: condoName ?? condoId ?? '',
+        });
       }
 
       if (missingRoles.length > 0) {

@@ -10,6 +10,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogD
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { logSOActivity } from '@/lib/so-activity-log';
+import { sendApprovalEmails } from '@/lib/send-approval-email';
+import { useCondo } from '@/contexts/CondoContext';
 import { DollarSign, Plus, Send, Trash2, FileText, Calendar } from 'lucide-react';
 
 interface Budget {
@@ -30,6 +32,7 @@ interface Provider {
 
 interface Props {
   orderId: string;
+  orderTitle?: string;
   condoId: string;
   priority: string;
   executorType: string | null;
@@ -46,8 +49,9 @@ const statusBadge: Record<string, { label: string; variant: 'default' | 'seconda
   rejeitado: { label: 'Rejeitado', variant: 'destructive' },
 };
 
-export function OSBudgetsCard({ orderId, condoId, priority, executorType, isSindico, isAdmin = false, canCriticalActions, status, onSubmittedForApproval }: Props) {
+export function OSBudgetsCard({ orderId, orderTitle, condoId, priority, executorType, isSindico, isAdmin = false, canCriticalActions, status, onSubmittedForApproval }: Props) {
   const { toast } = useToast();
+  const { condoName } = useCondo();
   const [budgets, setBudgets] = useState<Budget[]>([]);
   const [providers, setProviders] = useState<Provider[]>([]);
   const [loading, setLoading] = useState(true);
@@ -252,6 +256,13 @@ export function OSBudgetsCard({ orderId, condoId, priority, executorType, isSind
         description: 'Orçamentos enviados para aprovação — aguardando Subsíndico e Conselheiros',
       });
       toast({ title: 'Orçamentos enviados para aprovação' });
+
+      // Notificar aprovadores por e-mail (fire-and-forget)
+      void sendApprovalEmails('OS_ORCAMENTO', approvers.map((a: any) => a.user_id), {
+        title: orderTitle ?? `OS ${orderId.slice(0, 8)}`,
+        condo_name: condoName ?? condoId,
+      });
+
       onSubmittedForApproval();
     }
     setSubmitting(false);

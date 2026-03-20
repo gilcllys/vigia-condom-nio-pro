@@ -7,6 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
 import { logActivity } from '@/lib/activity-log';
+import { sendApprovalEmails } from '@/lib/send-approval-email';
 import { logSOActivity } from '@/lib/so-activity-log';
 import { ArrowLeft, FileDown, Send, Package, Play, CheckCircle2, XCircle } from 'lucide-react';
 
@@ -274,6 +275,12 @@ export default function OrdemServicoDetalhe() {
         action: 'APROVACAO_FINAL_ENVIADA',
         description: 'OS enviada para aprovação final — aguardando Subsíndico e Conselheiros',
       });
+      // Notificar aprovadores por e-mail (fire-and-forget)
+      void sendApprovalEmails('OS_FINAL', approvers.map((a: any) => a.user_id), {
+        title: order.title,
+        condo_name: condoName ?? condoId ?? '',
+      });
+
       toast({ title: 'OS enviada para aprovação final' });
       fetchAll();
     }
@@ -482,6 +489,7 @@ export default function OrdemServicoDetalhe() {
       {condoId && order.executor_type !== 'EQUIPE_INTERNA' && (
         <OSBudgetsCard
           orderId={order.id}
+          orderTitle={order.title}
           condoId={condoId}
           priority={order.priority ?? 'BAIXA'}
           executorType={order.executor_type}

@@ -11,6 +11,7 @@ import {
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { supabase } from '@/lib/supabase';
+import { sendApprovalEmails } from '@/lib/send-approval-email';
 import { useCondo } from '@/contexts/CondoContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
@@ -79,7 +80,7 @@ function getTypeBadge(type: string) {
 }
 
 export default function Contratos() {
-  const { condoId, role } = useCondo();
+  const { condoId, condoName, role } = useCondo();
   const { user } = useAuth();
   const { toast } = useToast();
   const [contracts, setContracts] = useState<Contract[]>([]);
@@ -227,6 +228,14 @@ export default function Contratos() {
       toast({ title: 'Erro ao criar registros de aprovação', description: approvalError.message, variant: 'destructive' });
     } else {
       toast({ title: 'Contrato enviado para aprovação' });
+
+      // Notificar aprovadores por e-mail (fire-and-forget)
+      void sendApprovalEmails('CONTRATO', records.map((r: any) => r.approver_user_id), {
+        title: contract.title,
+        amount: contract.value ?? undefined,
+        condo_name: condoName ?? condoId ?? '',
+      });
+
       fetchContracts();
     }
 

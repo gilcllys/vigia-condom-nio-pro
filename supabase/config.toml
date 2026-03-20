@@ -5,3 +5,6 @@ verify_jwt = false
 
 [functions.analyze-provider-risk]
 verify_jwt = false
+
+[functions.send-approval-email]
+verify_jwt = false
