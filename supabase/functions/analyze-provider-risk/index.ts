@@ -38,12 +38,12 @@ serve(async (req) => {
   }
 
   try {
-    const apiKey = Deno.env.get("VITE_ANTHROPIC_API_KEY");
+    const apiKey = Deno.env.get("ANTHROPIC_API_KEY");
     console.log("API key exists:", !!apiKey);
     console.log("API key length:", apiKey?.length || 0);
 
     if (!apiKey) {
-      console.error("VITE_ANTHROPIC_API_KEY is not set!");
+      console.error("ANTHROPIC_API_KEY is not set!");
       return new Response(
         JSON.stringify({ error: "ANTHROPIC_API_KEY is not configured in secrets" }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
