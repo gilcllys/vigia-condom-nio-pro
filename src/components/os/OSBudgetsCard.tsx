@@ -152,12 +152,9 @@ export function OSBudgetsCard({ orderId, orderTitle, condoId, priority, executor
       valid_until: form.valid_until || null,
       created_by_user_id: nfeUserId,
     };
-    console.log('[OSBudgetsCard] Insert payload:', JSON.stringify(insertPayload, null, 2));
-
     const { error } = await supabase.schema('nfe_vigia').from('budgets').insert(insertPayload);
 
     if (error) {
-      console.error('[OSBudgetsCard] Insert error:', JSON.stringify(error, null, 2));
       toast({ title: 'Erro ao adicionar orçamento', variant: 'destructive' });
     } else {
       toast({ title: 'Orçamento adicionado com sucesso' });
@@ -197,25 +194,13 @@ export function OSBudgetsCard({ orderId, orderTitle, condoId, priority, executor
 
     const deadlineHours = config?.approval_deadline_hours ?? 48;
 
-    console.log('[OSBudgetsCard] condoId usado na query de aprovadores:', condoId);
-
-    const { data: allUserCondos } = await supabase
-      .schema('nfe_vigia')
-      .from('user_condos')
-      .select('user_id, role, status, condo_id')
-      .eq('condo_id', condoId);
-
-    console.log('[OSBudgetsCard] Todos user_condos para este condo:', allUserCondos);
-
-    const { data: approvers, error: approversError } = await supabase
+    const { data: approvers } = await supabase
       .schema('nfe_vigia')
       .from('user_condos')
       .select('user_id, role')
       .eq('condo_id', condoId)
       .in('role', ['SUBSINDICO', 'CONSELHO'])
       .eq('status', 'ativo');
-
-    console.log('[OSBudgetsCard] Aprovadores filtrados:', approvers, 'Erro:', approversError);
 
     if (!approvers || approvers.length === 0) {
       toast({ title: 'Nenhum aprovador encontrado', description: 'Cadastre Subsíndico ou Conselheiros antes de enviar para aprovação.', variant: 'destructive' });

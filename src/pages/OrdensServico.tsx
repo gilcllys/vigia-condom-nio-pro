@@ -15,7 +15,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Switch } from '@/components/ui/switch';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
-import { Plus, Search, ClipboardList, Image, X, AlertTriangle, MessageSquare } from 'lucide-react';
+import { Plus, Search, ClipboardList, Image, X, AlertTriangle, MessageSquare, ChevronDown, Loader2 } from 'lucide-react';
 import { logActivity } from '@/lib/activity-log';
 import { logSOActivity } from '@/lib/so-activity-log';
 import { formatDistanceToNow } from 'date-fns';
@@ -84,6 +84,8 @@ const priorityLabel: Record<string, string> = {
   ALTA: 'Alta',
 };
 
+const PAGE_SIZE = 20;
+
 export default function OrdensServico() {
   const { condoId, role } = useCondo();
   const { user } = useAuth();
@@ -93,6 +95,9 @@ export default function OrdensServico() {
 
   const [orders, setOrders] = useState<ServiceOrder[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [nextOffset, setNextOffset] = useState(0);
+  const [hasMore, setHasMore] = useState(false);
   const [search, setSearch] = useState('');
   const [modalOpen, setModalOpen] = useState(false);
   const [form, setForm] = useState<SOForm>(emptyForm);
@@ -115,16 +120,18 @@ export default function OrdensServico() {
     supabase.schema('nfe_vigia').from('tickets').select('id, title').eq('condo_id', condoId).in('status', ['ABERTO', 'EM_ANALISE']).order('created_at', { ascending: false }).then(({ data }) => setTickets(data ?? []));
   }, [condoId]);
 
-  const fetchOrders = async () => {
+  const fetchOrders = async (fromOffset = 0, append = false) => {
     if (!condoId) return;
-    setLoading(true);
+    if (!append) setLoading(true);
+    else setLoadingMore(true);
 
     let query = supabase
       .schema('nfe_vigia')
       .from('service_orders')
       .select('id, condo_id, title, description, location, status, priority, created_by, created_at, is_emergency')
       .eq('condo_id', condoId)
-      .order('created_at', { ascending: false });
+      .order('created_at', { ascending: false })
+      .range(fromOffset, fromOffset + PAGE_SIZE - 1);
 
     // MORADOR: only see own OS
     if (isMorador && internalUserId) {
@@ -134,9 +141,8 @@ export default function OrdensServico() {
     const { data, error } = await query;
 
     if (error) {
-      console.error('Error fetching service orders:', error);
       toast({ title: 'Erro ao carregar ordens de serviço', variant: 'destructive' });
-      setOrders([]);
+      if (!append) setOrders([]);
     } else {
       const ordersWithPhotos: ServiceOrder[] = (data ?? []).map((o: any) => ({ ...o, photo_count: 0 }));
 
@@ -155,13 +161,23 @@ export default function OrdensServico() {
         }
       }
 
-      setOrders(ordersWithPhotos);
+      if (append) {
+        setOrders((prev) => [...prev, ...ordersWithPhotos]);
+      } else {
+        setOrders(ordersWithPhotos);
+      }
+
+      const newOffset = fromOffset + ordersWithPhotos.length;
+      setNextOffset(newOffset);
+      setHasMore(ordersWithPhotos.length === PAGE_SIZE);
     }
-    setLoading(false);
+
+    if (!append) setLoading(false);
+    else setLoadingMore(false);
   };
 
   useEffect(() => {
-    if (internalUserId !== null || !isMorador) fetchOrders();
+    if (internalUserId !== null || !isMorador) fetchOrders(0, false);
   }, [condoId, internalUserId]);
 
   const filtered = orders.filter((o) =>
@@ -276,7 +292,7 @@ export default function OrdensServico() {
     await logActivity({
       condoId,
       action: 'create',
-      entity: 'service_order' as any,
+      entity: 'service_order',
       entityId: soId,
       description: `Ordem de serviço "${form.title.trim()}" criada`,
     });
@@ -387,6 +403,23 @@ export default function OrdensServico() {
                     ))}
                   </TableBody>
                 </Table>
+              )}
+
+              {/* Carregar mais */}
+              {hasMore && !search && (
+                <div className="pt-2 text-center">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="gap-2"
+                    disabled={loadingMore}
+                    onClick={() => fetchOrders(nextOffset, true)}
+                  >
+                    {loadingMore
+                      ? <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Carregando...</>
+                      : <><ChevronDown className="h-3.5 w-3.5" /> Carregar mais</>}
+                  </Button>
+                </div>
               )}
             </CardContent>
           </Card>
