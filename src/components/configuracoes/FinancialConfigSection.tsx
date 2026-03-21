@@ -135,9 +135,46 @@ export default function FinancialConfigSection() {
           <p className="text-sm text-muted-foreground text-center py-4">Carregando...</p>
         ) : (
           <>
-            {/* Alçadas */}
+            {/* Explicação visual das Alçadas */}
+            <div className="rounded-lg border border-border/60 bg-muted/20 p-4 space-y-3">
+              <h3 className="text-sm font-semibold text-foreground">Como funcionam as Alçadas de Aprovação</h3>
+              <p className="text-xs text-muted-foreground leading-relaxed">
+                Cada nota fiscal passa por um fluxo de aprovação hierárquico baseado no valor do documento.
+                Quanto maior o valor, mais aprovadores são necessários.
+              </p>
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-0">
+                {/* Alçada 1 */}
+                <div className="flex-1 rounded-md border border-primary/30 bg-primary/5 p-3 text-center space-y-1">
+                  <span className="inline-block rounded-full bg-primary/15 text-primary text-[10px] font-semibold px-2 py-0.5">Alçada 1</span>
+                  <p className="text-xs font-medium text-foreground">Subsíndico</p>
+                  <p className="text-[10px] text-muted-foreground">Valores menores</p>
+                </div>
+                <div className="hidden sm:flex items-center px-1 text-muted-foreground">→</div>
+                <div className="flex sm:hidden items-center justify-center text-muted-foreground">↓</div>
+                {/* Alçada 2 */}
+                <div className="flex-1 rounded-md border border-amber-500/30 bg-amber-500/5 p-3 text-center space-y-1">
+                  <span className="inline-block rounded-full bg-amber-500/15 text-amber-700 dark:text-amber-400 text-[10px] font-semibold px-2 py-0.5">Alçada 2</span>
+                  <p className="text-xs font-medium text-foreground">Subsíndico + Conselho</p>
+                  <p className="text-[10px] text-muted-foreground">Valores médios</p>
+                </div>
+                <div className="hidden sm:flex items-center px-1 text-muted-foreground">→</div>
+                <div className="flex sm:hidden items-center justify-center text-muted-foreground">↓</div>
+                {/* Alçada 3 */}
+                <div className="flex-1 rounded-md border border-destructive/30 bg-destructive/5 p-3 text-center space-y-1">
+                  <span className="inline-block rounded-full bg-destructive/15 text-destructive text-[10px] font-semibold px-2 py-0.5">Alçada 3</span>
+                  <p className="text-xs font-medium text-foreground">Subsíndico + Conselho + Síndico</p>
+                  <p className="text-[10px] text-muted-foreground">Valores altos</p>
+                </div>
+              </div>
+              <p className="text-[10px] text-muted-foreground italic">
+                💡 Se um aprovador não votar dentro do prazo configurado, o próximo nível é desbloqueado automaticamente.
+                Uma rejeição em qualquer nível cancela o documento.
+              </p>
+            </div>
+
+            {/* Alçadas — campos */}
             <div className="space-y-3">
-              <h3 className="text-sm font-semibold text-foreground">Alçadas de Aprovação</h3>
+              <h3 className="text-sm font-semibold text-foreground">Limites por Alçada</h3>
               <div className="grid gap-4 sm:grid-cols-3">
                 <div className="space-y-1.5">
                   <Label className="text-xs">Alçada 1 (até R$)</Label>
