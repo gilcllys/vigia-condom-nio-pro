@@ -155,7 +155,7 @@ serve(async (req) => {
       .from("condos")
       .update(updatePayload)
       .eq("subscription_id", subscriptionId)
-      .select("id", { count: "exact", head: true });
+      .select("id");
 
     if (error) {
       console.error(`[pagarme-webhook] DB update error for sub ${subscriptionId}:`, error.message);
