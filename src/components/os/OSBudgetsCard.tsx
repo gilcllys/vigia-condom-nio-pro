@@ -269,7 +269,7 @@ export function OSBudgetsCard({ orderId, orderTitle, condoId, priority, executor
               <Button size="sm" variant="outline" onClick={handleOpenModal}>
                 <Plus className="h-4 w-4 mr-1" /> Adicionar Orçamento
               </Button>
-              {pendingBudgets.length >= minBudgets && (
+              {pendingBudgets.length >= minBudgets && status === 'ABERTA' && (
                 <Button size="sm" onClick={handleSubmitForApproval} disabled={submitting}>
                   <Send className="h-4 w-4 mr-1" />
                   {submitting ? 'Enviando...' : 'Enviar p/ Aprovação'}

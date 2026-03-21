@@ -42,6 +42,7 @@ interface PendingOS {
   pendingVotes: number;
   totalVotes: number;
   myVotePending: boolean;
+  myVoted: boolean;
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -220,19 +221,21 @@ export default function Aprovacoes() {
         .in('service_order_id', orderIds)
         .eq('approval_type', 'ORCAMENTO');
 
-      const approvalsMap = new Map<string, { total: number; pending: number; myPending: boolean }>();
+      const approvalsMap = new Map<string, { total: number; pending: number; myPending: boolean; myVoted: boolean }>();
       for (const a of (approvalsData ?? []) as any[]) {
-        const current = approvalsMap.get(a.service_order_id) ?? { total: 0, pending: 0, myPending: false };
+        const current = approvalsMap.get(a.service_order_id) ?? { total: 0, pending: 0, myPending: false, myVoted: false };
         current.total++;
         if (a.decision === 'pendente') {
           current.pending++;
           if (internalUserId && a.approver_id === internalUserId) current.myPending = true;
+        } else {
+          if (internalUserId && a.approver_id === internalUserId) current.myVoted = true;
         }
         approvalsMap.set(a.service_order_id, current);
       }
 
       const mapped: PendingOS[] = (orders as any[]).map(o => {
-        const ap = approvalsMap.get(o.id) ?? { total: 0, pending: 0, myPending: false };
+        const ap = approvalsMap.get(o.id) ?? { total: 0, pending: 0, myPending: false, myVoted: false };
         return {
           id: o.id,
           title: o.title,
@@ -243,6 +246,7 @@ export default function Aprovacoes() {
           pendingVotes: ap.pending,
           totalVotes: ap.total,
           myVotePending: ap.myPending,
+          myVoted: ap.myVoted,
         };
       });
 
@@ -408,8 +412,10 @@ export default function Aprovacoes() {
                       <Badge variant="outline" className="text-xs">Sem aprovadores</Badge>
                     ) : os.myVotePending ? (
                       <Badge className="bg-primary text-primary-foreground text-xs">Aguardando seu voto</Badge>
-                    ) : (
+                    ) : os.myVoted ? (
                       <Badge variant="secondary" className="text-xs">Já votado</Badge>
+                    ) : (
+                      <span className="text-sm text-muted-foreground">—</span>
                     )}
                   </div>
                   <div className="flex justify-end">
