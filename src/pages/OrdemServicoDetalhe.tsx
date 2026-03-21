@@ -101,8 +101,6 @@ export default function OrdemServicoDetalhe() {
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
   const [pdfLoading, setPdfLoading] = useState(false);
-  const [sendingFinalApproval, setSendingFinalApproval] = useState(false);
-  const [finalizing, setFinalizing] = useState(false);
   const [stockDialogOpen, setStockDialogOpen] = useState(false);
   const [orcamentoApprovals, setOrcamentoApprovals] = useState<any[]>([]);
   const [finalApprovals, setFinalApprovals] = useState<any[]>([]);
@@ -129,7 +127,6 @@ export default function OrdemServicoDetalhe() {
     setMaterials(materialsRes.data ?? []);
     setDocuments(docsRes.data ?? []);
 
-    // Fetch approval records to determine phase
     const [orcRes, finalRes] = await Promise.all([
       supabase.schema('nfe_vigia').from('approvals').select('*').eq('service_order_id', id).eq('approval_type', 'ORCAMENTO'),
       supabase.schema('nfe_vigia').from('approvals').select('*').eq('service_order_id', id).eq('approval_type', 'FINAL'),
@@ -144,22 +141,16 @@ export default function OrdemServicoDetalhe() {
     fetchAll();
   }, [id, condoId]);
 
-  // Permissions
-  const [canCriticalActions, setCanCriticalActions] = useState(false);
-  const isSindico = role === 'SINDICO';
-  const isAdmin = role === 'ADMIN';
-  const isZelador = role === 'ZELADOR';
-  const isSubSindico = role === 'SUBSINDICO';
-  const isConselho = role === 'CONSELHO';
-  const canApprove = isSindico || isAdmin || isSubSindico || isConselho;
-
-  useEffect(() => {
-    const checkCritical = async () => {
-      const { data } = await supabase.schema('nfe_vigia').rpc('is_current_user_sindico_aal2');
-      setCanCriticalActions(!!data);
-    };
-    checkCritical();
-  }, [condoId]);
+  const changeStatus = async (newStatus: string) => {
+    if (!order || !condoId) return;
+    setActionLoading(true);
+    const { error } = await supabase.schema('nfe_vigia').from('service_orders').update({ status: newStatus }).eq('id', order.id);
+    if (!error) {
+      toast({ title: `Status alterado para ${statusLabel[newStatus]}` });
+      fetchAll();
+    }
+    setActionLoading(false);
+  };
 
   // Signed URLs for photos
   const [photoUrls, setPhotoUrls] = useState<Record<string, string>>({});
@@ -176,173 +167,6 @@ export default function OrdemServicoDetalhe() {
     };
     if (documents.length > 0) generateSignedUrls();
   }, [documents]);
-
-  const changeStatus = async (newStatus: string) => {
-    if (!order || !condoId) return;
-    setActionLoading(true);
-
-    const updatePayload: Record<string, any> = { status: newStatus };
-    if (newStatus === 'EM_EXECUCAO') updatePayload.started_at = new Date().toISOString();
-
-    const { error } = await supabase.schema('nfe_vigia').from('service_orders').update(updatePayload).eq('id', order.id);
-
-    if (error) {
-      toast({ title: 'Erro ao alterar status', description: 'Não foi possível atualizar. Tente novamente.', variant: 'destructive' });
-    } else {
-      const soActionMap: Record<string, import('@/lib/so-activity-log').SOAction> = {
-        EM_EXECUCAO: 'EXECUCAO_INICIADA',
-        AGUARDANDO_APROVACAO: 'ENVIADA_APROVACAO',
-        FINALIZADA: 'OS_FINALIZADA',
-        CANCELADA: 'OS_CANCELADA',
-      };
-      const soAction = soActionMap[newStatus];
-      if (soAction) await logSOActivity({ serviceOrderId: order.id, action: soAction });
-
-      await logActivity({
-        condoId,
-        action: 'update',
-        entity: 'service_order' as any,
-        entityId: order.id,
-        description: `OS "${order.title}" alterada para ${statusLabel[newStatus] ?? newStatus}`,
-      });
-      toast({ title: `Status alterado para ${statusLabel[newStatus]}` });
-      fetchAll();
-    }
-    setActionLoading(false);
-  };
-
-  const handleSendFinalApproval = async () => {
-    if (!order || !condoId) return;
-
-    // Require final photo before sending for final approval
-    const hasFinalPhoto = documents.some(d => d.photo_type === 'EXECUCAO_FINAL');
-    if (!hasFinalPhoto) {
-      toast({ title: 'Foto final obrigatória', description: 'Adicione ao menos uma foto da execução final antes de enviar para aprovação final.', variant: 'destructive' });
-      return;
-    }
-
-    setSendingFinalApproval(true);
-
-    const { data: config } = await supabase
-      .schema('nfe_vigia')
-      .from('condo_financial_config')
-      .select('approval_deadline_hours')
-      .eq('condo_id', condoId)
-      .maybeSingle();
-
-    const deadlineHours = config?.approval_deadline_hours ?? 48;
-
-    const { data: approvers } = await supabase
-      .schema('nfe_vigia')
-      .from('user_condos')
-      .select('user_id, role')
-      .eq('condo_id', condoId)
-      .in('role', ['SUBSINDICO', 'CONSELHO'])
-      .eq('status', 'ativo');
-
-    if (!approvers || approvers.length === 0) {
-      toast({ title: 'Nenhum aprovador encontrado', variant: 'destructive' });
-      setSendingFinalApproval(false);
-      return;
-    }
-
-    const expiresAt = new Date(Date.now() + deadlineHours * 60 * 60 * 1000).toISOString();
-
-    await supabase.schema('nfe_vigia').from('approvals')
-      .delete()
-      .eq('service_order_id', order.id)
-      .eq('approval_type', 'FINAL');
-
-    const records = approvers.map((a: any) => ({
-      service_order_id: order.id,
-      condo_id: condoId,
-      approver_id: a.user_id,
-      approver_role: a.role,
-      approval_type: 'FINAL',
-      decision: 'pendente',
-      expires_at: expiresAt,
-    }));
-
-    const { error } = await supabase.schema('nfe_vigia').from('approvals').insert(records);
-
-    if (error) {
-      toast({ title: 'Erro ao enviar para aprovação final', variant: 'destructive' });
-    } else {
-      // Change status to AGUARDANDO_APROVACAO
-      await supabase.schema('nfe_vigia').from('service_orders').update({ status: 'AGUARDANDO_APROVACAO' }).eq('id', order.id);
-      await logSOActivity({
-        serviceOrderId: order.id,
-        action: 'APROVACAO_FINAL_ENVIADA',
-        description: 'OS enviada para aprovação final — aguardando Subsíndico e Conselheiros',
-      });
-      // Notificar aprovadores por e-mail (fire-and-forget)
-      void sendApprovalEmails('OS_FINAL', approvers.map((a: any) => a.user_id), {
-        title: order.title,
-        condo_name: condoName ?? condoId ?? '',
-      });
-
-      toast({ title: 'OS enviada para aprovação final' });
-      fetchAll();
-    }
-    setSendingFinalApproval(false);
-  };
-
-  const handleFinalizeWithPdf = async () => {
-    if (!order || !condoId) return;
-    setFinalizing(true);
-
-    try {
-      const photosWithUrls = documents
-        .map((d) => ({ photo_type: d.photo_type, signedUrl: photoUrls[d.id], observation: d.observation }))
-        .filter((p) => !!p.signedUrl);
-
-      const pdfBlob = await generateOSPdfBlob(order, activities, materials, condoName, photosWithUrls, finalApprovals);
-
-      // Upload PDF to Supabase Storage
-      const pdfPath = `os-pdfs/${order.id}/OS-${order.id.slice(0, 8)}-final.pdf`;
-      const { error: uploadError } = await supabase.storage
-        .from('service-order-photos')
-        .upload(pdfPath, pdfBlob, { contentType: 'application/pdf', upsert: true });
-
-      if (uploadError) {
-        console.error('PDF upload error:', uploadError);
-        toast({ title: 'Erro ao salvar PDF', description: uploadError.message, variant: 'destructive' });
-        setFinalizing(false);
-        return;
-      }
-
-      // Update service order: status FINALIZADA + final_pdf_url
-      const { error: updateError } = await supabase.schema('nfe_vigia').from('service_orders').update({
-        status: 'FINALIZADA',
-        final_pdf_url: pdfPath,
-        finished_at: new Date().toISOString(),
-      }).eq('id', order.id);
-
-      if (updateError) {
-        toast({ title: 'Erro ao finalizar OS', variant: 'destructive' });
-        setFinalizing(false);
-        return;
-      }
-
-      await logSOActivity({ serviceOrderId: order.id, action: 'OS_FINALIZADA', description: 'OS finalizada com geração de PDF' });
-      await logActivity({ condoId, action: 'update', entity: 'service_order' as any, entityId: order.id, description: `OS "${order.title}" finalizada` });
-
-      // Download PDF for user
-      const url = URL.createObjectURL(pdfBlob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `OS-${order.id.slice(0, 8)}.pdf`;
-      a.click();
-      URL.revokeObjectURL(url);
-
-      toast({ title: 'OS finalizada e PDF gerado com sucesso!' });
-      fetchAll();
-    } catch (e) {
-      console.error('Finalize error:', e);
-      toast({ title: 'Erro ao finalizar OS', variant: 'destructive' });
-    }
-    setFinalizing(false);
-  };
 
   const handleGeneratePdf = async () => {
     if (!order) return;
@@ -366,32 +190,6 @@ export default function OrdemServicoDetalhe() {
     setPdfLoading(false);
   };
 
-  const canEditExecution = (canCriticalActions || isZelador) && (order?.status === 'EM_EXECUCAO' || order?.status === 'AGUARDANDO_APROVACAO');
-  const canUploadFinalPhotos = (canCriticalActions || isZelador) && (order?.status === 'EM_EXECUCAO' || order?.status === 'AGUARDANDO_APROVACAO');
-
-  // Determine phase from approval records
-  const hasPendingOrcamento = orcamentoApprovals.some(a => a.decision === 'pendente');
-  const orcamentoAllApproved = orcamentoApprovals.length > 0 && orcamentoApprovals.every(a => a.decision === 'aprovado');
-  const hasPendingFinal = finalApprovals.some(a => a.decision === 'pendente');
-  const finalAllApproved = finalApprovals.length > 0 && finalApprovals.every(a => a.decision === 'aprovado');
-  const finalAnyNonPending = finalApprovals.length > 0 && finalApprovals.every(a => a.decision !== 'pendente');
-
-  // Show "Iniciar Execução" when:
-  // - EQUIPE_INTERNA in ABERTA (no budget approval needed)
-  // - PRESTADOR_EXTERNO in AGUARDANDO_APROVACAO and orcamento all approved
-  const showIniciarExecucao = canCriticalActions && (
-    (order?.executor_type === 'EQUIPE_INTERNA' && order?.status === 'ABERTA') ||
-    (order?.executor_type === 'PRESTADOR_EXTERNO' && order?.status === 'AGUARDANDO_APROVACAO' && orcamentoAllApproved)
-  );
-
-  // Show "Enviar p/ Aprovação Final" when EM_EXECUCAO
-  const showEnviarAprovacaoFinal = canCriticalActions && order?.status === 'EM_EXECUCAO';
-
-  // Show "Finalizar e Criar PDF" when AGUARDANDO_APROVACAO + final approved (or minerva approved)
-  const showFinalizarPdf = canCriticalActions && order?.status === 'AGUARDANDO_APROVACAO' &&
-    finalApprovals.length > 0 && finalAnyNonPending &&
-    (finalAllApproved || finalApprovals.some(a => a.is_minerva));
-
   if (loading) {
     return (
       <div className="space-y-6">
@@ -402,6 +200,12 @@ export default function OrdemServicoDetalhe() {
   }
 
   if (!order) return null;
+
+  const isSindico = role === 'SINDICO';
+  const isAdmin = role === 'ADMIN';
+  const isZelador = role === 'ZELADOR';
+  const canEditExecution = (isSindico || isAdmin || isZelador) && (order.status === 'EM_EXECUCAO' || order.status === 'AGUARDANDO_APROVACAO');
+  const canUploadFinalPhotos = (isSindico || isAdmin || isZelador) && (order.status === 'EM_EXECUCAO' || order.status === 'AGUARDANDO_APROVACAO');
 
   return (
     <div className="space-y-6">
@@ -424,38 +228,6 @@ export default function OrdemServicoDetalhe() {
           </Badge>
         </div>
       </div>
-
-      {/* Action buttons */}
-      {order.status !== 'FINALIZADA' && order.status !== 'CANCELADA' && (
-        <div className="flex flex-wrap gap-2">
-          {/* Iniciar Execução */}
-          {showIniciarExecucao && (
-            <Button size="sm" variant="outline" onClick={() => changeStatus('EM_EXECUCAO')} disabled={actionLoading}>
-              <Play className="h-4 w-4 mr-1" /> Iniciar Execução
-            </Button>
-          )}
-          {/* Enviar p/ Aprovação Final */}
-          {showEnviarAprovacaoFinal && (
-            <Button size="sm" variant="outline" onClick={handleSendFinalApproval} disabled={sendingFinalApproval}>
-              <Send className="h-4 w-4 mr-1" />
-              {sendingFinalApproval ? 'Enviando...' : 'Enviar p/ Aprovação Final'}
-            </Button>
-          )}
-          {/* Finalizar e Criar PDF */}
-          {showFinalizarPdf && (
-            <Button size="sm" onClick={handleFinalizeWithPdf} disabled={finalizing}>
-              <CheckCircle2 className="h-4 w-4 mr-1" />
-              {finalizing ? 'Finalizando...' : 'Finalizar e Criar PDF'}
-            </Button>
-          )}
-          {/* Cancel */}
-          {canCriticalActions && (
-            <Button size="sm" variant="destructive" onClick={() => changeStatus('CANCELADA')} disabled={actionLoading}>
-              <XCircle className="h-4 w-4 mr-1" /> Cancelar
-            </Button>
-          )}
-        </div>
-      )}
 
       {/* Main Content Grid */}
       <div className="grid gap-4 lg:grid-cols-2">
@@ -495,7 +267,7 @@ export default function OrdemServicoDetalhe() {
           executorType={order.executor_type}
           isSindico={isSindico}
           isAdmin={isAdmin}
-          canCriticalActions={canCriticalActions}
+          canCriticalActions={isSindico || isAdmin}
           status={order.status}
           onSubmittedForApproval={fetchAll}
         />
@@ -509,7 +281,7 @@ export default function OrdemServicoDetalhe() {
           approvalType="ORCAMENTO"
           title="Aprovação de Orçamentos"
           isSindico={isSindico}
-          canCriticalActions={canCriticalActions}
+          canCriticalActions={isSindico || isAdmin}
           onDecisionMade={fetchAll}
         />
       )}
@@ -529,7 +301,7 @@ export default function OrdemServicoDetalhe() {
           orderId={order.id}
           condoId={condoId}
           canAttach={isSindico || isAdmin}
-          canCriticalActions={canCriticalActions}
+          canCriticalActions={isSindico || isAdmin}
           onApprovalSent={fetchAll}
         />
       )}
@@ -542,7 +314,7 @@ export default function OrdemServicoDetalhe() {
           approvalType="NF"
           title="Aprovação de Notas Fiscais"
           isSindico={isSindico}
-          canCriticalActions={canCriticalActions}
+          canCriticalActions={isSindico || isAdmin}
           onDecisionMade={fetchAll}
         />
       )}
@@ -555,7 +327,7 @@ export default function OrdemServicoDetalhe() {
           approvalType="FINAL"
           title="Aprovação Final"
           isSindico={isSindico}
-          canCriticalActions={canCriticalActions}
+          canCriticalActions={isSindico || isAdmin}
           onDecisionMade={fetchAll}
         />
       )}
@@ -565,7 +337,7 @@ export default function OrdemServicoDetalhe() {
         <OSTimelineCard activities={activities} />
         <div className="space-y-4">
           <OSMaterialsCard materials={materials} />
-          {(isSindico || isAdmin || isZelador) && order.status === 'EM_EXECUCAO' && (
+          {(isSindico || isAdmin || isZelador) && (order.status === 'ABERTA' || order.status === 'EM_EXECUCAO') && (
             <Button variant="outline" className="w-full gap-2" onClick={() => setStockDialogOpen(true)}>
               <Package className="h-4 w-4" />
               Adicionar Material do Almoxarifado
