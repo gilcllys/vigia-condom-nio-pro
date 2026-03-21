@@ -88,44 +88,56 @@ export function OSStockMaterialDialog({ open, onOpenChange, orderId, onAdded }: 
 
     setSaving(true);
 
-    // 1. Insert material into service_order_materials
-    const { error: matError } = await supabase
-      .from('service_order_materials')
-      .insert({
-        service_order_id: orderId,
-        name: selectedItem!.name,
-        quantity: qty,
-        unit: selectedItem!.unit,
-        cost: null,
-      });
+    try {
+      // 1. Insert material into service_order_materials and get the ID back
+      const { data: matData, error: matError } = await supabase
+        .from('service_order_materials')
+        .insert({
+          service_order_id: orderId,
+          name: selectedItem!.name,
+          quantity: qty,
+          unit: selectedItem!.unit,
+          cost: null,
+        })
+        .select('id')
+        .single();
 
-    if (matError) {
-      toast({ title: 'Erro ao adicionar material', description: matError.message, variant: 'destructive' });
+      if (matError || !matData) {
+        toast({ title: 'Erro ao adicionar material', description: matError?.message, variant: 'destructive' });
+        setSaving(false);
+        return;
+      }
+
+      // 2. Deduct from stock via stock_movements, linking to the order
+      const { error: moveError } = await supabase
+        .from('stock_movements')
+        .insert({
+          condo_id: condoId,
+          item_id: selectedItemId,
+          move_type: STOCK_MOVE_TYPES.SAIDA,
+          qty,
+          service_order_id: orderId,
+          service_order_material_id: matData.id,
+        });
+
+      if (moveError) {
+        // Rollback: remove the material if stock deduction failed
+        await supabase.from('service_order_materials').delete().eq('id', matData.id);
+        toast({ title: 'Erro na baixa do estoque', description: moveError.message, variant: 'destructive' });
+        setSaving(false);
+        return;
+      }
+
+      toast({ title: 'Material adicionado e estoque baixado com sucesso' });
       setSaving(false);
-      return;
+      setSelectedItemId('');
+      setQuantity('');
+      onOpenChange(false);
+      onAdded();
+    } catch (err: any) {
+      toast({ title: 'Erro inesperado', description: err.message, variant: 'destructive' });
+      setSaving(false);
     }
-
-    // 2. Deduct from stock via stock_movements
-    const { error: moveError } = await supabase
-      .from('stock_movements')
-      .insert({
-        condo_id: condoId,
-        item_id: selectedItemId,
-        move_type: STOCK_MOVE_TYPES.SAIDA,
-        qty,
-      });
-
-    if (moveError) {
-      toast({ title: 'Material adicionado, mas erro na baixa do estoque', description: moveError.message, variant: 'destructive' });
-    } else {
-      toast({ title: 'Material adicionado e estoque baixado' });
-    }
-
-    setSaving(false);
-    setSelectedItemId('');
-    setQuantity('');
-    onOpenChange(false);
-    onAdded();
   };
 
   return (
