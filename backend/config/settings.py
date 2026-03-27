@@ -55,17 +55,13 @@ TEMPLATES = [
 WSGI_APPLICATION = "config.wsgi.application"
 
 # ─── Database ─────────────────────────────────────────────────────────────────
-# Connects to the existing Supabase Postgres (schema nfe_vigia).
-# Django uses managed = False models — no migrations touch the DB.
+# Connects to the Postgres database (schema public).
 
 DATABASES = {
     "default": dj_database_url.config(
         default="postgresql://postgres:postgres@localhost:54322/postgres",
         conn_max_age=600,
     ),
-}
-DATABASES["default"]["OPTIONS"] = {
-    "options": "-c search_path=nfe_vigia,public",
 }
 
 # ─── REST Framework ───────────────────────────────────────────────────────────

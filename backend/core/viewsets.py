@@ -79,7 +79,7 @@ logger = logging.getLogger(__name__)
 
 
 def _get_internal_user(request):
-    """Return the internal nfe_vigia.users row for the authenticated user."""
+    """Return the internal users row for the authenticated user."""
     auth_user_id = getattr(request.user, "auth_user_id", None)
     if not auth_user_id:
         return None
@@ -259,7 +259,7 @@ class CondoViewSet(mixins.RetrieveModelMixin, viewsets.GenericViewSet):
 
         with connection.cursor() as cursor:
             cursor.execute(
-                "SELECT nfe_vigia.onboard_create_condo(%s, %s)",
+                "SELECT onboard_create_condo(%s, %s)",
                 [name, document],
             )
             result = cursor.fetchone()
@@ -374,7 +374,7 @@ class ResidentViewSet(viewsets.ModelViewSet):
 
         with connection.cursor() as cursor:
             cursor.execute(
-                "SELECT * FROM nfe_vigia.list_residents_with_user_match(%s)",
+                "SELECT * FROM list_residents_with_user_match(%s)",
                 [condo_id],
             )
             columns = [col[0] for col in cursor.description]
@@ -435,7 +435,7 @@ class UserCondoViewSet(
         try:
             with connection.cursor() as cursor:
                 cursor.execute(
-                    "SELECT nfe_vigia.change_user_condo_role_safe(%s, %s)",
+                    "SELECT change_user_condo_role_safe(%s, %s)",
                     [str(uc_id), new_role],
                 )
         except Exception:
@@ -460,7 +460,7 @@ class PendingUserApprovalViewSet(viewsets.ViewSet):
         try:
             with connection.cursor() as cursor:
                 cursor.execute(
-                    "SELECT * FROM nfe_vigia.list_pending_approvals(%s)",
+                    "SELECT * FROM list_pending_approvals(%s)",
                     [condo_id],
                 )
                 columns = [col[0] for col in cursor.description]

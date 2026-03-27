@@ -22,7 +22,7 @@ class SupabaseUser:
 
 
 class SupabaseJWTAuthentication(BaseAuthentication):
-    """Validates Supabase-issued JWTs and resolves the internal ``nfe_vigia.users`` row."""
+    """Validates Supabase-issued JWTs and resolves the internal ``users`` row."""
 
     def authenticate(self, request):
         auth_header = request.META.get("HTTP_AUTHORIZATION", "")

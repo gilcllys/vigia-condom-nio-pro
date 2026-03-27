@@ -135,7 +135,7 @@ class SendApprovalEmailView(APIView):
             email_type, len(approver_user_ids), ctx["condo_name"],
         )
 
-        # Step 1: Resolve auth_user_ids from nfe_vigia.users
+        # Step 1: Resolve auth_user_ids from users table
         user_rows = User.objects.filter(id__in=approver_user_ids).values_list("auth_user_id", flat=True)
         if not user_rows:
             return Response({"sent": 0, "message": "Nenhum usuário encontrado para os IDs fornecidos"})

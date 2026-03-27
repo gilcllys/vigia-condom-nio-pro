@@ -34,7 +34,7 @@ logger = logging.getLogger(__name__)
 
 
 def _get_internal_user(request):
-    """Return the internal nfe_vigia.users row for the authenticated user."""
+    """Return the internal users row for the authenticated user."""
     auth_user_id = getattr(request.user, "auth_user_id", None)
     if not auth_user_id:
         return None
@@ -239,7 +239,7 @@ class CreateCondoView(APIView):
         # Call the DB function directly
         with connection.cursor() as cursor:
             cursor.execute(
-                "SELECT nfe_vigia.onboard_create_condo(%s, %s)",
+                "SELECT onboard_create_condo(%s, %s)",
                 [name, document],
             )
             result = cursor.fetchone()
@@ -346,7 +346,7 @@ class ResidentsView(APIView):
         # Use the RPC for resident + user matching
         with connection.cursor() as cursor:
             cursor.execute(
-                "SELECT * FROM nfe_vigia.list_residents_with_user_match(%s)",
+                "SELECT * FROM list_residents_with_user_match(%s)",
                 [condo_id],
             )
             columns = [col[0] for col in cursor.description]
