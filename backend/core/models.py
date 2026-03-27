@@ -38,6 +38,11 @@ class User(models.Model):
     auth_user_id = models.UUIDField(unique=True, blank=True, null=True)
     full_name = models.TextField(blank=True, null=True)
     email = models.TextField(blank=True, null=True)
+    cpf_rg = models.TextField(blank=True, null=True)
+    birth_date = models.DateField(blank=True, null=True)
+    profile = models.TextField(blank=True, null=True, db_column="user_profile")
+    status = models.TextField(blank=True, null=True)
+    condo = models.ForeignKey(Condo, on_delete=models.SET_NULL, blank=True, null=True, db_column="condo_id")
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -53,6 +58,7 @@ class UserCondo(models.Model):
     condo = models.ForeignKey(Condo, on_delete=models.CASCADE, db_column="condo_id")
     role = models.TextField()
     status = models.TextField(default="ativo")
+    is_default = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -63,6 +69,7 @@ class UserSession(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     user = models.ForeignKey(User, on_delete=models.CASCADE, db_column="user_id")
     session_token = models.TextField()
+    expires_at = models.DateTimeField(blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:

@@ -1,10 +1,15 @@
+import { apiFetch, authApi, getStoredTokens } from '@/lib/api';
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { Session, User } from '@supabase/supabase-js';
-import { supabase } from '@/lib/supabase';
+
+interface AuthUser {
+  id: string;
+  email?: string;
+  [key: string]: any;
+}
 
 interface AuthContextType {
-  session: Session | null;
-  user: User | null;
+  session: { user: AuthUser; access_token: string } | null;
+  user: AuthUser | null;
   loading: boolean;
   signOut: () => Promise<void>;
 }
@@ -19,7 +24,7 @@ const AuthContext = createContext<AuthContextType>({
 export const useAuth = () => useContext(AuthContext);
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [session, setSession] = useState<Session | null>(null);
+  const [session, setSession] = useState<{ user: AuthUser; access_token: string } | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -29,48 +34,49 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const params = new URLSearchParams(hash.substring(1));
       const type = params.get('type');
       if (type === 'recovery') {
-        // Let Supabase exchange the token, then navigate
         window.location.replace('/reset-password');
         return;
       }
     }
 
-    let initialized = false;
+    // Check stored tokens on mount
+    const tokens = getStoredTokens();
+    if (tokens?.access_token && tokens.user) {
+      setSession({ user: tokens.user, access_token: tokens.access_token });
+    }
+    setLoading(false);
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      if (initialized) {
-        setSession(session);
-      }
-      // On token expiry or remote sign-out, clean up the local session record
-      if (event === 'SIGNED_OUT' || event === 'TOKEN_REFRESHED') {
-        if (event === 'SIGNED_OUT') {
-          const token = localStorage.getItem('nfe_vigia_session_token');
-          if (token) {
-            supabase.from('user_sessions').delete().eq('session_token', token);
-            localStorage.removeItem('nfe_vigia_session_token');
-          }
-          try { localStorage.removeItem('nfe_vigia_active_condo'); } catch {}
+    // Listen for storage changes (other tabs)
+    const handleStorage = (e: StorageEvent) => {
+      if (e.key === 'nfe_vigia_tokens') {
+        if (!e.newValue) {
+          setSession(null);
+        } else {
+          try {
+            const t = JSON.parse(e.newValue);
+            if (t.access_token && t.user) {
+              setSession({ user: t.user, access_token: t.access_token });
+            }
+          } catch {}
         }
       }
-    });
-
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      initialized = true;
-      setSession(session);
-      setLoading(false);
-    });
-
-    return () => subscription.unsubscribe();
+    };
+    window.addEventListener('storage', handleStorage);
+    return () => window.removeEventListener('storage', handleStorage);
   }, []);
 
   const signOut = async () => {
     const token = localStorage.getItem('nfe_vigia_session_token');
     if (token) {
-      await supabase.from('user_sessions').delete().eq('session_token', token);
+      await apiFetch('/api/data/user-sessions/', {
+        method: 'DELETE',
+        body: JSON.stringify({ session_token: token }),
+      }).catch(() => {});
       localStorage.removeItem('nfe_vigia_session_token');
     }
     try { localStorage.removeItem('nfe_vigia_active_condo'); } catch {}
-    await supabase.auth.signOut();
+    await authApi.logout();
+    setSession(null);
   };
 
   return (

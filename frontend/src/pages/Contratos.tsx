@@ -10,7 +10,7 @@ import {
 } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { supabase } from '@/lib/supabase';
+import { apiFetch } from '@/lib/api';
 import { sendApprovalEmails } from '@/lib/send-approval-email';
 import { useCondo } from '@/contexts/CondoContext';
 import { useAuth } from '@/contexts/AuthContext';
@@ -110,26 +110,27 @@ export default function Contratos() {
     if (!condoId) return;
     setLoading(true);
 
-    let query = supabase
-      .from('contracts')
-      .select('*')
-      .eq('condo_id', condoId)
-      .order('created_at', { ascending: false });
-
-    if (filterStatus !== 'ALL') query = query.eq('status', filterStatus);
-    if (filterType !== 'ALL') query = query.eq('contract_type', filterType);
+    const params = new URLSearchParams({ condo_id: condoId, ordering: '-created_at' });
+    if (filterStatus !== 'ALL') params.append('status', filterStatus);
+    if (filterType !== 'ALL') params.append('contract_type', filterType);
 
     const [contractsRes, providersRes] = await Promise.all([
-      query,
-      supabase.from('providers').select('id, trade_name').eq('condo_id', condoId),
+      apiFetch(`/api/data/contracts/?${params}`),
+      apiFetch(`/api/data/providers/?condo_id=${condoId}`),
     ]);
 
-    const provs = ((providersRes.data ?? []) as any[]).map(p => ({ id: p.id, name: p.trade_name || p.name || '—' })) as Provider[];
+    const contractsData = contractsRes.ok ? await contractsRes.json() : [];
+    const providersData = providersRes.ok ? await providersRes.json() : [];
+
+    const contractsList = Array.isArray(contractsData) ? contractsData : contractsData.results ?? [];
+    const providersList = Array.isArray(providersData) ? providersData : providersData.results ?? [];
+
+    const provs = (providersList as any[]).map(p => ({ id: p.id, name: p.trade_name || p.name || '—' })) as Provider[];
     setProviders(provs);
     const provMap = new Map(provs.map(p => [p.id, p.name]));
 
     setContracts(
-      ((contractsRes.data ?? []) as any[]).map(c => ({
+      (contractsList as any[]).map(c => ({
         ...c,
         provider_name: c.provider_id ? provMap.get(c.provider_id) ?? '—' : '—',
       }))
@@ -145,88 +146,97 @@ export default function Contratos() {
       return;
     }
     setSaving(true);
-    const { error } = await supabase.from('contracts').insert({
-      condo_id: condoId,
-      title: form.title.trim(),
-      description: form.description.trim() || null,
-      contract_type: form.contract_type,
-      value: form.value ? parseFloat(form.value) : null,
-      start_date: form.start_date || null,
-      end_date: form.end_date || null,
-      provider_id: form.provider_id || null,
-      status: 'RASCUNHO',
-      created_by: user?.id,
-    });
-    setSaving(false);
-    if (error) {
-      toast({ title: 'Erro ao criar contrato', description: error.message, variant: 'destructive' });
-    } else {
+    try {
+      const res = await apiFetch('/api/data/contracts/', {
+        method: 'POST',
+        body: JSON.stringify({
+          condo_id: condoId,
+          title: form.title.trim(),
+          description: form.description.trim() || null,
+          contract_type: form.contract_type,
+          value: form.value ? parseFloat(form.value) : null,
+          start_date: form.start_date || null,
+          end_date: form.end_date || null,
+          provider_id: form.provider_id || null,
+          status: 'RASCUNHO',
+          created_by: user?.id,
+        }),
+      });
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.detail || errData.error || 'Erro ao criar contrato');
+      }
       toast({ title: 'Contrato criado com sucesso' });
       setNewOpen(false);
       setForm({ title: '', description: '', contract_type: 'SERVICO', value: '', start_date: '', end_date: '', provider_id: '' });
       fetchContracts();
+    } catch (err: any) {
+      toast({ title: 'Erro ao criar contrato', description: err.message, variant: 'destructive' });
     }
+    setSaving(false);
   };
 
   const handleSendForApproval = async (contract: Contract) => {
     if (!condoId) return;
     setSendingApproval(contract.id);
 
-    const { data: existingApprovals } = await supabase
-      .from('fiscal_document_approvals')
-      .select('id')
-      .eq('fiscal_document_id', contract.id)
-      .limit(1);
+    try {
+      // Check for existing approvals
+      const existingRes = await apiFetch(`/api/data/approvals/?fiscal_document_id=${contract.id}&limit=1`);
+      const existingData = existingRes.ok ? await existingRes.json() : [];
+      const existingList = Array.isArray(existingData) ? existingData : existingData.results ?? [];
 
-    if ((existingApprovals?.length ?? 0) > 0) {
-      toast({ title: 'Contrato já foi enviado para aprovação' });
-      setSendingApproval(null);
-      return;
-    }
+      if (existingList.length > 0) {
+        toast({ title: 'Contrato já foi enviado para aprovação' });
+        setSendingApproval(null);
+        return;
+      }
 
-    // Get approvers (SUBSINDICO + CONSELHO)
-    const { data: approvers } = await supabase
-      .from('user_condos')
-      .select('user_id, role')
-      .eq('condo_id', condoId)
-      .in('role', ['SUBSINDICO', 'CONSELHO'])
-      .eq('status', 'ativo');
+      // Get approvers (SUBSINDICO + CONSELHO)
+      const approversRes = await apiFetch(`/api/data/user-condos/?condo_id=${condoId}&role=SUBSINDICO,CONSELHO&status=ativo`);
+      const approversData = approversRes.ok ? await approversRes.json() : [];
+      const approvers = Array.isArray(approversData) ? approversData : approversData.results ?? [];
 
-    if (!approvers || approvers.length === 0) {
-      toast({ title: 'Nenhum aprovador encontrado', description: 'Cadastre um Subsíndico ou Conselheiro antes.', variant: 'destructive' });
-      setSendingApproval(null);
-      return;
-    }
+      if (approvers.length === 0) {
+        toast({ title: 'Nenhum aprovador encontrado', description: 'Cadastre um Subsíndico ou Conselheiro antes.', variant: 'destructive' });
+        setSendingApproval(null);
+        return;
+      }
 
-    // Update contract status
-    const { error: updateError } = await supabase
-      .from('contracts')
-      .update({ status: 'AGUARDANDO_APROVACAO' })
-      .eq('id', contract.id);
+      // Update contract status
+      const updateRes = await apiFetch(`/api/data/contracts/${contract.id}/`, {
+        method: 'PATCH',
+        body: JSON.stringify({ status: 'AGUARDANDO_APROVACAO' }),
+      });
 
-    if (updateError) {
-      toast({ title: 'Erro ao enviar para aprovação', description: updateError.message, variant: 'destructive' });
-      setSendingApproval(null);
-      return;
-    }
+      if (!updateRes.ok) {
+        const errData = await updateRes.json().catch(() => ({}));
+        throw new Error(errData.detail || 'Erro ao enviar para aprovação');
+      }
 
-    // Create approval records in fiscal_document_approvals (reusing same table/flow)
-    const records = approvers.map((a: any) => ({
-      fiscal_document_id: contract.id,
-      condo_id: condoId,
-      approver_user_id: a.user_id,
-      approver_role: a.role,
-    }));
+      // Create approval records
+      const records = approvers.map((a: any) => ({
+        fiscal_document_id: contract.id,
+        condo_id: condoId,
+        approver_user_id: a.user_id,
+        approver_role: a.role,
+      }));
 
-    const { error: approvalError } = await supabase
-      .from('fiscal_document_approvals')
-      .insert(records);
+      const approvalRes = await apiFetch('/api/data/approvals/bulk/', {
+        method: 'POST',
+        body: JSON.stringify(records),
+      });
 
-    if (approvalError) {
-      // Revert status if approval records fail
-      await supabase.from('contracts').update({ status: 'RASCUNHO' }).eq('id', contract.id);
-      toast({ title: 'Erro ao criar registros de aprovação', description: approvalError.message, variant: 'destructive' });
-    } else {
+      if (!approvalRes.ok) {
+        // Revert status if approval records fail
+        await apiFetch(`/api/data/contracts/${contract.id}/`, {
+          method: 'PATCH',
+          body: JSON.stringify({ status: 'RASCUNHO' }),
+        });
+        const errData = await approvalRes.json().catch(() => ({}));
+        throw new Error(errData.detail || 'Erro ao criar registros de aprovação');
+      }
+
       toast({ title: 'Contrato enviado para aprovação' });
 
       // Notificar aprovadores por e-mail (fire-and-forget)
@@ -237,6 +247,8 @@ export default function Contratos() {
       });
 
       fetchContracts();
+    } catch (err: any) {
+      toast({ title: err.message || 'Erro ao enviar para aprovação', variant: 'destructive' });
     }
 
     setSendingApproval(null);

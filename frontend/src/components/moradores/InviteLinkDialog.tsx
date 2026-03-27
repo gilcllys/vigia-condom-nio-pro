@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { supabase } from '@/lib/supabase';
+import { apiFetch } from '@/lib/api';
 import { useToast } from '@/hooks/use-toast';
 import { Copy, Link2, LinkIcon, Loader2 } from 'lucide-react';
 
@@ -10,15 +10,6 @@ interface InviteLinkDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   condoId: string;
-}
-
-function generateCode(): string {
-  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghkmnpqrstuvwxyz23456789";
-  let code = "";
-  for (let i = 0; i < 8; i++) {
-    code += chars[Math.floor(Math.random() * chars.length)];
-  }
-  return code;
 }
 
 export default function InviteLinkDialog({ open, onOpenChange, condoId }: InviteLinkDialogProps) {
@@ -32,15 +23,15 @@ export default function InviteLinkDialog({ open, onOpenChange, condoId }: Invite
 
   const fetchCurrent = async () => {
     setLoading(true);
-    const { data } = await supabase
-      .from('condos')
-      .select('invite_code, invite_active')
-      .eq('id', condoId)
-      .single();
-
-    if (data) {
-      setInviteCode(data.invite_code ?? null);
-      setInviteActive(data.invite_active ?? false);
+    try {
+      const condoRes = await apiFetch(`/api/data/condos/${condoId}/`);
+      if (condoRes.ok) {
+        const data = await condoRes.json();
+        setInviteCode(data.invite_code ?? null);
+        setInviteActive(data.invite_active ?? false);
+      }
+    } catch {
+      // ignore
     }
     setLoading(false);
   };
@@ -52,25 +43,18 @@ export default function InviteLinkDialog({ open, onOpenChange, condoId }: Invite
   const handleGenerate = async () => {
     setGenerating(true);
     try {
-      const code = generateCode();
-      const { error } = await supabase
-        .from('condos')
-        .update({ invite_code: code, invite_active: true })
-        .eq('id', condoId);
+      const res = await apiFetch('/api/condos/invite/generate/', {
+        method: 'POST',
+        body: JSON.stringify({ condoId }),
+      });
 
-      if (error) {
-        console.error('Erro ao salvar convite:', error);
-        toast({ title: 'Erro ao gerar link', description: error.message, variant: 'destructive' });
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        toast({ title: 'Erro ao gerar link', description: errData.error || 'Tente novamente.', variant: 'destructive' });
       } else {
-        // Confirma leitura do banco antes de exibir
-        const { data: check } = await supabase
-          .from('condos')
-          .select('invite_code, invite_active')
-          .eq('id', condoId)
-          .single();
-
-        if (check?.invite_code === code && check?.invite_active) {
-          setInviteCode(code);
+        const data = await res.json();
+        if (data.invite_code) {
+          setInviteCode(data.invite_code);
           setInviteActive(true);
           toast({ title: 'Link de convite gerado!' });
         } else {
@@ -85,13 +69,14 @@ export default function InviteLinkDialog({ open, onOpenChange, condoId }: Invite
 
   const handleDeactivate = async () => {
     try {
-      const { error } = await supabase
-        .from('condos')
-        .update({ invite_active: false })
-        .eq('id', condoId);
+      const res = await apiFetch('/api/condos/invite/generate/', {
+        method: 'POST',
+        body: JSON.stringify({ condoId, action: 'deactivate' }),
+      });
 
-      if (error) {
-        toast({ title: 'Erro ao desativar link', description: error.message, variant: 'destructive' });
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        toast({ title: 'Erro ao desativar link', description: errData.error || 'Tente novamente.', variant: 'destructive' });
       } else {
         setInviteActive(false);
         toast({ title: 'Link desativado' });

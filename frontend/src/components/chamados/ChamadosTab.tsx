@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { supabase } from '@/lib/supabase';
+import { apiFetch, apiUpload } from '@/lib/api';
 import { useCondo } from '@/contexts/CondoContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -92,42 +92,44 @@ export default function ChamadosTab({ onConvertToOS }: ChamadosTabProps) {
   // Get internal user id
   useEffect(() => {
     if (!user) return;
-    supabase.schema('nfe_vigia').from('users').select('id').eq('auth_user_id', user.id).maybeSingle()
-      .then(({ data }) => setInternalUserId(data?.id ?? null));
+    apiFetch(`/api/data/users/by-auth-id/?auth_user_id=${user.id}`)
+      .then(res => res.json())
+      .then(data => setInternalUserId(data?.id ?? null))
+      .catch(() => setInternalUserId(null));
   }, [user]);
 
   const fetchTickets = async () => {
     if (!condoId) return;
     setLoading(true);
 
-    let query = supabase.schema('nfe_vigia').from('tickets')
-      .select('*')
-      .eq('condo_id', condoId)
-      .order('created_at', { ascending: false });
+    try {
+      let url = `/api/data/tickets/?condo_id=${condoId}`;
 
-    // MORADOR only sees own tickets
-    if (isMorador && internalUserId) {
-      query = query.eq('created_by', internalUserId);
-    }
+      // MORADOR only sees own tickets
+      if (isMorador && internalUserId) {
+        url += `&created_by=${internalUserId}`;
+      }
 
-    const { data, error } = await query;
+      const res = await apiFetch(url);
+      const data = await res.json();
+      const rows: TicketRow[] = Array.isArray(data) ? data : data?.results ?? [];
 
-    if (error) {
-      console.error('Error fetching tickets:', error);
+      // Fetch creator names
+      if (rows.length > 0) {
+        const creatorIds = [...new Set(rows.map(r => r.created_by))];
+        const usersRes = await apiFetch(`/api/data/users/?ids=${creatorIds.join(',')}`);
+        const usersData = await usersRes.json();
+        const usersList = Array.isArray(usersData) ? usersData : usersData?.results ?? [];
+        const nameMap: Record<string, string> = {};
+        usersList.forEach((u: any) => { nameMap[u.id] = u.full_name; });
+        rows.forEach(r => { r.creator_name = nameMap[r.created_by] ?? 'Usuário'; });
+      }
+
+      setTickets(rows);
+    } catch (err) {
+      console.error('Error fetching tickets:', err);
       toast({ title: 'Erro ao carregar chamados', variant: 'destructive' });
     }
-
-    // Fetch creator names
-    const rows = (data ?? []) as TicketRow[];
-    if (rows.length > 0) {
-      const creatorIds = [...new Set(rows.map(r => r.created_by))];
-      const { data: users } = await supabase.schema('nfe_vigia').from('users').select('id, full_name').in('id', creatorIds);
-      const nameMap: Record<string, string> = {};
-      (users ?? []).forEach((u: any) => { nameMap[u.id] = u.full_name; });
-      rows.forEach(r => { r.creator_name = nameMap[r.created_by] ?? 'Usuário'; });
-    }
-
-    setTickets(rows);
     setLoading(false);
   };
 
@@ -163,55 +165,70 @@ export default function ChamadosTab({ onConvertToOS }: ChamadosTabProps) {
 
     setSaving(true);
 
-    const { data: inserted, error } = await supabase
-      .schema('nfe_vigia')
-      .from('tickets')
-      .insert({
-        condo_id: condoId,
-        title: form.title.trim(),
-        description: form.description.trim(),
-        location: form.location.trim(),
-        category: form.category || null,
-        unit: form.unit.trim() || null,
-        status: 'ABERTO',
-        created_by: internalUserId,
-      })
-      .select('id')
-      .single();
+    try {
+      const createRes = await apiFetch('/api/data/tickets/', {
+        method: 'POST',
+        body: JSON.stringify({
+          condo_id: condoId,
+          title: form.title.trim(),
+          description: form.description.trim(),
+          location: form.location.trim(),
+          category: form.category || null,
+          unit: form.unit.trim() || null,
+          status: 'ABERTO',
+          created_by: internalUserId,
+        }),
+      });
 
-    if (error) {
-      toast({ title: 'Erro ao abrir chamado', description: 'Não foi possível salvar. Tente novamente.', variant: 'destructive' });
+      if (!createRes.ok) {
+        toast({ title: 'Erro ao abrir chamado', description: 'Não foi possível salvar. Tente novamente.', variant: 'destructive' });
+        setSaving(false);
+        return;
+      }
+
+      const inserted = await createRes.json();
+
+      // Upload photos if any
+      for (const photo of photos) {
+        const ext = photo.name.split('.').pop() ?? 'jpg';
+        const path = `tickets/${inserted.id}/${crypto.randomUUID()}.${ext}`;
+        const formData = new FormData();
+        formData.append('file', photo);
+        formData.append('bucket', 'service-order-photos');
+        formData.append('path', path);
+        await apiUpload('/api/data/storage/upload/', formData);
+      }
+
+      toast({ title: 'Chamado aberto com sucesso' });
+      setModalOpen(false);
       setSaving(false);
-      return;
+      fetchTickets();
+    } catch {
+      toast({ title: 'Erro ao abrir chamado', description: 'Tente novamente.', variant: 'destructive' });
+      setSaving(false);
     }
-
-    // Upload photos if any
-    for (const photo of photos) {
-      const ext = photo.name.split('.').pop() ?? 'jpg';
-      const path = `tickets/${inserted.id}/${crypto.randomUUID()}.${ext}`;
-      await supabase.storage.from('service-order-photos').upload(path, photo, { contentType: photo.type });
-    }
-
-    toast({ title: 'Chamado aberto com sucesso' });
-    setModalOpen(false);
-    setSaving(false);
-    fetchTickets();
   };
 
   const handleChangeStatus = async (ticketId: string, newStatus: string, reason?: string) => {
     const updatePayload: Record<string, any> = { status: newStatus };
     if (reason) updatePayload.close_reason = reason;
 
-    const { error } = await supabase.schema('nfe_vigia').from('tickets')
-      .update(updatePayload).eq('id', ticketId);
+    try {
+      const res = await apiFetch(`/api/data/tickets/${ticketId}/`, {
+        method: 'PATCH',
+        body: JSON.stringify(updatePayload),
+      });
 
-    if (error) {
+      if (!res.ok) {
+        toast({ title: 'Erro ao atualizar chamado', variant: 'destructive' });
+      } else {
+        toast({ title: `Chamado atualizado para "${STATUS_LABEL[newStatus]}"` });
+        fetchTickets();
+        setDetailOpen(false);
+        setCloseDialogOpen(false);
+      }
+    } catch {
       toast({ title: 'Erro ao atualizar chamado', variant: 'destructive' });
-    } else {
-      toast({ title: `Chamado atualizado para "${STATUS_LABEL[newStatus]}"` });
-      fetchTickets();
-      setDetailOpen(false);
-      setCloseDialogOpen(false);
     }
   };
 

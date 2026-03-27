@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { supabase } from '@/lib/supabase';
+import { apiFetch } from '@/lib/api';
+import { getPublicStorageUrl } from '@/lib/storage-url';
 import { useCondo } from '@/contexts/CondoContext';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -110,29 +111,40 @@ export default function OrdemServicoDetalhe() {
     setLoading(true);
 
     const [orderRes, activitiesRes, materialsRes, docsRes] = await Promise.all([
-      supabase.schema('nfe_vigia').from('service_orders').select('*').eq('id', id).eq('condo_id', condoId).single(),
-      supabase.schema('nfe_vigia').from('service_order_activities').select('*').eq('service_order_id', id).order('created_at', { ascending: false }),
-      supabase.schema('nfe_vigia').from('service_order_materials').select('*').eq('service_order_id', id),
-      supabase.schema('nfe_vigia').from('service_order_photos').select('*').eq('service_order_id', id).order('created_at', { ascending: false }),
+      apiFetch(`/api/data/service-orders/${id}/?condo_id=${condoId}`),
+      apiFetch(`/api/data/service-orders/${id}/activities/?ordering=-created_at`),
+      apiFetch(`/api/data/service-order-materials/?service_order_id=${id}`),
+      apiFetch(`/api/data/service-orders/${id}/photos/?ordering=-created_at`),
     ]);
 
-    if (orderRes.error || !orderRes.data) {
+    if (!orderRes.ok) {
       toast({ title: 'Ordem de serviço não encontrada', variant: 'destructive' });
       navigate('/ordens-servico', { replace: true });
       return;
     }
 
-    setOrder(orderRes.data);
-    setActivities(activitiesRes.data ?? []);
-    setMaterials(materialsRes.data ?? []);
-    setDocuments(docsRes.data ?? []);
+    const orderData = await orderRes.json();
+    setOrder(orderData);
+
+    const activitiesData = activitiesRes.ok ? await activitiesRes.json() : [];
+    setActivities(Array.isArray(activitiesData) ? activitiesData : activitiesData.results ?? []);
+
+    const materialsData = materialsRes.ok ? await materialsRes.json() : [];
+    setMaterials(Array.isArray(materialsData) ? materialsData : materialsData.results ?? []);
+
+    const docsData = docsRes.ok ? await docsRes.json() : [];
+    setDocuments(Array.isArray(docsData) ? docsData : docsData.results ?? []);
 
     const [orcRes, finalRes] = await Promise.all([
-      supabase.schema('nfe_vigia').from('approvals').select('*').eq('service_order_id', id).eq('approval_type', 'ORCAMENTO'),
-      supabase.schema('nfe_vigia').from('approvals').select('*').eq('service_order_id', id).eq('approval_type', 'FINAL'),
+      apiFetch(`/api/data/os-approvals/?service_order_id=${id}&approval_type=ORCAMENTO`),
+      apiFetch(`/api/data/os-approvals/?service_order_id=${id}&approval_type=FINAL`),
     ]);
-    setOrcamentoApprovals(orcRes.data ?? []);
-    setFinalApprovals(finalRes.data ?? []);
+
+    const orcData = orcRes.ok ? await orcRes.json() : [];
+    setOrcamentoApprovals(Array.isArray(orcData) ? orcData : orcData.results ?? []);
+
+    const finalData = finalRes.ok ? await finalRes.json() : [];
+    setFinalApprovals(Array.isArray(finalData) ? finalData : finalData.results ?? []);
 
     setLoading(false);
   };
@@ -144,28 +156,30 @@ export default function OrdemServicoDetalhe() {
   const changeStatus = async (newStatus: string) => {
     if (!order || !condoId) return;
     setActionLoading(true);
-    const { error } = await supabase.schema('nfe_vigia').from('service_orders').update({ status: newStatus }).eq('id', order.id);
-    if (!error) {
+    const res = await apiFetch(`/api/data/service-orders/${order.id}/`, {
+      method: 'PATCH',
+      body: JSON.stringify({ status: newStatus }),
+    });
+    if (res.ok) {
       toast({ title: `Status alterado para ${statusLabel[newStatus]}` });
       fetchAll();
     }
     setActionLoading(false);
   };
 
-  // Signed URLs for photos
+  // Photo URLs using getPublicStorageUrl
   const [photoUrls, setPhotoUrls] = useState<Record<string, string>>({});
 
   useEffect(() => {
-    const generateSignedUrls = async () => {
+    const generateUrls = () => {
       const urls: Record<string, string> = {};
       for (const doc of documents) {
         if (!doc.file_url) continue;
-        const { data, error } = await supabase.storage.from('service-order-photos').createSignedUrl(doc.file_url, 3600);
-        if (data && !error) urls[doc.id] = data.signedUrl;
+        urls[doc.id] = getPublicStorageUrl(doc.file_url);
       }
       setPhotoUrls(urls);
     };
-    if (documents.length > 0) generateSignedUrls();
+    if (documents.length > 0) generateUrls();
   }, [documents]);
 
   const handleGeneratePdf = async () => {

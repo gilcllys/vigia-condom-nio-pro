@@ -1,5 +1,4 @@
 import { useEffect, useState } from 'react';
-import { supabase } from '@/lib/supabase';
 import { apiFetch } from '@/lib/api';
 import { useAuth } from '@/contexts/AuthContext';
 import { useCondo } from '@/contexts/CondoContext';
@@ -145,13 +144,22 @@ export default function Billing() {
   const fetchBillingInfo = async () => {
     if (!condoId) return;
     setLoadingInfo(true);
-    const { data } = await supabase
-      .from('condos')
-      .select('name, subscription_status, subscription_id, subscription_expires_at')
-      .eq('id', condoId)
-      .maybeSingle();
-
-    setBillingInfo(data as CondoBillingInfo | null);
+    try {
+      const res = await apiFetch(`/api/data/condos/${condoId}/`);
+      if (res.ok) {
+        const data = await res.json();
+        setBillingInfo({
+          name: data.name,
+          subscription_status: data.subscription_status,
+          subscription_id: data.subscription_id,
+          subscription_expires_at: data.subscription_expires_at,
+        } as CondoBillingInfo);
+      } else {
+        setBillingInfo(null);
+      }
+    } catch {
+      setBillingInfo(null);
+    }
     setLoadingInfo(false);
   };
 

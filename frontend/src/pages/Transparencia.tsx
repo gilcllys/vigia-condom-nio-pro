@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { supabase } from '@/lib/supabase';
+import { apiFetch } from '@/lib/api';
 import { useCondo } from '@/contexts/CondoContext';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -66,22 +66,15 @@ export default function Transparencia() {
       setLoading(true);
 
       const [osRes, nfRes] = await Promise.all([
-        supabase
-          .from('service_orders')
-          .select('id, title, status, location, created_at, finished_at')
-          .eq('condo_id', condoId)
-          .in('status', ['FINALIZADA', 'CANCELADA'])
-          .order('created_at', { ascending: false }),
-        supabase
-          .from('fiscal_documents')
-          .select('id, number, supplier, amount, issue_date, status, document_type')
-          .eq('condo_id', condoId)
-          .in('status', ['PROCESSADO', 'CANCELADO'])
-          .order('created_at', { ascending: false }),
+        apiFetch(`/api/data/service-orders/?condo_id=${condoId}&status=FINALIZADA,CANCELADA&ordering=-created_at`),
+        apiFetch(`/api/data/fiscal-documents/?condo_id=${condoId}&status=PROCESSADO,CANCELADO&ordering=-created_at`),
       ]);
 
-      setOsList((osRes.data ?? []) as PublicOS[]);
-      setNfList((nfRes.data ?? []) as PublicNF[]);
+      const osData = osRes.ok ? await osRes.json() : [];
+      const nfData = nfRes.ok ? await nfRes.json() : [];
+
+      setOsList((Array.isArray(osData) ? osData : osData.results ?? []) as PublicOS[]);
+      setNfList((Array.isArray(nfData) ? nfData : nfData.results ?? []) as PublicNF[]);
       setLoading(false);
     };
 

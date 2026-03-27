@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Activity, ChevronRight, User, Inbox } from 'lucide-react';
-import { supabase } from '@/lib/supabase';
+import { apiFetch } from '@/lib/api';
 import { useCondo } from '@/contexts/CondoContext';
 
 function formatDateTime(dateStr: string): string {
@@ -37,24 +37,24 @@ export function DashboardActivities() {
     const fetchActivities = async () => {
       setLoading(true);
 
-      // Try fetching from fiscal_document_approvals as recent activity source
-      const { data, error } = await supabase
-        .from('fiscal_document_approvals')
-        .select('id, decision, voted_at, approver_role, fiscal_document_id')
-        .eq('condo_id', condoId)
-        .order('voted_at', { ascending: false })
-        .limit(10);
+      try {
+        const res = await apiFetch(`/api/data/approvals/?condo_id=${condoId}&ordering=-voted_at&limit=10`);
+        const data = await res.json();
+        const rows = Array.isArray(data) ? data : data?.results ?? [];
 
-      if (!error && data && data.length > 0) {
-        const mapped: ActivityItem[] = data.map((row: any) => ({
-          id: row.id,
-          user_name: row.approver_role ?? 'Usuário',
-          action: row.decision === 'APROVADO' ? 'aprovou' : row.decision === 'REJEITADO' ? 'rejeitou' : row.decision?.toLowerCase() ?? 'votou em',
-          detail: `Doc Fiscal #${String(row.fiscal_document_id).slice(0, 8)}`,
-          created_at: row.voted_at,
-        }));
-        setActivities(mapped);
-      } else {
+        if (rows.length > 0) {
+          const mapped: ActivityItem[] = rows.map((row: any) => ({
+            id: row.id,
+            user_name: row.approver_role ?? 'Usuário',
+            action: row.decision === 'APROVADO' ? 'aprovou' : row.decision === 'REJEITADO' ? 'rejeitou' : row.decision?.toLowerCase() ?? 'votou em',
+            detail: `Doc Fiscal #${String(row.fiscal_document_id).slice(0, 8)}`,
+            created_at: row.voted_at,
+          }));
+          setActivities(mapped);
+        } else {
+          setActivities([]);
+        }
+      } catch {
         setActivities([]);
       }
 

@@ -3,7 +3,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { supabase } from '@/lib/supabase';
+import { apiFetch, authApi } from '@/lib/api';
 import { useToast } from '@/hooks/use-toast';
 import { logActivity } from '@/lib/activity-log';
 
@@ -44,78 +44,81 @@ export default function AddEmployeeDialog({ open, onOpenChange, condoId, onSaved
 
     setSaving(true);
 
-    // 1. Create auth user via signUp (does NOT affect current session when email confirmation is on)
-    const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
-      email: form.email.trim(),
-      password: form.password.trim(),
-      options: {
-        data: { full_name: form.full_name.trim() },
-      },
-    });
+    try {
+      // 1. Create auth user via signUp
+      const signUpResult = await authApi.signUp(form.email.trim(), form.password.trim());
 
-    if (signUpError) {
-      toast({ title: 'Erro ao criar conta', description: signUpError.message, variant: 'destructive' });
-      setSaving(false);
-      return;
-    }
+      if (!signUpResult.ok) {
+        const errMsg = signUpResult.data?.message || signUpResult.data?.error || 'Erro desconhecido';
+        toast({ title: 'Erro ao criar conta', description: errMsg, variant: 'destructive' });
+        setSaving(false);
+        return;
+      }
 
-    const authUserId = signUpData.user?.id;
-    if (!authUserId) {
-      toast({ title: 'Erro inesperado: ID do usuário não retornado', variant: 'destructive' });
-      setSaving(false);
-      return;
-    }
+      const authUserId = signUpResult.data?.user?.id;
+      if (!authUserId) {
+        toast({ title: 'Erro inesperado: ID do usuário não retornado', variant: 'destructive' });
+        setSaving(false);
+        return;
+      }
 
-    // 2. Create nfe_vigia.users record
-    const { data: insertedUser, error: userError } = await supabase
-      .schema('nfe_vigia')
-      .from('users')
-      .insert({
-        auth_user_id: authUserId,
-        condo_id: condoId,
-        full_name: form.full_name.trim(),
-        email: form.email.trim(),
-        profile: 'ZELADOR',
-        phone: form.phone.trim() || null,
-      })
-      .select('id')
-      .single();
-
-    if (userError) {
-      toast({ title: 'Erro ao criar perfil do funcionário', description: userError.message, variant: 'destructive' });
-      setSaving(false);
-      return;
-    }
-
-    // 3. Create nfe_vigia.user_condos record
-    const { error: condoError } = await supabase
-      .schema('nfe_vigia')
-      .from('user_condos')
-      .insert({
-        user_id: insertedUser.id,
-        condo_id: condoId,
-        role: 'ZELADOR',
-        is_default: true,
+      // 2. Create nfe_vigia.users record via signup-register endpoint
+      const userRes = await apiFetch('/api/data/signup-register/', {
+        method: 'POST',
+        body: JSON.stringify({
+          auth_user_id: authUserId,
+          condo_id: condoId,
+          full_name: form.full_name.trim(),
+          email: form.email.trim(),
+          profile: 'ZELADOR',
+          phone: form.phone.trim() || null,
+          password: form.password.trim(),
+          redirect_to: null,
+        }),
       });
 
-    if (condoError) {
-      toast({ title: 'Erro ao vincular funcionário', description: condoError.message, variant: 'destructive' });
-      setSaving(false);
-      return;
+      if (!userRes.ok) {
+        const errData = await userRes.json().catch(() => ({}));
+        toast({ title: 'Erro ao criar perfil do funcionário', description: errData.error || 'Erro desconhecido', variant: 'destructive' });
+        setSaving(false);
+        return;
+      }
+
+      const insertedUser = await userRes.json();
+
+      // 3. Create nfe_vigia.user_condos record
+      const condoRes = await apiFetch('/api/data/user-condos/', {
+        method: 'POST',
+        body: JSON.stringify({
+          user_id: insertedUser.id || insertedUser.user_id,
+          condo_id: condoId,
+          role: 'ZELADOR',
+          is_default: true,
+        }),
+      });
+
+      if (!condoRes.ok) {
+        const errData = await condoRes.json().catch(() => ({}));
+        toast({ title: 'Erro ao vincular funcionário', description: errData.error || 'Erro desconhecido', variant: 'destructive' });
+        setSaving(false);
+        return;
+      }
+
+      await logActivity({
+        condoId,
+        action: 'create',
+        entity: 'user',
+        entityId: insertedUser.id || insertedUser.user_id,
+        description: `Funcionário "${form.full_name.trim()}" adicionado como Zelador`,
+      });
+
+      toast({ title: 'Funcionário adicionado com sucesso' });
+      setForm(emptyForm);
+      onSaved();
+      onOpenChange(false);
+    } catch (err: any) {
+      toast({ title: 'Erro ao adicionar funcionário', description: err.message || 'Tente novamente.', variant: 'destructive' });
     }
-
-    await logActivity({
-      condoId,
-      action: 'create',
-      entity: 'user',
-      entityId: insertedUser.id,
-      description: `Funcionário "${form.full_name.trim()}" adicionado como Zelador`,
-    });
-
-    toast({ title: 'Funcionário adicionado com sucesso' });
-    setForm(emptyForm);
-    onSaved();
-    onOpenChange(false);
     setSaving(false);
   };
 

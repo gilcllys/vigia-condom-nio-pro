@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react';
-import { supabase } from '@/lib/supabase';
-import { apiFetch } from '@/lib/api';
+import { apiFetch, apiUpload } from '@/lib/api';
 import { useCondo } from '@/contexts/CondoContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { useFinancialConfig, getRequiredRoles } from '@/hooks/useFinancialConfig';
@@ -79,20 +78,22 @@ export default function NFEntryTab() {
 
   useEffect(() => {
     if (!condoId) return;
-    supabase
-      .from('stock_items')
-      .select('id, name')
-      .eq('condo_id', condoId)
-      .is('deleted_at', null)
-      .order('name')
-      .then(({ data }) => setStockItems(data ?? []));
 
-    supabase
-      .from('stock_categories')
-      .select('id, name')
-      .eq('condo_id', condoId)
-      .order('name')
-      .then(({ data }) => setStockCategories(data ?? []));
+    apiFetch(`/api/data/stock-items/?condo_id=${condoId}`)
+      .then(res => res.json())
+      .then(data => {
+        const items = Array.isArray(data) ? data : data?.results ?? [];
+        setStockItems(items.map((i: any) => ({ id: i.id, name: i.name })));
+      })
+      .catch(() => setStockItems([]));
+
+    apiFetch(`/api/data/stock-categories/?condo_id=${condoId}`)
+      .then(res => res.json())
+      .then(data => {
+        const cats = Array.isArray(data) ? data : data?.results ?? [];
+        setStockCategories(cats.map((c: any) => ({ id: c.id, name: c.name })));
+      })
+      .catch(() => setStockCategories([]));
   }, [condoId]);
 
   const handleFileSelect = async (file: File) => {
@@ -103,19 +104,24 @@ export default function NFEntryTab() {
     const ext = file.name.split('.').pop() ?? 'jpg';
     const path = `${condoId}/${crypto.randomUUID()}.${ext}`;
 
-    const { error: uploadError } = await supabase.storage
-      .from('nfe-vigia')
-      .upload(path, file, { contentType: file.type });
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('bucket', 'nfe-vigia');
+    formData.append('path', path);
 
-    if (uploadError) {
-      toast({ title: 'Erro no upload', description: uploadError.message, variant: 'destructive' });
+    const uploadRes = await apiUpload('/api/data/storage/upload/', formData);
+
+    if (!uploadRes.ok) {
+      const errData = await uploadRes.json().catch(() => ({}));
+      toast({ title: 'Erro no upload', description: errData.error || 'Tente novamente.', variant: 'destructive' });
       return;
     }
 
-    setFileUrl(path);
+    const uploadData = await uploadRes.json();
+    setFileUrl(uploadData.file_url || uploadData.path || path);
     setStep('extracting');
 
-    // Extract with Claude via edge function
+    // Extract with Claude via API
     try {
       const base64 = await fileToBase64(file);
       const mediaType = file.type || 'image/jpeg';
@@ -209,21 +215,20 @@ export default function NFEntryTab() {
     setSaving(true);
 
     try {
-      const { data: internalUser } = await supabase
-        .from('users')
-        .select('id')
-        .eq('auth_user_id', user.id)
-        .maybeSingle();
+      // Get internal user id
+      const userRes = await apiFetch(`/api/data/users/by-auth-id/?auth_user_id=${user.id}`);
+      const internalUser = await userRes.json();
 
-      if (!internalUser) {
+      if (!internalUser || !internalUser.id) {
         toast({ title: 'Erro ao identificar usuário', variant: 'destructive' });
         setSaving(false);
         return;
       }
 
-      const { data: fdDoc, error: fdError } = await supabase
-        .from('fiscal_documents')
-        .insert({
+      // Create fiscal document
+      const fdRes = await apiFetch('/api/data/fiscal-documents/', {
+        method: 'POST',
+        body: JSON.stringify({
           condo_id: condoId,
           document_type: 'NFE',
           source_type: 'UPLOAD',
@@ -234,47 +239,49 @@ export default function NFEntryTab() {
           status: 'PENDENTE',
           file_url: fileUrl,
           created_by: internalUser.id,
-        })
-        .select('id')
-        .single();
+        }),
+      });
 
-      if (fdError || !fdDoc) {
-        toast({ title: 'Erro ao salvar NF', description: fdError?.message, variant: 'destructive' });
+      if (!fdRes.ok) {
+        const errData = await fdRes.json().catch(() => ({}));
+        toast({ title: 'Erro ao salvar NF', description: errData.error || 'Tente novamente.', variant: 'destructive' });
         setSaving(false);
         return;
       }
+
+      const fdDoc = await fdRes.json();
 
       for (const item of nfData.itens) {
         const itemName = item.nome.trim();
         let itemId = item.stock_item_id;
 
         if (item.create_new || !itemId) {
-          const { data: existingItem } = await supabase
-            .from('stock_items')
-            .select('id')
-            .eq('condo_id', condoId)
-            .eq('name', itemName)
-            .is('deleted_at', null)
-            .maybeSingle();
+          // Check if stock item already exists by name
+          const existingRes = await apiFetch(`/api/data/stock-items/?condo_id=${condoId}&name=${encodeURIComponent(itemName)}`);
+          const existingData = await existingRes.json();
+          const existingList = Array.isArray(existingData) ? existingData : existingData?.results ?? [];
+          const existingItem = existingList.find((i: any) => i.name === itemName);
 
           if (existingItem?.id) {
             itemId = existingItem.id;
           } else {
-            const { data: newItem, error: newItemErr } = await supabase
-              .from('stock_items')
-              .insert({
+            const newItemRes = await apiFetch('/api/data/stock-items/', {
+              method: 'POST',
+              body: JSON.stringify({
                 condo_id: condoId,
                 name: itemName,
                 unit: 'un',
                 min_qty: 0,
                 category_id: item.category_id || null,
-              })
-              .select('id')
-              .single();
+              }),
+            });
 
-            if (newItemErr || !newItem) {
-              throw new Error(`Erro ao criar item "${itemName}": ${newItemErr?.message ?? 'desconhecido'}`);
+            if (!newItemRes.ok) {
+              const errData = await newItemRes.json().catch(() => ({}));
+              throw new Error(`Erro ao criar item "${itemName}": ${errData.error || 'desconhecido'}`);
             }
+
+            const newItem = await newItemRes.json();
             itemId = newItem.id;
           }
         }
@@ -283,45 +290,47 @@ export default function NFEntryTab() {
           throw new Error(`Item sem vínculo de estoque: ${itemName}`);
         }
 
-        // Vincula o item à NF para criação do movimento de estoque após aprovação
-        const { error: nfItemError } = await supabase
-          .from('fiscal_document_items')
-          .insert({
+        // Link item to the fiscal document
+        const nfItemRes = await apiFetch('/api/data/fiscal-document-items/', {
+          method: 'POST',
+          body: JSON.stringify({
             fiscal_document_id: fdDoc.id,
             stock_item_id: itemId,
             qty: item.quantidade,
             unit_price: item.valor_unitario,
-          });
+          }),
+        });
 
-        if (nfItemError) {
-          throw new Error(`Erro ao vincular item "${itemName}" à NF: ${nfItemError.message}`);
+        if (!nfItemRes.ok) {
+          const errData = await nfItemRes.json().catch(() => ({}));
+          throw new Error(`Erro ao vincular item "${itemName}" à NF: ${errData.error || 'desconhecido'}`);
         }
       }
 
+      // Create approval records
       const requiredRoles = getRequiredRoles(nfData.valor_total ?? 0, config);
-      const { data: approvers } = await supabase
-        .from('user_condos')
-        .select('user_id, role')
-        .eq('condo_id', condoId)
-        .in('role', requiredRoles)
-        .eq('status', 'ativo');
+      const approversRes = await apiFetch(`/api/data/user-condos/?condo_id=${condoId}&status=ativo`);
+      const approversData = await approversRes.json();
+      const allUserCondos = Array.isArray(approversData) ? approversData : approversData?.results ?? [];
+      const approvers = allUserCondos.filter((a: any) => requiredRoles.includes(a.role));
 
-      const foundRoles = new Set((approvers ?? []).map((a: any) => a.role));
+      const foundRoles = new Set(approvers.map((a: any) => a.role));
       const missingRoles = requiredRoles.filter(r => !foundRoles.has(r));
 
-      if (approvers && approvers.length > 0) {
-        const approvalRows = approvers.map((a: any) => ({
-          fiscal_document_id: fdDoc.id,
-          condo_id: condoId,
-          approver_user_id: a.user_id,
-          approver_role: a.role,
-        }));
+      if (approvers.length > 0) {
+        for (const a of approvers) {
+          await apiFetch('/api/data/approvals/', {
+            method: 'POST',
+            body: JSON.stringify({
+              fiscal_document_id: fdDoc.id,
+              condo_id: condoId,
+              approver_user_id: a.user_id,
+              approver_role: a.role,
+            }),
+          });
+        }
 
-        await supabase
-          .from('fiscal_document_approvals')
-          .insert(approvalRows);
-
-        // Notificar aprovadores por e-mail (fire-and-forget)
+        // Notify approvers by email (fire-and-forget)
         void sendApprovalEmails('NF', approvers.map((a: any) => a.user_id), {
           title: `NF #${nfData.numero_nf}${nfData.fornecedor ? ` — ${nfData.fornecedor}` : ''}`,
           amount: nfData.valor_total || undefined,

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { supabase } from '@/lib/supabase';
+import { authApi, setStoredTokens } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -14,19 +14,31 @@ export default function ResetPassword() {
   const [ready, setReady] = useState(false);
   const navigate = useNavigate();
   const { toast } = useToast();
+  const [searchParams] = useSearchParams();
 
   useEffect(() => {
-    // Supabase handles the token exchange automatically via the URL hash
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
-      if (event === 'PASSWORD_RECOVERY') {
+    // The password-reset link from Supabase GoTrue arrives with tokens in the URL hash.
+    // We extract them and store so authApi.updateUser can use them.
+    const hash = window.location.hash;
+    if (hash) {
+      const params = new URLSearchParams(hash.replace('#', ''));
+      const accessToken = params.get('access_token');
+      const refreshToken = params.get('refresh_token');
+      if (accessToken) {
+        // Store tokens so apiFetch can use them for the updateUser call
+        setStoredTokens({
+          access_token: accessToken,
+          refresh_token: refreshToken || '',
+        });
         setReady(true);
+        return;
       }
+    }
+
+    // Fallback: check if we already have a valid session
+    authApi.getSession().then((session) => {
+      if (session?.access_token) setReady(true);
     });
-    // Also check if already in recovery session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session) setReady(true);
-    });
-    return () => subscription.unsubscribe();
   }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -41,8 +53,8 @@ export default function ResetPassword() {
     }
     setLoading(true);
     try {
-      const { error } = await supabase.auth.updateUser({ password });
-      if (error) throw error;
+      const result = await authApi.updateUser({ password });
+      if (!result.ok) throw new Error('Failed');
       toast({ title: 'Senha alterada com sucesso!', description: 'Você já pode fazer login com sua nova senha.' });
       navigate('/login', { replace: true });
     } catch (error: any) {

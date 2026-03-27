@@ -1,5 +1,4 @@
 import { apiFetch } from '@/lib/api';
-import { supabase } from '@/lib/supabase';
 
 export type ApprovalEmailType = 'NF' | 'OS_ORCAMENTO' | 'OS_FINAL' | 'CONTRATO';
 
@@ -28,12 +27,6 @@ export async function sendApprovalEmails(
   if (!approverUserIds.length) return;
 
   try {
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session?.access_token) {
-      console.warn('[sendApprovalEmails] No active session — skipping email dispatch');
-      return;
-    }
-
     const res = await apiFetch('/api/notifications/approval-email/', {
       method: 'POST',
       body: JSON.stringify({

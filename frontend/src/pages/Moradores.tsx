@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { supabase } from '@/lib/supabase';
+import { apiFetch } from '@/lib/api';
 import { useCondo } from '@/contexts/CondoContext';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -91,14 +91,13 @@ export default function Moradores() {
   const fetchResidents = async () => {
     if (!condoId) return;
     setLoading(true);
-    const { data, error } = await supabase
-      .schema('nfe_vigia')
-      .rpc('list_residents_with_user_match', { _condo_id: condoId });
-
-    if (error) {
+    try {
+      const res = await apiFetch(`/api/data/residents/with-user-match/?condo_id=${condoId}`);
+      if (!res.ok) throw new Error('Erro ao carregar moradores');
+      const data = await res.json();
+      setResidents((Array.isArray(data) ? data : data.results ?? []) as ResidentRow[]);
+    } catch {
       toast({ title: 'Erro ao carregar moradores', description: 'Tente novamente.', variant: 'destructive' });
-    } else {
-      setResidents((data as ResidentRow[]) ?? []);
     }
     setLoading(false);
   };
@@ -129,18 +128,29 @@ export default function Moradores() {
     };
 
     if (editingResident) {
-      const { error } = await supabase.schema('nfe_vigia').from('residents').update(payload).eq('id', editingResident.resident_id);
-      if (error) { toast({ title: 'Erro ao atualizar morador', variant: 'destructive' }); }
-      else {
+      try {
+        const res = await apiFetch(`/api/data/residents/${editingResident.resident_id}/`, {
+          method: 'PATCH',
+          body: JSON.stringify(payload),
+        });
+        if (!res.ok) throw new Error('Erro ao atualizar morador');
         await logActivity({ condoId, action: 'update', entity: 'resident', entityId: editingResident.resident_id, description: `Morador "${form.full_name.trim()}" atualizado` });
         toast({ title: 'Morador atualizado com sucesso' }); setModalOpen(false); fetchResidents();
+      } catch {
+        toast({ title: 'Erro ao atualizar morador', variant: 'destructive' });
       }
     } else {
-      const { data: inserted, error } = await supabase.schema('nfe_vigia').from('residents').insert(payload).select('id').single();
-      if (error) { toast({ title: 'Erro ao cadastrar morador', variant: 'destructive' }); }
-      else {
+      try {
+        const res = await apiFetch('/api/data/residents/', {
+          method: 'POST',
+          body: JSON.stringify(payload),
+        });
+        if (!res.ok) throw new Error('Erro ao cadastrar morador');
+        const inserted = await res.json();
         await logActivity({ condoId, action: 'create', entity: 'resident', entityId: inserted?.id ?? '', description: `Morador "${form.full_name.trim()}" cadastrado` });
         toast({ title: 'Morador cadastrado com sucesso' }); setModalOpen(false); fetchResidents();
+      } catch {
+        toast({ title: 'Erro ao cadastrar morador', variant: 'destructive' });
       }
     }
     setSaving(false);
@@ -148,11 +158,13 @@ export default function Moradores() {
 
   const handleDelete = async () => {
     if (!deletingResident || !condoId) return;
-    const { error } = await supabase.schema('nfe_vigia').from('residents').delete().eq('id', deletingResident.resident_id);
-    if (error) { toast({ title: 'Erro ao excluir morador', variant: 'destructive' }); }
-    else {
+    try {
+      const res = await apiFetch(`/api/data/residents/${deletingResident.resident_id}/`, { method: 'DELETE' });
+      if (!res.ok) throw new Error('Erro ao excluir morador');
       await logActivity({ condoId, action: 'delete', entity: 'resident', entityId: deletingResident.resident_id, description: `Morador "${deletingResident.full_name}" excluído` });
       toast({ title: 'Morador excluído com sucesso' }); fetchResidents();
+    } catch {
+      toast({ title: 'Erro ao excluir morador', variant: 'destructive' });
     }
     setDeleteDialogOpen(false); setDeletingResident(null);
   };

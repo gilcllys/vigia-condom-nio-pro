@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { supabase } from '@/lib/supabase';
+import { apiFetch } from '@/lib/api';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -42,33 +42,38 @@ export default function PendingApprovalsTab({ condoId }: PendingApprovalsTabProp
     setLoading(true);
     console.log('[PendingApprovals] condoId usado na query:', condoId);
 
-    const { data, error } = await supabase.rpc('list_pending_approvals', {
-      p_condo_id: condoId,
-    });
+    try {
+      const res = await apiFetch(`/api/data/pending-user-approvals/?condo_id=${condoId}`);
+      const data = await res.json();
 
-    console.log('[PendingApprovals] RPC resultado bruto:', data);
-    if (error) console.error('[PendingApprovals] RPC erro:', error);
+      console.log('[PendingApprovals] API resultado bruto:', data);
 
-    if (error || !data?.length) {
+      const rows = Array.isArray(data) ? data : data?.results ?? [];
+
+      if (rows.length === 0) {
+        setUsers([]);
+        setLoading(false);
+        return;
+      }
+
+      const enriched: PendingUser[] = rows.map((row: any) => ({
+        id: row.user_id,
+        full_name: row.full_name,
+        email: row.email,
+        document: row.cpf_rg ?? null,
+        document_type: null,
+        birth_date: row.birth_date,
+        created_at: row.created_at,
+        block: row.block ?? null,
+        unit: row.unit ?? null,
+        unit_label: row.unit_label ?? null,
+      }));
+
+      setUsers(enriched);
+    } catch (err) {
+      console.error('[PendingApprovals] API erro:', err);
       setUsers([]);
-      setLoading(false);
-      return;
     }
-
-    const enriched: PendingUser[] = (data as any[]).map((row) => ({
-      id: row.user_id,
-      full_name: row.full_name,
-      email: row.email,
-      document: row.cpf_rg ?? null,
-      document_type: null,
-      birth_date: row.birth_date,
-      created_at: row.created_at,
-      block: row.block ?? null,
-      unit: row.unit ?? null,
-      unit_label: row.unit_label ?? null,
-    }));
-
-    setUsers(enriched);
     setLoading(false);
   };
 
@@ -79,56 +84,53 @@ export default function PendingApprovalsTab({ condoId }: PendingApprovalsTabProp
   const handleApprove = async (user: PendingUser) => {
     setProcessing(user.id);
 
-    const { error: userError } = await supabase
-      .from('users')
-      .update({ status: 'ativo' })
-      .eq('id', user.id);
+    try {
+      // Approve user via backend endpoint
+      const approveRes = await apiFetch('/api/data/pending-user-approvals/approve/', {
+        method: 'POST',
+        body: JSON.stringify({ user_id: user.id, condo_id: condoId }),
+      });
 
-    if (userError) {
-      toast({ title: 'Erro ao aprovar', description: 'Tente novamente.', variant: 'destructive' });
-      setProcessing(null);
-      return;
-    }
+      if (!approveRes.ok) {
+        toast({ title: 'Erro ao aprovar', description: 'Tente novamente.', variant: 'destructive' });
+        setProcessing(null);
+        return;
+      }
 
-    await supabase
-      .from('user_condos')
-      .update({ status: 'ativo' })
-      .eq('user_id', user.id)
-      .eq('condo_id', condoId);
+      // Create resident record if one doesn't exist yet
+      const residentRes = await apiFetch(`/api/data/residents/?condo_id=${condoId}&email=${encodeURIComponent(user.email.toLowerCase())}`);
+      const residentData = await residentRes.json();
+      const residentList = Array.isArray(residentData) ? residentData : residentData?.results ?? [];
 
-    // Create resident record if one doesn't exist yet (users via invite don't have one)
-    const { data: existingResident } = await supabase
-      .from('residents')
-      .select('id')
-      .eq('email', user.email.toLowerCase())
-      .eq('condo_id', condoId)
-      .maybeSingle();
-
-    if (!existingResident) {
-      await supabase
-        .from('residents')
-        .insert({
-          condo_id: condoId,
-          full_name: user.full_name,
-          email: user.email.toLowerCase(),
-          block: user.block || null,
-          unit: user.unit || null,
-          unit_label: user.unit_label || null,
-          unit_id: null,
-          document: user.document || null,
-          phone: null,
+      if (residentList.length === 0) {
+        await apiFetch('/api/data/residents/', {
+          method: 'POST',
+          body: JSON.stringify({
+            condo_id: condoId,
+            full_name: user.full_name,
+            email: user.email.toLowerCase(),
+            block: user.block || null,
+            unit: user.unit || null,
+            unit_label: user.unit_label || null,
+            unit_id: null,
+            document: user.document || null,
+            phone: null,
+          }),
         });
+      }
+
+      await logActivity({
+        condoId,
+        action: 'update',
+        entity: 'user',
+        entityId: user.id,
+        description: `Acesso de "${user.full_name}" aprovado`,
+      });
+
+      toast({ title: `Acesso de ${user.full_name} aprovado!` });
+    } catch (err) {
+      toast({ title: 'Erro ao aprovar', description: 'Tente novamente.', variant: 'destructive' });
     }
-
-    await logActivity({
-      condoId,
-      action: 'update',
-      entity: 'user',
-      entityId: user.id,
-      description: `Acesso de "${user.full_name}" aprovado`,
-    });
-
-    toast({ title: `Acesso de ${user.full_name} aprovado!` });
     setProcessing(null);
     fetchPending();
   };
@@ -143,26 +145,30 @@ export default function PendingApprovalsTab({ condoId }: PendingApprovalsTabProp
     if (!rejectTarget || !rejectReason.trim()) return;
     setProcessing(rejectTarget.id);
 
-    await supabase
-      .from('users')
-      .update({ status: 'recusado' })
-      .eq('id', rejectTarget.id);
+    try {
+      const res = await apiFetch('/api/data/pending-user-approvals/reject/', {
+        method: 'POST',
+        body: JSON.stringify({ user_id: rejectTarget.id, condo_id: condoId }),
+      });
 
-    await supabase
-      .from('user_condos')
-      .update({ status: 'recusado' })
-      .eq('user_id', rejectTarget.id)
-      .eq('condo_id', condoId);
+      if (!res.ok) {
+        toast({ title: 'Erro ao recusar', description: 'Tente novamente.', variant: 'destructive' });
+        setProcessing(null);
+        return;
+      }
 
-    await logActivity({
-      condoId,
-      action: 'update',
-      entity: 'user',
-      entityId: rejectTarget.id,
-      description: `Acesso de "${rejectTarget.full_name}" recusado. Motivo: ${rejectReason.trim()}`,
-    });
+      await logActivity({
+        condoId,
+        action: 'update',
+        entity: 'user',
+        entityId: rejectTarget.id,
+        description: `Acesso de "${rejectTarget.full_name}" recusado. Motivo: ${rejectReason.trim()}`,
+      });
 
-    toast({ title: `Cadastro de ${rejectTarget.full_name} recusado` });
+      toast({ title: `Cadastro de ${rejectTarget.full_name} recusado` });
+    } catch {
+      toast({ title: 'Erro ao recusar', description: 'Tente novamente.', variant: 'destructive' });
+    }
     setRejectDialogOpen(false);
     setProcessing(null);
     fetchPending();

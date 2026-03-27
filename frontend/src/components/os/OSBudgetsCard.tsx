@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { supabase } from '@/lib/supabase';
+import { apiFetch, authApi } from '@/lib/api';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -71,25 +71,17 @@ export function OSBudgetsCard({ orderId, orderTitle, condoId, priority, executor
 
   const fetchBudgets = async () => {
     setLoading(true);
-    const { data } = await supabase
-      .schema('nfe_vigia')
-      .from('budgets')
-      .select('*')
-      .eq('service_order_id', orderId)
-      .order('created_at', { ascending: true });
-    setBudgets(data ?? []);
+    const res = await apiFetch(`/api/data/budgets/?service_order_id=${orderId}&ordering=created_at`);
+    const json = await res.json();
+    setBudgets(json.results ?? json ?? []);
     setLoading(false);
   };
 
   const fetchProviders = async () => {
-    const { data } = await supabase
-      .schema('nfe_vigia')
-      .from('providers')
-      .select('id, trade_name, risk_score')
-      .eq('condo_id', condoId)
-      .eq('status', 'ativo')
-      .order('trade_name');
-    setProviders(data ?? []);
+    const res = await apiFetch(`/api/data/providers/?condo_id=${condoId}&status=ativo&ordering=trade_name`);
+    const json = await res.json();
+    const data: any[] = json.results ?? json ?? [];
+    setProviders(data.map((p: any) => ({ id: p.id, trade_name: p.trade_name, risk_score: p.risk_score })));
   };
 
   useEffect(() => { fetchBudgets(); }, [orderId]);
@@ -128,17 +120,15 @@ export function OSBudgetsCard({ orderId, orderTitle, condoId, priority, executor
 
     setSaving(true);
 
-    const { data: { user } } = await supabase.auth.getUser();
-    const authUid = user?.id;
+    const authUser = await authApi.getUser();
+    const authUid = authUser?.id;
 
     let nfeUserId: string | null = null;
     if (authUid) {
-      const { data: userData } = await supabase
-        .schema('nfe_vigia')
-        .from('users')
-        .select('id')
-        .eq('auth_user_id', authUid)
-        .maybeSingle();
+      const uRes = await apiFetch(`/api/data/users/?auth_user_id=${authUid}`);
+      const uJson = await uRes.json();
+      const uArr = uJson.results ?? uJson;
+      const userData = Array.isArray(uArr) ? uArr[0] : null;
       nfeUserId = userData?.id ?? null;
     }
 
@@ -152,9 +142,13 @@ export function OSBudgetsCard({ orderId, orderTitle, condoId, priority, executor
       valid_until: form.valid_until || null,
       created_by_user_id: nfeUserId,
     };
-    const { error } = await supabase.schema('nfe_vigia').from('budgets').insert(insertPayload);
 
-    if (error) {
+    const res = await apiFetch('/api/data/budgets/', {
+      method: 'POST',
+      body: JSON.stringify(insertPayload),
+    });
+
+    if (!res.ok) {
       toast({ title: 'Erro ao adicionar orçamento', variant: 'destructive' });
     } else {
       toast({ title: 'Orçamento adicionado com sucesso' });
@@ -165,8 +159,8 @@ export function OSBudgetsCard({ orderId, orderTitle, condoId, priority, executor
   };
 
   const handleDelete = async (id: string) => {
-    const { error } = await supabase.schema('nfe_vigia').from('budgets').delete().eq('id', id);
-    if (!error) fetchBudgets();
+    const res = await apiFetch(`/api/data/budgets/${id}/`, { method: 'DELETE' });
+    if (res.ok) fetchBudgets();
   };
 
   const pendingBudgets = budgets.filter(b => (b.status ?? 'pendente') === 'pendente');
@@ -185,24 +179,18 @@ export function OSBudgetsCard({ orderId, orderTitle, condoId, priority, executor
 
     setSubmitting(true);
 
-    const { data: config } = await supabase
-      .schema('nfe_vigia')
-      .from('condo_financial_config')
-      .select('approval_deadline_hours')
-      .eq('condo_id', condoId)
-      .maybeSingle();
+    const configRes = await apiFetch(`/api/data/condos/${condoId}/financial-config/`);
+    let deadlineHours = 48;
+    if (configRes.ok) {
+      const config = await configRes.json();
+      deadlineHours = config?.approval_deadline_hours ?? 48;
+    }
 
-    const deadlineHours = config?.approval_deadline_hours ?? 48;
+    const approversRes = await apiFetch(`/api/data/users/?condo_id=${condoId}&role=SUBSINDICO,CONSELHO&status=ativo`);
+    const approversJson = await approversRes.json();
+    const approvers: any[] = approversJson.results ?? approversJson ?? [];
 
-    const { data: approvers } = await supabase
-      .schema('nfe_vigia')
-      .from('user_condos')
-      .select('user_id, role')
-      .eq('condo_id', condoId)
-      .in('role', ['SUBSINDICO', 'CONSELHO'])
-      .eq('status', 'ativo');
-
-    if (!approvers || approvers.length === 0) {
+    if (approvers.length === 0) {
       toast({ title: 'Nenhum aprovador encontrado', description: 'Cadastre Subsíndico ou Conselheiros antes de enviar para aprovação.', variant: 'destructive' });
       setSubmitting(false);
       return;
@@ -221,20 +209,24 @@ export function OSBudgetsCard({ orderId, orderTitle, condoId, priority, executor
     }));
 
     // Delete any existing budget approvals before inserting (idempotent re-submission)
-    await supabase.schema('nfe_vigia').from('approvals')
-      .delete()
-      .eq('service_order_id', orderId)
-      .eq('approval_type', 'ORCAMENTO');
+    await apiFetch(`/api/data/os-approvals/?service_order_id=${orderId}&approval_type=ORCAMENTO`, {
+      method: 'DELETE',
+    });
 
-    const { error } = await supabase.schema('nfe_vigia').from('approvals').insert(approvalRecords);
+    const insertRes = await apiFetch('/api/data/os-approvals/', {
+      method: 'POST',
+      body: JSON.stringify(approvalRecords),
+    });
 
-    if (error) {
-      toast({ title: 'Erro ao enviar para aprovação', description: error.message, variant: 'destructive' });
+    if (!insertRes.ok) {
+      const errData = await insertRes.json().catch(() => ({}));
+      toast({ title: 'Erro ao enviar para aprovação', description: errData.message ?? errData.detail ?? '', variant: 'destructive' });
     } else {
       // Update service order status to AGUARDANDO_APROVACAO
-      await supabase.schema('nfe_vigia').from('service_orders')
-        .update({ status: 'AGUARDANDO_APROVACAO' })
-        .eq('id', orderId);
+      await apiFetch(`/api/data/service-orders/${orderId}/`, {
+        method: 'PATCH',
+        body: JSON.stringify({ status: 'AGUARDANDO_APROVACAO' }),
+      });
       await logSOActivity({
         serviceOrderId: orderId,
         action: 'ENVIADA_APROVACAO',

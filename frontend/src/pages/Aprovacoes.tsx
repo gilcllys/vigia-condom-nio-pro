@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { supabase } from '@/lib/supabase';
+import { apiFetch, authApi } from '@/lib/api';
 import { useCondo } from '@/contexts/CondoContext';
 import { useFinancialConfig, getRequiredRoles } from '@/hooks/useFinancialConfig';
 import { Badge } from '@/components/ui/badge';
@@ -121,38 +121,32 @@ export default function Aprovacoes() {
     const fetchNFs = async () => {
       setLoadingNF(true);
 
-      let docQuery = supabase
-        .from('fiscal_documents')
-        .select('id, number, amount, supplier, created_at, status')
-        .eq('condo_id', condoId)
-        .order('created_at', { ascending: false });
+      const params = new URLSearchParams({ condo_id: condoId, ordering: '-created_at' });
+      if (filterStatus !== 'ALL') params.append('status', filterStatus);
 
-      if (filterStatus !== 'ALL') {
-        docQuery = docQuery.eq('status', filterStatus);
-      }
+      const docRes = await apiFetch(`/api/data/fiscal-documents/?${params}`);
+      const docData = docRes.ok ? await docRes.json() : [];
+      const docList = Array.isArray(docData) ? docData : docData.results ?? [];
 
-      const { data: docData } = await docQuery;
-
-      if (!docData || docData.length === 0) {
+      if (docList.length === 0) {
         setDocs([]);
         setLoadingNF(false);
         return;
       }
 
-      const docIds = (docData as any[]).map(d => d.id);
-      const { data: approvalsData } = await supabase
-        .from('fiscal_document_approvals')
-        .select('fiscal_document_id, approver_role, decision')
-        .in('fiscal_document_id', docIds);
+      const docIds = (docList as any[]).map(d => d.id);
+      const approvalsRes = await apiFetch(`/api/data/approvals/?fiscal_document_id=${docIds.join(',')}`);
+      const approvalsData = approvalsRes.ok ? await approvalsRes.json() : [];
+      const approvalsList = Array.isArray(approvalsData) ? approvalsData : approvalsData.results ?? [];
 
       const approvalsMap = new Map<string, ApprovalVote[]>();
-      for (const a of (approvalsData ?? []) as any[]) {
+      for (const a of approvalsList as any[]) {
         const list = approvalsMap.get(a.fiscal_document_id) ?? [];
         list.push({ approver_role: a.approver_role, decision: a.decision });
         approvalsMap.set(a.fiscal_document_id, list);
       }
 
-      const mapped = (docData as any[]).map(d => {
+      const mapped = (docList as any[]).map(d => {
         const votes: ApprovalVote[] = approvalsMap.get(d.id) ?? [];
         const nextPendingRole = getNextPendingRole(votes);
         return {
@@ -187,42 +181,34 @@ export default function Aprovacoes() {
       setLoadingOS(true);
 
       // Fetch current internal user id for "my vote" detection
-      const { data: { user: authUser } } = await supabase.auth.getUser();
+      const authUser = await authApi.getUser();
       let internalUserId: string | null = null;
       if (authUser) {
-        const { data: userRow } = await supabase
-          .schema('nfe_vigia')
-          .from('users')
-          .select('id')
-          .eq('auth_user_id', authUser.id)
-          .maybeSingle();
-        internalUserId = userRow?.id ?? null;
+        const userRes = await apiFetch(`/api/data/users/?auth_user_id=${authUser.id}`);
+        if (userRes.ok) {
+          const userData = await userRes.json();
+          const userList = Array.isArray(userData) ? userData : userData.results ?? [];
+          internalUserId = userList[0]?.id ?? null;
+        }
       }
 
-      const { data: orders } = await supabase
-        .schema('nfe_vigia')
-        .from('service_orders')
-        .select('id, title, status, created_at, is_emergency, priority')
-        .eq('condo_id', condoId)
-        .eq('status', 'AGUARDANDO_APROVACAO')
-        .order('created_at', { ascending: false });
+      const ordersRes = await apiFetch(`/api/data/service-orders/?condo_id=${condoId}&status=AGUARDANDO_APROVACAO&ordering=-created_at`);
+      const ordersData = ordersRes.ok ? await ordersRes.json() : [];
+      const orders = Array.isArray(ordersData) ? ordersData : ordersData.results ?? [];
 
-      if (!orders || orders.length === 0) {
+      if (orders.length === 0) {
         setPendingOS([]);
         setLoadingOS(false);
         return;
       }
 
       const orderIds = (orders as any[]).map(o => o.id);
-      const { data: approvalsData } = await supabase
-        .schema('nfe_vigia')
-        .from('approvals')
-        .select('service_order_id, approver_id, decision')
-        .in('service_order_id', orderIds)
-        .eq('approval_type', 'ORCAMENTO');
+      const approvalsRes = await apiFetch(`/api/data/os-approvals/?service_order_id=${orderIds.join(',')}&approval_type=ORCAMENTO`);
+      const approvalsData = approvalsRes.ok ? await approvalsRes.json() : [];
+      const approvalsList = Array.isArray(approvalsData) ? approvalsData : approvalsData.results ?? [];
 
       const approvalsMap = new Map<string, { total: number; pending: number; myPending: boolean; myVoted: boolean }>();
-      for (const a of (approvalsData ?? []) as any[]) {
+      for (const a of approvalsList as any[]) {
         const current = approvalsMap.get(a.service_order_id) ?? { total: 0, pending: 0, myPending: false, myVoted: false };
         current.total++;
         if (a.decision === 'pendente') {

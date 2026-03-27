@@ -1,4 +1,4 @@
-import { supabase } from '@/lib/supabase';
+import { apiFetch } from '@/lib/api';
 
 interface LogActivityParams {
   condoId: string;
@@ -17,19 +17,18 @@ interface LogActivityParams {
 }
 
 export async function logActivity({ condoId, action, entity, entityId, description }: LogActivityParams) {
-  const { data: session } = await supabase.auth.getSession();
-  const userId = session.session?.user?.id;
-  if (!userId) return;
-
-  await supabase
-    .schema('nfe_vigia')
-    .from('activity_logs')
-    .insert({
-      condo_id: condoId,
-      user_id: userId,
-      action,
-      entity,
-      entity_id: entityId,
-      description,
+  try {
+    await apiFetch('/api/data/activity-logs/', {
+      method: 'POST',
+      body: JSON.stringify({
+        condo_id: condoId,
+        action,
+        entity,
+        entity_id: entityId,
+        description,
+      }),
     });
+  } catch (err) {
+    console.warn('[logActivity] Error:', err);
+  }
 }

@@ -1,6 +1,6 @@
-import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
-import { supabase } from '@/lib/supabase';
+import { apiFetch } from '@/lib/api';
+import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
 
 const STORAGE_KEY = 'nfe_vigia_active_condo';
 
@@ -69,111 +69,53 @@ export const CondoProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       return;
     }
 
-    const { data: session } = await supabase.auth.getSession();
-    if (!session.session) {
-      const empty = { condoId: null, condoName: null, role: null };
-      setState(empty);
-      writeCache(empty);
-      setLoading(false);
-      return;
-    }
+    try {
+      const res = await apiFetch('/api/data/condos/active-context/');
+      const data = await res.json();
 
-    // Try get_active_condo_context first, fallback to get_my_condo_id
-    const { data, error } = await supabase
-      .schema('nfe_vigia')
-      .rpc('get_active_condo_context');
-
-    if (!error && data) {
-      const row = Array.isArray(data) ? data[0] : data;
-      if (row?.condo_id) {
+      if (data?.condo_id) {
         const newState: CondoState = {
-          condoId: row.condo_id,
-          condoName: row.condo_name ?? null,
-          role: row.role ?? null,
+          condoId: data.condo_id,
+          condoName: data.condo_name ?? null,
+          role: data.role ?? null,
         };
         setState(newState);
         writeCache(newState);
         setLoading(false);
         return;
       }
-    }
+    } catch {}
 
-    // Fallback
-    const { data: fallback } = await supabase
-      .schema('nfe_vigia')
-      .rpc('get_my_condo_id');
-
-    let fallbackRole: string | null = null;
-    if (fallback && user) {
-      const { data: userRow } = await supabase
-        .from('users')
-        .select('id')
-        .eq('auth_user_id', user.id)
-        .maybeSingle();
-      if (userRow?.id) {
-        const { data: ucRow } = await supabase
-          .from('user_condos')
-          .select('role')
-          .eq('user_id', userRow.id)
-          .eq('condo_id', fallback)
-          .maybeSingle();
-        if (ucRow?.role) fallbackRole = ucRow.role;
-      }
-    }
-
-    const newState: CondoState = {
-      condoId: fallback ?? null,
-      condoName: null,
-      role: fallbackRole,
-    };
-    setState(newState);
-    writeCache(newState);
+    const empty = { condoId: null, condoName: null, role: null };
+    setState(empty);
+    writeCache(empty);
     setLoading(false);
   }, [user, authLoading]);
 
   const switchCondo = useCallback(async (targetCondoId: string): Promise<boolean> => {
-    const { data, error } = await supabase
-      .schema('nfe_vigia')
-      .rpc('switch_active_condo', { p_condo_id: targetCondoId });
+    try {
+      const res = await apiFetch('/api/data/condos/switch/', {
+        method: 'POST',
+        body: JSON.stringify({ condo_id: targetCondoId }),
+      });
 
-    if (error) {
-      console.error('[CondoContext] switch error:', error);
+      if (!res.ok) return false;
+
+      const data = await res.json();
+      const newState: CondoState = {
+        condoId: data.condo_id ?? targetCondoId,
+        condoName: data.condo_name ?? null,
+        role: data.role ?? null,
+      };
+      setState(newState);
+      writeCache(newState);
+      return true;
+    } catch {
       return false;
     }
-
-    const row = Array.isArray(data) ? data[0] : data;
-
-    // Always fetch role directly from user_condos — authoritative per-condo permission
-    let role: string | null = row?.out_role ?? row?.role ?? null;
-    if (user) {
-      const { data: userRow } = await supabase
-        .from('users')
-        .select('id')
-        .eq('auth_user_id', user.id)
-        .maybeSingle();
-      if (userRow?.id) {
-        const { data: ucRow } = await supabase
-          .from('user_condos')
-          .select('role')
-          .eq('user_id', userRow.id)
-          .eq('condo_id', targetCondoId)
-          .maybeSingle();
-        if (ucRow?.role) role = ucRow.role;
-      }
-    }
-
-    const newState: CondoState = {
-      condoId: row?.out_condo_id ?? row?.condo_id ?? targetCondoId,
-      condoName: row?.out_condo_name ?? row?.condo_name ?? null,
-      role,
-    };
-    setState(newState);
-    writeCache(newState);
-    return true;
-  }, [user]);
+  }, []);
 
   useEffect(() => {
-    // Load cache immediately, then validate with server
     const cached = readCache();
     if (cached.condoId && loading) {
       setState(cached);

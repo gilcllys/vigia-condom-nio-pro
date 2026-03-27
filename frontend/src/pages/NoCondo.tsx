@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { useCondo } from '@/contexts/CondoContext';
-import { supabase } from '@/lib/supabase';
+import { apiFetch } from '@/lib/api';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -23,36 +23,49 @@ export default function NoCondo() {
   useEffect(() => {
     const checkRole = async () => {
       if (!user) return;
-      const { data } = await supabase
-        .from('users')
-        .select('user_profile')
-        .eq('auth_user_id', user.id)
-        .maybeSingle();
-
-      setIsAdmin(data?.user_profile === 'ADMIN');
+      try {
+        const res = await apiFetch(`/api/data/users/by-auth-id/?auth_user_id=${user.id}`);
+        const data = await res.json();
+        setIsAdmin(data?.user_profile === 'ADMIN');
+      } catch {
+        setIsAdmin(false);
+      }
     };
     checkRole();
   }, [user]);
 
   const handleCreate = async () => {
     setSubmitting(true);
-    const { error } = await supabase.schema('nfe_vigia').rpc('onboard_create_condo', {
-      p_name: name.trim(),
-      p_document: cnpj.trim() || null,
-    });
+    try {
+      const res = await apiFetch('/api/data/condos/create/', {
+        method: 'POST',
+        body: JSON.stringify({
+          name: name.trim(),
+          document: cnpj.trim() || null,
+        }),
+      });
 
-    if (error) {
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        toast({
+          variant: 'destructive',
+          title: 'Erro ao criar condomínio',
+          description: err?.error || 'Tente novamente.',
+        });
+        setSubmitting(false);
+        return;
+      }
+
+      await refresh();
+      navigate('/dashboard');
+    } catch {
       toast({
         variant: 'destructive',
         title: 'Erro ao criar condomínio',
-        description: error.message,
+        description: 'Tente novamente.',
       });
       setSubmitting(false);
-      return;
     }
-
-    await refresh();
-    navigate('/dashboard');
   };
 
   // Loading check

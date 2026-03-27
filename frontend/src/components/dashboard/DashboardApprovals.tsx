@@ -3,7 +3,7 @@ import { FileText, ChevronRight, Search } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { useNavigate } from 'react-router-dom';
-import { supabase } from '@/lib/supabase';
+import { apiFetch } from '@/lib/api';
 import { useCondo } from '@/contexts/CondoContext';
 import { useFinancialConfig, getRequiredRoles } from '@/hooks/useFinancialConfig';
 import { differenceInHours } from 'date-fns';
@@ -45,16 +45,12 @@ export function DashboardApprovals() {
 
     const fetchPending = async () => {
       setLoading(true);
-      const { data } = await supabase
-        .from('fiscal_documents')
-        .select('id, number, amount, created_at')
-        .eq('condo_id', condoId)
-        .eq('status', 'PENDENTE')
-        .order('created_at', { ascending: false })
-        .limit(5);
+      try {
+        const res = await apiFetch(`/api/data/fiscal-documents/?condo_id=${condoId}&status=PENDENTE&ordering=-created_at&limit=5`);
+        const data = await res.json();
+        const rows = Array.isArray(data) ? data : data?.results ?? [];
 
-      if (data) {
-        setDocs(data.map((d: any) => {
+        setDocs(rows.map((d: any) => {
           const roles = getRequiredRoles(d.amount ?? 0, config);
           return {
             id: d.id,
@@ -65,6 +61,8 @@ export function DashboardApprovals() {
             tierLabel: getTierBadge(roles).label,
           };
         }));
+      } catch {
+        setDocs([]);
       }
       setLoading(false);
     };

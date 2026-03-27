@@ -6,7 +6,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Wrench, Pencil, Save } from 'lucide-react';
-import { supabase } from '@/lib/supabase';
+import { apiFetch } from '@/lib/api';
 import { useToast } from '@/hooks/use-toast';
 
 interface Props {
@@ -60,20 +60,21 @@ export function OSExecutionCard({
       setSaving(false);
       return;
     }
-    const { error } = await supabase
-      .schema('nfe_vigia')
-      .from('service_orders')
-      .update({
+
+    const res = await apiFetch(`/api/data/service-orders/${orderId}/`, {
+      method: 'PATCH',
+      body: JSON.stringify({
         executor_type: form.executor_type || null,
         executor_name: form.executor_name.trim() || null,
         execution_notes: form.execution_notes.trim() || null,
         started_at: form.started_at ? new Date(form.started_at).toISOString() : null,
         finished_at: form.finished_at ? new Date(form.finished_at).toISOString() : null,
-      })
-      .eq('id', orderId);
+      }),
+    });
 
-    if (error) {
-      toast({ title: 'Erro ao salvar dados de execução', description: error.message, variant: 'destructive' });
+    if (!res.ok) {
+      const errData = await res.json().catch(() => ({}));
+      toast({ title: 'Erro ao salvar dados de execução', description: errData.message ?? errData.detail ?? '', variant: 'destructive' });
     } else {
       toast({ title: 'Dados de execução salvos' });
       setEditing(false);

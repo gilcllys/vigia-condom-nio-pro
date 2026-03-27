@@ -1,6 +1,5 @@
 import { useEffect, useState, useRef } from 'react';
-import { supabase } from '@/lib/supabase';
-import { apiFetch } from '@/lib/api';
+import { apiFetch, apiUpload } from '@/lib/api';
 import { getPublicStorageUrl } from '@/lib/storage-url';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -60,13 +59,9 @@ export function OSFiscalDocsCard({ orderId, condoId, canAttach, canCriticalActio
 
   const fetchDocs = async () => {
     setLoading(true);
-    const { data } = await supabase
-      .schema('nfe_vigia')
-      .from('fiscal_documents')
-      .select('id, number, amount, issue_date, file_url, created_at')
-      .eq('service_order_id', orderId)
-      .order('created_at', { ascending: false });
-    setDocs(data ?? []);
+    const res = await apiFetch(`/api/data/fiscal-documents/?service_order_id=${orderId}&ordering=-created_at`);
+    const json = await res.json();
+    setDocs(json.results ?? json ?? []);
     setLoading(false);
   };
 
@@ -132,11 +127,15 @@ export function OSFiscalDocsCard({ orderId, condoId, canAttach, canCriticalActio
     if (file) {
       const ext = file.name.split('.').pop() ?? 'pdf';
       const path = `${condoId}/${crypto.randomUUID()}.${ext}`;
-      const { error: uploadError } = await supabase.storage.from('nfe-vigia').upload(path, file, { contentType: file.type });
-      if (!uploadError) fileUrl = path;
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('bucket', 'nfe-vigia');
+      formData.append('path', path);
+      const uploadRes = await apiUpload('/api/data/storage/upload/', formData);
+      if (uploadRes.ok) fileUrl = path;
     }
 
-    const { error } = await supabase.schema('nfe_vigia').from('fiscal_documents').insert({
+    const insertPayload = {
       service_order_id: orderId,
       condo_id: condoId,
       document_number: numberVal,
@@ -151,10 +150,16 @@ export function OSFiscalDocsCard({ orderId, condoId, canAttach, canCriticalActio
       document_type: 'NFE',
       status: 'PENDENTE',
       approval_status: 'pendente',
+    };
+
+    const res = await apiFetch('/api/data/fiscal-documents/', {
+      method: 'POST',
+      body: JSON.stringify(insertPayload),
     });
 
-    if (error) {
-      toast({ title: 'Erro ao adicionar nota fiscal', description: error.message || JSON.stringify(error), variant: 'destructive' });
+    if (!res.ok) {
+      const errData = await res.json().catch(() => ({}));
+      toast({ title: 'Erro ao adicionar nota fiscal', description: errData.message ?? errData.detail ?? JSON.stringify(errData), variant: 'destructive' });
     } else {
       await logSOActivity({ serviceOrderId: orderId, action: 'DOCUMENTO_ANEXADO', description: `Nota fiscal Nº ${numberVal} anexada` });
       toast({ title: 'Nota fiscal adicionada' });
@@ -170,36 +175,30 @@ export function OSFiscalDocsCard({ orderId, condoId, canAttach, canCriticalActio
     if (!doc.amount) return;
     setSubmitting(doc.id);
 
-    const { data: config } = await supabase
-      .schema('nfe_vigia')
-      .from('condo_financial_config')
-      .select('*')
-      .eq('condo_id', condoId)
-      .maybeSingle();
+    const configRes = await apiFetch(`/api/data/condos/${condoId}/financial-config/`);
+    let config: any = null;
+    if (configRes.ok) {
+      config = await configRes.json();
+    }
 
     const amount = doc.amount;
     const requiredRoles = getRequiredRoles(amount, config as any);
 
-    const { data: existingApprovals } = await supabase
-      .from('fiscal_document_approvals')
-      .select('id')
-      .eq('fiscal_document_id', doc.id)
-      .limit(1);
+    const existingRes = await apiFetch(`/api/data/approvals/?fiscal_document_id=${doc.id}&limit=1`);
+    const existingJson = await existingRes.json();
+    const existingApprovals = existingJson.results ?? existingJson ?? [];
 
-    if ((existingApprovals?.length ?? 0) > 0) {
+    if (existingApprovals.length > 0) {
       toast({ title: 'Esta NF já foi enviada para aprovação' });
       setSubmitting(null);
       return;
     }
 
-    const { data: approvers } = await supabase
-      .from('user_condos')
-      .select('user_id, role')
-      .eq('condo_id', condoId)
-      .in('role', requiredRoles)
-      .eq('status', 'ativo');
+    const approversRes = await apiFetch(`/api/data/users/?condo_id=${condoId}&role=${requiredRoles.join(',')}&status=ativo`);
+    const approversJson = await approversRes.json();
+    const approvers: any[] = approversJson.results ?? approversJson ?? [];
 
-    if (!approvers || approvers.length === 0) {
+    if (approvers.length === 0) {
       toast({ title: 'Nenhum aprovador encontrado para esta alçada', variant: 'destructive' });
       setSubmitting(null);
       return;
@@ -212,9 +211,12 @@ export function OSFiscalDocsCard({ orderId, condoId, canAttach, canCriticalActio
       approver_role: a.role,
     }));
 
-    const { error } = await supabase.from('fiscal_document_approvals').insert(approvalRecords);
+    const insertRes = await apiFetch('/api/data/approvals/', {
+      method: 'POST',
+      body: JSON.stringify(approvalRecords),
+    });
 
-    if (error) {
+    if (!insertRes.ok) {
       toast({ title: 'Erro ao enviar NF para aprovação', variant: 'destructive' });
     } else {
       const rangeLabel = `R$ ${amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} — alçada: ${requiredRoles.join(', ')}`;

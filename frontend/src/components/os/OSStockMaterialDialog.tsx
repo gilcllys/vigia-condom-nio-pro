@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { supabase } from '@/lib/supabase';
+import { apiFetch } from '@/lib/api';
 import { useCondo } from '@/contexts/CondoContext';
 import { STOCK_MOVE_TYPES } from '@/lib/stock-move-type';
 import { Button } from '@/components/ui/button';
@@ -41,24 +41,20 @@ export function OSStockMaterialDialog({ open, onOpenChange, orderId, onAdded }: 
     const fetchStock = async () => {
       setLoading(true);
 
-      const { data: stockItems } = await supabase
-        .from('stock_items')
-        .select('id, name, unit')
-        .eq('condo_id', condoId)
-        .is('deleted_at', null)
-        .order('name');
+      const itemsRes = await apiFetch(`/api/data/stock-items/?condo_id=${condoId}&deleted_at__isnull=true&ordering=name`);
+      const itemsJson = await itemsRes.json();
+      const stockItems: any[] = itemsJson.results ?? itemsJson ?? [];
 
-      const { data: balances } = await supabase
-        .from('v_stock_balance')
-        .select('item_id, balance_qty')
-        .eq('condo_id', condoId);
+      const balancesRes = await apiFetch(`/api/data/stock-items/balances/?condo_id=${condoId}`);
+      const balancesJson = await balancesRes.json();
+      const balances: any[] = balancesJson.results ?? balancesJson ?? [];
 
       const balanceMap: Record<string, number> = {};
-      (balances ?? []).forEach((b: any) => {
+      balances.forEach((b: any) => {
         balanceMap[b.item_id] = Number(b.balance_qty) || 0;
       });
 
-      const merged: StockItem[] = (stockItems ?? [])
+      const merged: StockItem[] = stockItems
         .map((item: any) => ({
           ...item,
           current_qty: balanceMap[item.id] ?? 0,
@@ -90,40 +86,44 @@ export function OSStockMaterialDialog({ open, onOpenChange, orderId, onAdded }: 
 
     try {
       // 1. Insert material into service_order_materials and get the ID back
-      const { data: matData, error: matError } = await supabase
-        .from('service_order_materials')
-        .insert({
+      const matRes = await apiFetch('/api/data/service-order-materials/', {
+        method: 'POST',
+        body: JSON.stringify({
           service_order_id: orderId,
           name: selectedItem!.name,
           quantity: qty,
           unit: selectedItem!.unit,
           cost: null,
-        })
-        .select('id')
-        .single();
+        }),
+      });
 
-      if (matError || !matData) {
-        toast({ title: 'Erro ao adicionar material', description: matError?.message, variant: 'destructive' });
+      if (!matRes.ok) {
+        const matErr = await matRes.json().catch(() => ({}));
+        toast({ title: 'Erro ao adicionar material', description: matErr.message ?? matErr.detail ?? '', variant: 'destructive' });
         setSaving(false);
         return;
       }
 
+      const matData = await matRes.json();
+
       // 2. Deduct from stock via stock_movements, linking to the order
-      const { error: moveError } = await supabase
-        .from('stock_movements')
-        .insert({
+      const moveRes = await apiFetch('/api/data/stock-movements/', {
+        method: 'POST',
+        body: JSON.stringify({
           condo_id: condoId,
           item_id: selectedItemId,
           move_type: STOCK_MOVE_TYPES.SAIDA,
           qty,
           service_order_id: orderId,
           service_order_material_id: matData.id,
-        });
+        }),
+      });
 
-      if (moveError) {
+      if (!moveRes.ok) {
         // Rollback: remove the material if stock deduction failed
-        await supabase.from('service_order_materials').delete().eq('id', matData.id);
-        toast({ title: 'Erro na baixa do estoque', description: moveError.message, variant: 'destructive' });
+        await apiFetch(`/api/data/service-order-materials/${matData.id}/`, { method: 'DELETE' });
+        const moveErr = await moveRes.json().catch(() => ({}));
+        toast({ title: 'Erro na baixa do estoque', description: moveErr.message ?? moveErr.detail ?? '', variant: 'destructive' });
         setSaving(false);
         return;
       }

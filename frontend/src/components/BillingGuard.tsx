@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
-import { supabase } from '@/lib/supabase';
+import { apiFetch } from '@/lib/api';
 import { useCondo } from '@/contexts/CondoContext';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
@@ -33,19 +33,19 @@ export function BillingGuard({ children }: BillingGuardProps) {
       return;
     }
 
-    const fetch = async () => {
+    const fetchBilling = async () => {
       setLoading(true);
-      const { data } = await supabase
-        .from('condos')
-        .select('subscription_status')
-        .eq('id', condoId)
-        .maybeSingle();
-
-      setStatus((data?.subscription_status as SubscriptionStatus) ?? 'trial');
+      try {
+        const res = await apiFetch(`/api/data/condos/${condoId}/billing/`);
+        const data = await res.json();
+        setStatus((data?.subscription_status as SubscriptionStatus) ?? 'trial');
+      } catch {
+        setStatus('trial'); // fail-open
+      }
       setLoading(false);
     };
 
-    fetch();
+    fetchBilling();
   }, [condoId]);
 
   // Still loading condo or subscription — fail open (don't flash a redirect)

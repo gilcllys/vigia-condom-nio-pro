@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from 'react';
-import { supabase } from '@/lib/supabase';
+import { apiFetch } from '@/lib/api';
 
 export interface FinancialConfig {
   id?: string;
@@ -25,21 +25,22 @@ export function useFinancialConfig(condoId: string | null) {
   const [config, setConfig] = useState<FinancialConfig | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const fetch = useCallback(async () => {
+  const fetchConfig = useCallback(async () => {
     if (!condoId) { setLoading(false); return; }
     setLoading(true);
-    const { data } = await supabase
-      .from('condo_financial_config')
-      .select('*')
-      .eq('condo_id', condoId)
-      .maybeSingle();
-    setConfig(data as FinancialConfig | null);
+    try {
+      const res = await apiFetch(`/api/data/condos/${condoId}/financial-config/`);
+      const data = await res.json();
+      setConfig(data as FinancialConfig | null);
+    } catch {
+      setConfig(null);
+    }
     setLoading(false);
   }, [condoId]);
 
-  useEffect(() => { fetch(); }, [fetch]);
+  useEffect(() => { fetchConfig(); }, [fetchConfig]);
 
-  return { config, loading, refresh: fetch };
+  return { config, loading, refresh: fetchConfig };
 }
 
 /**

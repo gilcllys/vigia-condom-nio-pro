@@ -3,7 +3,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { supabase } from '@/lib/supabase';
+import { apiFetch } from '@/lib/api';
 import { useToast } from '@/hooks/use-toast';
 import { logActivity } from '@/lib/activity-log';
 
@@ -48,34 +48,41 @@ export default function RoleChangeDialog({
 
     setSaving(true);
 
-    const { error: rpcError } = await supabase
-      .rpc('update_user_role', {
-        _target_user_id: userCondoUserId,
-        _condo_id: condoId,
-        _new_role: role,
-      });
-
-    if (rpcError) {
-      toast({ title: 'Erro ao alterar função', description: rpcError.message, variant: 'destructive' });
-      setSaving(false);
-      return;
-    }
-
     try {
-      await logActivity({
-        condoId,
-        action: 'update',
-        entity: 'user_condo',
-        entityId: userCondoUserId,
-        description: `Função de "${residentName}" alterada para ${ROLE_LABELS[role] ?? role}`,
+      const res = await apiFetch('/api/data/user-condos/change-role/', {
+        method: 'POST',
+        body: JSON.stringify({
+          user_condo_id: userCondoUserId,
+          new_role: role,
+        }),
       });
-    } catch (e) {
-      console.warn('[RoleChangeDialog] logActivity falhou (ignorado):', e);
+
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        toast({ title: 'Erro ao alterar função', description: errData.error || 'Tente novamente.', variant: 'destructive' });
+        setSaving(false);
+        return;
+      }
+
+      try {
+        await logActivity({
+          condoId,
+          action: 'update',
+          entity: 'user_condo',
+          entityId: userCondoUserId,
+          description: `Função de "${residentName}" alterada para ${ROLE_LABELS[role] ?? role}`,
+        });
+      } catch (e) {
+        console.warn('[RoleChangeDialog] logActivity falhou (ignorado):', e);
+      }
+      toast({ title: `Função alterada para ${ROLE_LABELS[role] ?? role}` });
+      onOpenChange(false);
+      setSaving(false);
+      onSaved();
+    } catch (err: any) {
+      toast({ title: 'Erro ao alterar função', description: err.message || 'Tente novamente.', variant: 'destructive' });
+      setSaving(false);
     }
-    toast({ title: `Função alterada para ${ROLE_LABELS[role] ?? role}` });
-    onOpenChange(false);
-    setSaving(false);
-    onSaved();
   };
 
   return (

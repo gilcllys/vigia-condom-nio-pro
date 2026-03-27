@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { supabase } from '@/lib/supabase';
+import { apiFetch } from '@/lib/api';
 import { useCondo } from '@/contexts/CondoContext';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -95,13 +95,13 @@ export default function Condominios() {
 
   const fetchCondos = async () => {
     setLoading(true);
-    const { data, error } = await supabase
-      .schema('nfe_vigia')
-      .rpc('get_my_condos');
-    if (error) {
-      toast({ title: 'Erro ao carregar condomínios', description: error.message, variant: 'destructive' });
-    } else {
-      setCondos((data as CondoItem[]) ?? []);
+    try {
+      const res = await apiFetch('/api/data/condos/my/');
+      if (!res.ok) throw new Error('Erro ao carregar condomínios');
+      const data = await res.json();
+      setCondos((Array.isArray(data) ? data : data.results ?? []) as CondoItem[]);
+    } catch (err: any) {
+      toast({ title: 'Erro ao carregar condomínios', description: err.message, variant: 'destructive' });
     }
     setLoading(false);
   };
@@ -118,21 +118,25 @@ export default function Condominios() {
       return;
     }
     setCreating(true);
-    const { error } = await supabase
-      .schema('nfe_vigia')
-      .rpc('onboard_create_condo', {
-        p_name: createForm.name.trim(),
-        p_document: createForm.document.trim() || null,
+    try {
+      const res = await apiFetch('/api/data/condos/onboard/', {
+        method: 'POST',
+        body: JSON.stringify({
+          p_name: createForm.name.trim(),
+          p_document: createForm.document.trim() || null,
+        }),
       });
-
-    if (error) {
-      toast({ title: 'Erro ao criar condomínio', description: error.message, variant: 'destructive' });
-    } else {
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.detail || errData.error || 'Erro ao criar condomínio');
+      }
       toast({ title: 'Condomínio criado com sucesso!' });
       setCreateOpen(false);
       setCreateForm(emptyForm);
       await fetchCondos();
       await refresh();
+    } catch (err: any) {
+      toast({ title: 'Erro ao criar condomínio', description: err.message, variant: 'destructive' });
     }
     setCreating(false);
   };
@@ -151,20 +155,23 @@ export default function Condominios() {
       return;
     }
     setSaving(true);
-    const { error } = await supabase
-      .from('condos')
-      .update({ name: editForm.name.trim() })
-      .eq('id', editingCondo.condo_id);
-
-    if (error) {
-      toast({ title: 'Erro ao atualizar condomínio', description: error.message, variant: 'destructive' });
-    } else {
+    try {
+      const res = await apiFetch(`/api/data/condos/${editingCondo.condo_id}/`, {
+        method: 'PATCH',
+        body: JSON.stringify({ name: editForm.name.trim() }),
+      });
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.detail || errData.error || 'Erro ao atualizar condomínio');
+      }
       toast({ title: 'Condomínio atualizado com sucesso!' });
       setEditOpen(false);
       setEditingCondo(null);
       await fetchCondos();
       // Refresh context if we edited the active condo
       if (editingCondo.condo_id === condoId) await refresh();
+    } catch (err: any) {
+      toast({ title: 'Erro ao atualizar condomínio', description: err.message, variant: 'destructive' });
     }
     setSaving(false);
   };

@@ -18,6 +18,7 @@ class FiscalDocument(models.Model):
     document_type = models.TextField(blank=True, null=True)
     status = models.TextField(default="pendente")
     approval_status = models.TextField(default="pendente")
+    created_by = models.UUIDField(blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -44,6 +45,7 @@ class FiscalDocumentItem(models.Model):
     fiscal_document = models.ForeignKey(FiscalDocument, on_delete=models.CASCADE, db_column="fiscal_document_id")
     stock_item_id = models.UUIDField(blank=True, null=True)
     qty = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    unit_price = models.DecimalField(max_digits=12, decimal_places=2, default=0)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -70,6 +72,7 @@ class StockItem(models.Model):
     unit = models.TextField(blank=True, null=True)
     min_qty = models.DecimalField(max_digits=12, decimal_places=2, default=0)
     current_qty = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    deleted_at = models.DateTimeField(blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:

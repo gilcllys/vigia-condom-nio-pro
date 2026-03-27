@@ -5,7 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { FileText, MapPin, AlertTriangle, Calendar, User, Clock, Building2, Ticket } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { supabase } from '@/lib/supabase';
+import { apiFetch } from '@/lib/api';
 
 const priorityLabel: Record<string, string> = {
   BAIXA: 'Baixa',
@@ -34,13 +34,22 @@ export function OSInfoCard({ description, location, priority, createdAt, created
 
   useEffect(() => {
     if (providerId) {
-      supabase.schema('nfe_vigia').from('providers').select('trade_name').eq('id', providerId).single().then(({ data }) => setProviderName(data?.trade_name ?? null));
+      apiFetch(`/api/data/providers/${providerId}/`)
+        .then(res => res.ok ? res.json() : null)
+        .then(data => setProviderName(data?.trade_name ?? null))
+        .catch(() => setProviderName(null));
     }
     if (ticketId) {
-      supabase.schema('nfe_vigia').from('tickets').select('title').eq('id', ticketId).single().then(({ data }) => setTicketTitle(data?.title ?? null));
+      apiFetch(`/api/data/tickets/${ticketId}/`)
+        .then(res => res.ok ? res.json() : null)
+        .then(data => setTicketTitle(data?.title ?? null))
+        .catch(() => setTicketTitle(null));
     }
     if (createdBy) {
-      supabase.schema('nfe_vigia').from('users').select('full_name').eq('id', createdBy).maybeSingle().then(({ data }) => setCreatorName(data?.full_name ?? null));
+      apiFetch(`/api/data/users/${createdBy}/`)
+        .then(res => res.ok ? res.json() : null)
+        .then(data => setCreatorName(data?.full_name ?? null))
+        .catch(() => setCreatorName(null));
     }
   }, [providerId, ticketId, createdBy]);
 

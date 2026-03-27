@@ -1,5 +1,4 @@
 import { useEffect, useState } from 'react';
-import { supabase } from '@/lib/supabase';
 import { apiFetch } from '@/lib/api';
 import { useCondo } from '@/contexts/CondoContext';
 import { Button } from '@/components/ui/button';
@@ -92,12 +91,13 @@ export default function Prestadores() {
   const fetchProviders = async () => {
     if (!condoId) return;
     setLoading(true);
-    const { data } = await supabase
-      .from('providers')
-      .select('*')
-      .eq('condo_id', condoId)
-      .order('trade_name');
-    setProviders(data ?? []);
+    try {
+      const res = await apiFetch(`/api/data/providers/?condo_id=${condoId}&ordering=trade_name`);
+      const data = res.ok ? await res.json() : [];
+      setProviders(Array.isArray(data) ? data : data.results ?? []);
+    } catch {
+      setProviders([]);
+    }
     setLoading(false);
   };
 
@@ -148,28 +148,35 @@ export default function Prestadores() {
     }
     if (!condoId) return;
     setSaving(true);
-    const { error } = await supabase.from('providers').insert({
-      condo_id: condoId,
-      document: form.document || null,
-      legal_name: form.legal_name || null,
-      trade_name: form.trade_name,
-      phone: form.phone || null,
-      email: form.email || null,
-      address: form.address || null,
-      neighborhood: form.neighborhood || null,
-      cidade: form.cidade || null,
-      estado: form.estado || null,
-      zip_code: form.zip_code || null,
-      tipo_servico: form.tipo_servico || null,
-      observacoes: form.observacoes || null,
-    });
-    if (error) {
-      toast({ title: 'Erro ao salvar prestador', description: error.message, variant: 'destructive' });
-    } else {
+    try {
+      const res = await apiFetch('/api/data/providers/', {
+        method: 'POST',
+        body: JSON.stringify({
+          condo_id: condoId,
+          document: form.document || null,
+          legal_name: form.legal_name || null,
+          trade_name: form.trade_name,
+          phone: form.phone || null,
+          email: form.email || null,
+          address: form.address || null,
+          neighborhood: form.neighborhood || null,
+          cidade: form.cidade || null,
+          estado: form.estado || null,
+          zip_code: form.zip_code || null,
+          tipo_servico: form.tipo_servico || null,
+          observacoes: form.observacoes || null,
+        }),
+      });
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.detail || errData.error || 'Erro ao salvar prestador');
+      }
       toast({ title: 'Prestador cadastrado com sucesso' });
       setModalOpen(false);
       resetForm();
       fetchProviders();
+    } catch (err: any) {
+      toast({ title: 'Erro ao salvar prestador', description: err.message, variant: 'destructive' });
     }
     setSaving(false);
   };
@@ -182,19 +189,20 @@ export default function Prestadores() {
   const openDetail = async (provider: Provider) => {
     setDetailProvider(provider);
     setRiskAnalysis(null);
-    const { data } = await supabase
-      .from('provider_risk_analysis')
-      .select('*')
-      .eq('provider_id', provider.id)
-      .order('analyzed_at', { ascending: false })
-      .limit(1)
-      .maybeSingle();
-    if (data) {
-      setRiskAnalysis({
-        ...data,
-        positive_points: Array.isArray(data.positive_points) ? data.positive_points as string[] : [],
-        attention_points: Array.isArray(data.attention_points) ? data.attention_points as string[] : [],
-      });
+    try {
+      const res = await apiFetch(`/api/data/providers/${provider.id}/risk-analysis/`);
+      if (res.ok) {
+        const data = await res.json();
+        if (data) {
+          setRiskAnalysis({
+            ...data,
+            positive_points: Array.isArray(data.positive_points) ? data.positive_points as string[] : [],
+            attention_points: Array.isArray(data.attention_points) ? data.attention_points as string[] : [],
+          });
+        }
+      }
+    } catch {
+      // No risk analysis available
     }
   };
 
@@ -220,25 +228,32 @@ export default function Prestadores() {
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
 
-      const { error: insertError } = await supabase.from('provider_risk_analysis').insert({
-        provider_id: detailProvider.id,
-        score: data.score ?? 0,
-        risk_level: data.nivel_risco ?? 'MEDIO',
-        receita_status: data.situacao_receita ?? null,
-        recommendation: data.recomendacao ?? null,
-        positive_points: data.pontos_positivos ?? [],
-        attention_points: data.pontos_atencao ?? [],
-        summary: data.relatorio_resumido ?? null,
-        full_report: data.relatorio_completo ?? null,
-        cnpj_data: cnpjData,
+      // Save risk analysis
+      const saveRes = await apiFetch(`/api/data/providers/${detailProvider.id}/risk-analysis/`, {
+        method: 'POST',
+        body: JSON.stringify({
+          score: data.score ?? 0,
+          risk_level: data.nivel_risco ?? 'MEDIO',
+          receita_status: data.situacao_receita ?? null,
+          recommendation: data.recomendacao ?? null,
+          positive_points: data.pontos_positivos ?? [],
+          attention_points: data.pontos_atencao ?? [],
+          summary: data.relatorio_resumido ?? null,
+          full_report: data.relatorio_completo ?? null,
+          cnpj_data: cnpjData,
+        }),
       });
 
-      if (insertError) {
-        console.error('Insert error:', insertError);
+      if (!saveRes.ok) {
+        console.error('Save error:', await saveRes.text());
         toast({ title: 'Análise concluída mas houve erro ao salvar', variant: 'destructive' });
       }
 
-      await supabase.from('providers').update({ risk_score: data.score ?? 0 }).eq('id', detailProvider.id);
+      // Update provider risk score
+      await apiFetch(`/api/data/providers/${detailProvider.id}/`, {
+        method: 'PATCH',
+        body: JSON.stringify({ risk_score: data.score ?? 0 }),
+      });
 
       setRiskAnalysis({
         id: '',
@@ -264,7 +279,10 @@ export default function Prestadores() {
 
   const toggleStatus = async (provider: Provider) => {
     const newStatus = provider.status === 'ativo' ? 'inativo' : 'ativo';
-    await supabase.from('providers').update({ status: newStatus }).eq('id', provider.id);
+    await apiFetch(`/api/data/providers/${provider.id}/`, {
+      method: 'PATCH',
+      body: JSON.stringify({ status: newStatus }),
+    });
     fetchProviders();
     if (detailProvider?.id === provider.id) {
       setDetailProvider(prev => prev ? { ...prev, status: newStatus } : null);

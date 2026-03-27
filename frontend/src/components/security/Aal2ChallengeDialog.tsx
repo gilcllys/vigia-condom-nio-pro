@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { supabase } from '@/lib/supabase';
+import { authApi } from '@/lib/api';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { InputOTP, InputOTPGroup, InputOTPSlot } from '@/components/ui/input-otp';
@@ -26,8 +26,8 @@ export function Aal2ChallengeDialog({ open, onOpenChange, onSuccess }: Aal2Chall
     if (open) {
       setCode('');
       // Find the verified TOTP factor
-      supabase.auth.mfa.listFactors().then(({ data }) => {
-        const verified = data?.totp?.find((f) => f.status === 'verified');
+      authApi.mfaListFactors().then((data) => {
+        const verified = data?.totp?.find((f: any) => f.status === 'verified');
         setFactorId(verified?.id ?? null);
       });
     }
@@ -38,17 +38,15 @@ export function Aal2ChallengeDialog({ open, onOpenChange, onSuccess }: Aal2Chall
     setLoading(true);
 
     try {
-      const { data: challengeData, error: challengeError } = await supabase.auth.mfa.challenge({
-        factorId,
-      });
-      if (challengeError) throw challengeError;
+      const challengeResult = await authApi.mfaChallenge(factorId);
+      if (!challengeResult.ok) throw new Error('Challenge failed');
 
-      const { error: verifyError } = await supabase.auth.mfa.verify({
+      const verifyResult = await authApi.mfaVerify(
         factorId,
-        challengeId: challengeData.id,
+        challengeResult.data.id,
         code,
-      });
-      if (verifyError) throw verifyError;
+      );
+      if (!verifyResult.ok) throw new Error('Verify failed');
 
       toast({ title: 'Sessão elevada', description: 'Autenticação reforçada (AAL2) ativada.' });
       onOpenChange(false);

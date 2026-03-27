@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
-import { supabase } from '@/lib/supabase';
+// No auth/apiFetch needed — signup uses unauthenticated fetch to backend
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -41,7 +41,7 @@ export default function Cadastro() {
 
   const [saving, setSaving] = useState(false);
 
-  // Validate invite code
+  // Validate invite code via backend
   useEffect(() => {
     const validate = async () => {
       if (!inviteCode) {
@@ -49,18 +49,23 @@ export default function Cadastro() {
         setValidating(false);
         return;
       }
-      const { data, error } = await supabase
-        .from('condos')
-        .select('id, name')
-        .eq('invite_code', inviteCode)
-        .eq('invite_active', true)
-        .maybeSingle();
-
-      if (error || !data) {
+      try {
+        const res = await fetch(
+          `${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'}/api/data/condos/validate-invite/?code=${encodeURIComponent(inviteCode)}`,
+        );
+        if (!res.ok) {
+          setInvalidCode(true);
+        } else {
+          const data = await res.json();
+          if (data?.id && data?.name) {
+            setCondoId(data.id);
+            setCondoName(data.name);
+          } else {
+            setInvalidCode(true);
+          }
+        }
+      } catch {
         setInvalidCode(true);
-      } else {
-        setCondoId(data.id);
-        setCondoName(data.name);
       }
       setValidating(false);
     };
@@ -82,125 +87,52 @@ export default function Cadastro() {
     setSaving(true);
 
     try {
-      // 1. Create auth account
-      const { data: authData, error: authError } = await supabase.auth.signUp({
-        email,
-        password,
-        options: { emailRedirectTo: window.location.origin },
-      });
-      if (authError) {
-        console.error('SignUp error:', authError.message, authError.status, JSON.stringify(authError));
-        if (authError.message.toLowerCase().includes('user already registered')) {
-          toast({ title: 'Este e-mail já está cadastrado', description: 'Tente fazer login ou recupere sua senha.', variant: 'destructive' });
-        } else {
-          toast({ title: 'Erro ao criar conta', description: authError.message, variant: 'destructive' });
-        }
-        setSaving(false);
-        return;
-      }
-
-      const authUserId = authData.user?.id;
-      if (!authUserId) {
-        toast({ title: 'Erro inesperado', description: 'Tente novamente.', variant: 'destructive' });
-        setSaving(false);
-        return;
-      }
-
-      // 2. Buscar o registro criado automaticamente em nfe_vigia.users
-      let userId: string | null = null;
-      // Aguardar um pouco para o trigger criar o registro
-      for (let attempt = 0; attempt < 5; attempt++) {
-        console.log(`[Cadastro] Tentativa ${attempt + 1} de buscar user por auth_user_id:`, authUserId);
-        const { data: existingUser, error: fetchError } = await supabase
-          .from('users')
-          .select('id')
-          .eq('auth_user_id', authUserId)
-          .maybeSingle();
-
-        console.log('[Cadastro] Resultado da busca:', { data: existingUser, error: fetchError });
-
-        if (existingUser?.id) {
-          userId = existingUser.id;
-          break;
-        }
-        await new Promise((r) => setTimeout(r, 800));
-      }
-
-      if (!userId) {
-        console.error('User record not found in nfe_vigia.users after signUp for auth_user_id:', authUserId);
-        toast({ title: 'Erro ao localizar usuário', description: 'Registro não encontrado. Tente novamente.', variant: 'destructive' });
-        setSaving(false);
-        return;
-      }
-
-      // 3. UPDATE nfe_vigia.users com dados do formulário
-      const { error: updateError } = await supabase
-        .from('users')
-        .update({
-          full_name: fullName.trim(),
-          email: email.trim(),
-          cpf_rg: document.trim() || null,
-          birth_date: birthDate || null,
-          profile: 'MORADOR',
-          status: 'pendente',
-          condo_id: condoId,
-        })
-        .eq('id', userId);
-
-      console.log('[Cadastro] Resultado do UPDATE em users:', { error: updateError });
-      if (updateError) {
-        console.error('[Cadastro] ERRO COMPLETO ao atualizar users:', updateError);
-        console.error('[Cadastro] updateError details:', JSON.stringify(updateError, null, 2));
-        toast({ title: 'Erro ao salvar dados', description: updateError.message, variant: 'destructive' });
-        setSaving(false);
-        return;
-      }
-
-      // 4. INSERT em nfe_vigia.user_condos
-      const { error: ucError } = await supabase.from('user_condos').insert({
-        user_id: userId,
-        condo_id: condoId,
-        role: 'MORADOR',
-        status: 'pendente',
-        is_default: true,
-      });
-      console.log('[Cadastro] Resultado do INSERT em user_condos:', { error: ucError });
-      if (ucError) {
-        console.error('[Cadastro] ERRO COMPLETO ao inserir user_condos:', ucError);
-        console.error('[Cadastro] ucError details:', JSON.stringify(ucError, null, 2));
-      }
-
-      // 5. INSERT em nfe_vigia.residents
-      const residentPayload: Record<string, any> = {
-        condo_id: condoId,
-        full_name: fullName.trim(),
-        email: email.trim(),
-        document: document.trim() || null,
-        user_id: userId,
-      };
+      // Build residence fields
+      let blockVal: string | null = null;
+      let unitVal: string | null = null;
+      let unitLabelVal: string | null = null;
 
       if (residenceType === 'apartamento') {
-        residentPayload.block = block.trim() || null;
-        residentPayload.unit = unitNumber.trim() || null;
+        blockVal = block.trim() || null;
+        unitVal = unitNumber.trim() || null;
       } else {
-        residentPayload.block = street.trim() || null;
-        residentPayload.unit = houseNumber.trim() || null;
-        residentPayload.unit_label = complement.trim() || null;
+        blockVal = street.trim() || null;
+        unitVal = houseNumber.trim() || null;
+        unitLabelVal = complement.trim() || null;
       }
 
-      console.log('[Cadastro] Payload do residents:', residentPayload);
-      const { error: residentError } = await supabase.from('residents').insert(residentPayload);
-      console.log('[Cadastro] Resultado do INSERT em residents:', { error: residentError });
-      if (residentError) {
-        console.error('[Cadastro] ERRO COMPLETO ao inserir residents:', residentError);
-        console.error('[Cadastro] residentError details:', JSON.stringify(residentError, null, 2));
-        toast({ title: 'Erro ao salvar morador', description: residentError.message, variant: 'destructive' });
+      // Use the composite signup-register endpoint
+      const res = await fetch(
+        `${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'}/api/data/signup-register/`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            email: email.trim(),
+            password,
+            redirect_to: window.location.origin,
+            condo_id: condoId,
+            full_name: fullName.trim(),
+            cpf_rg: document.trim() || null,
+            birth_date: birthDate || null,
+            block: blockVal,
+            unit: unitVal,
+            unit_label: unitLabelVal,
+          }),
+        },
+      );
+
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        const msg = errData?.error || errData?.message || '';
+        if (msg.toLowerCase().includes('user already registered') || msg.toLowerCase().includes('already registered')) {
+          toast({ title: 'Este e-mail já está cadastrado', description: 'Tente fazer login ou recupere sua senha.', variant: 'destructive' });
+        } else {
+          toast({ title: 'Erro ao criar conta', description: msg || 'Tente novamente.', variant: 'destructive' });
+        }
         setSaving(false);
         return;
       }
-
-      // Sign out the pending user
-      await supabase.auth.signOut();
 
       setSubmitted(true);
     } catch {

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { supabase } from '@/lib/supabase';
+import { apiFetch, apiUpload } from '@/lib/api';
 import { useCondo } from '@/contexts/CondoContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -110,14 +110,27 @@ export default function OrdensServico() {
   // Get internal user id for MORADOR filtering
   useEffect(() => {
     if (!user) return;
-    supabase.schema('nfe_vigia').from('users').select('id').eq('auth_user_id', user.id).maybeSingle()
-      .then(({ data }) => setInternalUserId(data?.id ?? null));
+    apiFetch(`/api/data/users/?auth_user_id=${user.id}`)
+      .then(async (res) => {
+        if (!res.ok) return;
+        const data = await res.json();
+        const list = Array.isArray(data) ? data : data.results ?? [];
+        setInternalUserId(list[0]?.id ?? null);
+      });
   }, [user]);
 
   useEffect(() => {
     if (!condoId) return;
-    supabase.schema('nfe_vigia').from('providers').select('id, trade_name').eq('condo_id', condoId).is('deleted_at', null).order('trade_name').then(({ data }) => setProviders(data ?? []));
-    supabase.schema('nfe_vigia').from('tickets').select('id, title').eq('condo_id', condoId).in('status', ['ABERTO', 'EM_ANALISE']).order('created_at', { ascending: false }).then(({ data }) => setTickets(data ?? []));
+    apiFetch(`/api/data/providers/?condo_id=${condoId}&ordering=trade_name`).then(async (res) => {
+      if (!res.ok) return;
+      const data = await res.json();
+      setProviders(Array.isArray(data) ? data : data.results ?? []);
+    });
+    apiFetch(`/api/data/tickets/?condo_id=${condoId}&status=ABERTO,EM_ANALISE&ordering=-created_at`).then(async (res) => {
+      if (!res.ok) return;
+      const data = await res.json();
+      setTickets(Array.isArray(data) ? data : data.results ?? []);
+    });
   }, [condoId]);
 
   const fetchOrders = async (fromOffset = 0, append = false) => {
@@ -125,39 +138,37 @@ export default function OrdensServico() {
     if (!append) setLoading(true);
     else setLoadingMore(true);
 
-    let query = supabase
-      .schema('nfe_vigia')
-      .from('service_orders')
-      .select('id, condo_id, title, description, location, status, priority, created_by, created_at, is_emergency')
-      .eq('condo_id', condoId)
-      .order('created_at', { ascending: false })
-      .range(fromOffset, fromOffset + PAGE_SIZE - 1);
+    const params = new URLSearchParams({
+      condo_id: condoId,
+      ordering: '-created_at',
+      offset: String(fromOffset),
+      limit: String(PAGE_SIZE),
+    });
 
     // MORADOR: only see own OS
     if (isMorador && internalUserId) {
-      query = query.eq('created_by', internalUserId);
+      params.append('created_by', internalUserId);
     }
 
-    const { data, error } = await query;
+    try {
+      const res = await apiFetch(`/api/data/service-orders/?${params}`);
+      if (!res.ok) throw new Error('Erro ao carregar');
+      const rawData = await res.json();
+      const data = Array.isArray(rawData) ? rawData : rawData.results ?? [];
 
-    if (error) {
-      toast({ title: 'Erro ao carregar ordens de serviço', variant: 'destructive' });
-      if (!append) setOrders([]);
-    } else {
-      const ordersWithPhotos: ServiceOrder[] = (data ?? []).map((o: any) => ({ ...o, photo_count: 0 }));
+      const ordersWithPhotos: ServiceOrder[] = data.map((o: any) => ({ ...o, photo_count: 0 }));
 
       if (ordersWithPhotos.length > 0) {
         const ids = ordersWithPhotos.map((o) => o.id);
-        const { data: docs } = await supabase
-          .schema('nfe_vigia')
-          .from('service_order_photos')
-          .select('service_order_id')
-          .in('service_order_id', ids);
-
-        if (docs) {
-          const countMap: Record<string, number> = {};
-          docs.forEach((d: any) => { countMap[d.service_order_id] = (countMap[d.service_order_id] || 0) + 1; });
-          ordersWithPhotos.forEach((o) => { o.photo_count = countMap[o.id] || 0; });
+        // Fetch photo counts
+        for (const soId of ids) {
+          const photoRes = await apiFetch(`/api/data/service-orders/${soId}/photos/?count_only=true`);
+          if (photoRes.ok) {
+            const photoData = await photoRes.json();
+            const count = photoData.count ?? (Array.isArray(photoData) ? photoData.length : 0);
+            const order = ordersWithPhotos.find(o => o.id === soId);
+            if (order) order.photo_count = count;
+          }
         }
       }
 
@@ -170,6 +181,9 @@ export default function OrdensServico() {
       const newOffset = fromOffset + ordersWithPhotos.length;
       setNextOffset(newOffset);
       setHasMore(ordersWithPhotos.length === PAGE_SIZE);
+    } catch {
+      toast({ title: 'Erro ao carregar ordens de serviço', variant: 'destructive' });
+      if (!append) setOrders([]);
     }
 
     if (!append) setLoading(false);
@@ -227,80 +241,96 @@ export default function OrdensServico() {
 
     setSaving(true);
 
-    const { data: internalUser, error: userError } = await supabase
-      .schema('nfe_vigia')
-      .from('users')
-      .select('id')
-      .eq('auth_user_id', user.id)
-      .maybeSingle();
+    // Get internal user id
+    const userRes = await apiFetch(`/api/data/users/?auth_user_id=${user.id}`);
+    if (!userRes.ok) {
+      toast({ title: 'Não foi possível identificar seu usuário', variant: 'destructive' });
+      setSaving(false);
+      return;
+    }
+    const userData = await userRes.json();
+    const userList = Array.isArray(userData) ? userData : userData.results ?? [];
+    const internalUser = userList[0];
 
-    if (userError || !internalUser) {
+    if (!internalUser) {
       toast({ title: 'Não foi possível identificar seu usuário', variant: 'destructive' });
       setSaving(false);
       return;
     }
 
-    const { data: inserted, error } = await supabase
-      .schema('nfe_vigia')
-      .from('service_orders')
-      .insert({
-        condo_id: condoId,
-        title: form.title.trim(),
-        description: form.description.trim() || null,
-        location: form.location.trim() || null,
-        priority: form.priority,
-        executor_type: form.executor_type,
-        status: 'ABERTA',
-        created_by: internalUser.id,
-        is_emergency: form.priority === 'ALTA',
-        provider_id: form.provider_id || null,
-        ticket_id: form.ticket_id || null,
-      })
-      .select('id')
-      .single();
+    try {
+      const insertRes = await apiFetch('/api/data/service-orders/', {
+        method: 'POST',
+        body: JSON.stringify({
+          condo_id: condoId,
+          title: form.title.trim(),
+          description: form.description.trim() || null,
+          location: form.location.trim() || null,
+          priority: form.priority,
+          executor_type: form.executor_type,
+          status: 'ABERTA',
+          created_by: internalUser.id,
+          is_emergency: form.priority === 'ALTA',
+          provider_id: form.provider_id || null,
+          ticket_id: form.ticket_id || null,
+        }),
+      });
 
-    if (error) {
-      toast({ title: 'Erro ao criar ordem de serviço', description: 'Não foi possível salvar. Tente novamente.', variant: 'destructive' });
-      setSaving(false);
-      return;
-    }
-
-    const soId = inserted.id;
-
-    // If converting from ticket, update ticket status
-    if (form.ticket_id) {
-      await supabase.schema('nfe_vigia').from('tickets')
-        .update({ status: 'VIROU_OS', service_order_id: soId })
-        .eq('id', form.ticket_id);
-    }
-
-    // Upload photos
-    for (const photo of photos) {
-      const ext = photo.name.split('.').pop() ?? 'jpg';
-      const path = `service-orders/${soId}/${crypto.randomUUID()}.${ext}`;
-      const { error: uploadError } = await supabase.storage.from('service-order-photos').upload(path, photo, { contentType: photo.type });
-      if (!uploadError) {
-        await supabase.schema('nfe_vigia').from('service_order_photos').insert({ service_order_id: soId, photo_type: 'PROBLEMA', file_url: path, observation: form.photo_observation || null });
+      if (!insertRes.ok) {
+        toast({ title: 'Erro ao criar ordem de serviço', description: 'Não foi possível salvar. Tente novamente.', variant: 'destructive' });
+        setSaving(false);
+        return;
       }
+
+      const inserted = await insertRes.json();
+      const soId = inserted.id;
+
+      // If converting from ticket, update ticket status
+      if (form.ticket_id) {
+        await apiFetch(`/api/data/tickets/${form.ticket_id}/`, {
+          method: 'PATCH',
+          body: JSON.stringify({ status: 'VIROU_OS', service_order_id: soId }),
+        });
+      }
+
+      // Upload photos
+      for (const photo of photos) {
+        const formData = new FormData();
+        formData.append('bucket', 'service-order-photos');
+        const ext = photo.name.split('.').pop() ?? 'jpg';
+        const path = `service-orders/${soId}/${crypto.randomUUID()}.${ext}`;
+        formData.append('path', path);
+        formData.append('file', photo);
+        const uploadRes = await apiUpload('/api/data/storage/upload/', formData);
+        if (uploadRes.ok) {
+          await apiFetch(`/api/data/service-orders/${soId}/photos/`, {
+            method: 'POST',
+            body: JSON.stringify({ service_order_id: soId, photo_type: 'PROBLEMA', file_url: path, observation: form.photo_observation || null }),
+          });
+        }
+      }
+
+      await logSOActivity({ serviceOrderId: soId, action: 'OS_CRIADA' });
+      for (let i = 0; i < photos.length; i++) {
+        await logSOActivity({ serviceOrderId: soId, action: 'FOTO_ADICIONADA', description: `Foto ${i + 1} adicionada` });
+      }
+
+      await logActivity({
+        condoId,
+        action: 'create',
+        entity: 'service_order',
+        entityId: soId,
+        description: `Ordem de serviço "${form.title.trim()}" criada`,
+      });
+
+      toast({ title: 'Ordem de serviço criada com sucesso' });
+      setModalOpen(false);
+      setSaving(false);
+      navigate(`/ordens-servico/${soId}`);
+    } catch {
+      toast({ title: 'Erro ao criar ordem de serviço', variant: 'destructive' });
+      setSaving(false);
     }
-
-    await logSOActivity({ serviceOrderId: soId, action: 'OS_CRIADA' });
-    for (let i = 0; i < photos.length; i++) {
-      await logSOActivity({ serviceOrderId: soId, action: 'FOTO_ADICIONADA', description: `Foto ${i + 1} adicionada` });
-    }
-
-    await logActivity({
-      condoId,
-      action: 'create',
-      entity: 'service_order',
-      entityId: soId,
-      description: `Ordem de serviço "${form.title.trim()}" criada`,
-    });
-
-    toast({ title: 'Ordem de serviço criada com sucesso' });
-    setModalOpen(false);
-    setSaving(false);
-    navigate(`/ordens-servico/${soId}`);
   };
 
   const updateField = (field: keyof SOForm, value: string) => {

@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { supabase } from '@/lib/supabase';
+import { authApi, apiFetch } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -33,10 +33,8 @@ export default function Login() {
     e.preventDefault();
     setForgotLoading(true);
     try {
-      const { error } = await supabase.auth.resetPasswordForEmail(forgotEmail, {
-        redirectTo: window.location.origin + '/reset-password',
-      });
-      if (error) throw error;
+      const result = await authApi.forgotPassword(forgotEmail, window.location.origin + '/reset-password');
+      if (!result.ok) throw new Error('Failed');
       toast({ title: 'E-mail enviado!', description: 'Se este e-mail estiver cadastrado, você receberá um link para redefinir sua senha.' });
       setForgotOpen(false);
       setForgotEmail('');
@@ -52,34 +50,25 @@ export default function Login() {
   const navigateAfterLogin = async () => {
     localStorage.removeItem('nfe_vigia_active_condo');
 
-    const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
-    if (sessionError) throw sessionError;
-
-    const authUserId = sessionData.session?.user?.id ?? null;
+    // Get internal user record
+    const session = await authApi.getSession();
+    const authUserId = session?.user?.id ?? null;
     if (!authUserId) {
       navigate('/login', { replace: true });
       return;
     }
 
-    // Get internal user record first (needed for session enforcement)
-    const { data: userRow, error: userError } = await supabase
-      .from('users')
-      .select('id, condo_id, status')
-      .eq('auth_user_id', authUserId)
-      .maybeSingle();
+    // Get internal user record
+    const userRes = await apiFetch(`/api/data/users/by-auth-id/?auth_user_id=${authUserId}`);
+    const userRow = await userRes.json();
 
-    if (userError) throw userError;
-
-    // Single-session enforcement using internal user_id and expires_at
+    // Single-session enforcement
     if (userRow?.id) {
-      const { data: existingSessions } = await supabase
-        .from('user_sessions')
-        .select('id')
-        .eq('user_id', userRow.id)
-        .gt('expires_at', new Date().toISOString());
+      const sessionsRes = await apiFetch('/api/data/user-sessions/');
+      const existingSessions = await sessionsRes.json();
 
       if (existingSessions && existingSessions.length > 0) {
-        await supabase.auth.signOut();
+        await authApi.logout();
         toast({
           title: 'Sessão ativa detectada',
           description: 'Este usuário já possui uma sessão ativa em outro dispositivo. Encerre a sessão anterior para continuar.',
@@ -89,38 +78,34 @@ export default function Login() {
       }
 
       // Register this session
-      const expiresAt = sessionData.session?.expires_at
-        ? new Date(sessionData.session.expires_at * 1000).toISOString()
-        : new Date(Date.now() + 3600 * 1000).toISOString();
-
-      await supabase.from('user_sessions').insert({
-        user_id: userRow.id,
-        session_token: sessionToken,
-        expires_at: expiresAt,
+      const expiresAt = new Date(Date.now() + 3600 * 1000).toISOString();
+      await apiFetch('/api/data/user-sessions/', {
+        method: 'POST',
+        body: JSON.stringify({
+          session_token: sessionToken,
+          expires_at: expiresAt,
+        }),
       });
       localStorage.setItem('nfe_vigia_session_token', sessionToken);
     }
 
-    const { data: userCondoRows, error: userCondoError } = userRow?.id
-      ? await supabase
-          .from('user_condos')
-          .select('condo_id, status')
-          .eq('user_id', userRow.id)
-      : { data: [], error: null };
-
-    if (userCondoError) throw userCondoError;
+    // Check user_condos status
+    const ucRes = userRow?.id
+      ? await apiFetch(`/api/data/user-condos/?user_id=${userRow.id}`)
+      : null;
+    const userCondoRows = ucRes ? await ucRes.json() : [];
 
     const normalizeStatus = (value: string | null | undefined) => (value ?? '').toLowerCase().trim();
     const statuses = [
       normalizeStatus(userRow?.status),
-      ...(userCondoRows ?? []).map((row) => normalizeStatus(row.status)),
+      ...(userCondoRows ?? []).map((row: any) => normalizeStatus(row.status)),
     ].filter(Boolean);
 
-    const activeCondoRow = (userCondoRows ?? []).find((row) => normalizeStatus(row.status) === 'ativo');
+    const activeCondoRow = (userCondoRows ?? []).find((row: any) => normalizeStatus(row.status) === 'ativo');
     const hasActiveStatus = statuses.includes('ativo');
 
     if (!hasActiveStatus && statuses.includes('pendente')) {
-      await supabase.auth.signOut();
+      await authApi.logout();
       toast({
         title: 'Cadastro pendente',
         description: 'Seu cadastro está aguardando aprovação do síndico.',
@@ -130,7 +115,7 @@ export default function Login() {
     }
 
     if (!hasActiveStatus && statuses.includes('recusado')) {
-      await supabase.auth.signOut();
+      await authApi.logout();
       toast({
         title: 'Acesso não autorizado',
         description: 'Seu cadastro não foi aprovado. Entre em contato com o síndico.',
@@ -153,11 +138,23 @@ export default function Login() {
     setLoading(true);
 
     try {
-      const { error } = await supabase.auth.signInWithPassword({ email, password });
-      if (error) throw error;
+      const result = await authApi.login(email, password);
+      if (!result.ok) {
+        const msg = result.data?.error || result.data?.message || '';
+        let friendly = 'Ocorreu um erro. Tente novamente.';
+        if (msg.toLowerCase().includes('invalid login credentials')) {
+          friendly = 'E-mail ou senha incorretos. Verifique seus dados e tente novamente.';
+        } else if (msg.toLowerCase().includes('email not confirmed')) {
+          friendly = 'Seu e-mail ainda não foi confirmado. Verifique sua caixa de entrada.';
+        }
+        toast({ title: 'Erro', description: friendly, variant: 'destructive' });
+        setLoading(false);
+        return;
+      }
 
-      const { data: factorsData } = await supabase.auth.mfa.listFactors();
-      const verifiedFactors = factorsData?.totp?.filter((f) => f.status === 'verified') ?? [];
+      // Check MFA factors
+      const factorsData = await authApi.mfaListFactors();
+      const verifiedFactors = factorsData?.totp?.filter((f: any) => f.status === 'verified') ?? [];
 
       if (verifiedFactors.length > 0) {
         setMfaFactorId(verifiedFactors[0].id);
@@ -169,14 +166,7 @@ export default function Login() {
 
       await navigateAfterLogin();
     } catch (error: any) {
-      const msg = error.message || '';
-      let friendly = 'Ocorreu um erro. Tente novamente.';
-      if (msg.toLowerCase().includes('invalid login credentials')) {
-        friendly = 'E-mail ou senha incorretos. Verifique seus dados e tente novamente.';
-      } else if (msg.toLowerCase().includes('email not confirmed')) {
-        friendly = 'Seu e-mail ainda não foi confirmado. Verifique sua caixa de entrada.';
-      }
-      toast({ title: 'Erro', description: friendly, variant: 'destructive' });
+      toast({ title: 'Erro', description: 'Ocorreu um erro. Tente novamente.', variant: 'destructive' });
     } finally {
       setLoading(false);
     }
@@ -187,17 +177,15 @@ export default function Login() {
     setMfaLoading(true);
 
     try {
-      const { data: challengeData, error: challengeError } = await supabase.auth.mfa.challenge({
-        factorId: mfaFactorId,
-      });
-      if (challengeError) throw challengeError;
+      const challengeResult = await authApi.mfaChallenge(mfaFactorId);
+      if (!challengeResult.ok) throw new Error('Challenge failed');
 
-      const { error: verifyError } = await supabase.auth.mfa.verify({
-        factorId: mfaFactorId,
-        challengeId: challengeData.id,
-        code: mfaCode,
-      });
-      if (verifyError) throw verifyError;
+      const verifyResult = await authApi.mfaVerify(
+        mfaFactorId,
+        challengeResult.data.id,
+        mfaCode,
+      );
+      if (!verifyResult.ok) throw new Error('Verify failed');
 
       await navigateAfterLogin();
     } catch {
@@ -246,7 +234,7 @@ export default function Login() {
                 onClick={() => {
                   setMfaRequired(false);
                   setMfaCode('');
-                  supabase.auth.signOut();
+                  authApi.logout();
                 }}
                 className="text-sm text-muted-foreground underline-offset-4 hover:underline hover:text-primary"
               >

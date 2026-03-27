@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useCondo } from '@/contexts/CondoContext';
-import { supabase } from '@/lib/supabase';
+import { apiFetch } from '@/lib/api';
 import { DashboardStatCards } from '@/components/dashboard/DashboardStatCards';
 import { DashboardApprovals } from '@/components/dashboard/DashboardApprovals';
 import { DashboardAlerts } from '@/components/dashboard/DashboardAlerts';
@@ -23,42 +23,19 @@ export default function Dashboard() {
     const fetchData = async () => {
       setLoading(true);
 
-      const startOfMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString();
+      try {
+        const res = await apiFetch(`/api/data/dashboard/stats/?condo_id=${condoId}`);
+        const data = await res.json();
 
-      const [nfsRes, aprovRes, configRes, spendingRes] = await Promise.all([
-        supabase
-          .from('fiscal_documents')
-          .select('*', { count: 'exact', head: true })
-          .eq('condo_id', condoId)
-          .eq('status', 'PENDENTE'),
-        supabase
-          .from('fiscal_document_approvals')
-          .select('*', { count: 'exact', head: true })
-          .eq('condo_id', condoId)
-          .eq('decision', 'PENDENTE'),
-        supabase
-          .from('condo_financial_config')
-          .select('annual_budget')
-          .eq('condo_id', condoId)
-          .maybeSingle(),
-        supabase
-          .from('fiscal_documents')
-          .select('amount')
-          .eq('condo_id', condoId)
-          .eq('status', 'APROVADO')
-          .gte('created_at', startOfMonth),
-      ]);
-
-      const budgetTotal = (configRes.data as { annual_budget: number | null } | null)?.annual_budget ?? 0;
-      const spendingData = spendingRes.data as { amount: number | null }[] | null;
-      const budgetUsed = spendingData?.reduce((sum, d) => sum + (d.amount ?? 0), 0) ?? 0;
-
-      setCounts({
-        nfsPendentes: nfsRes.count ?? 0,
-        aprovacoesPendentes: aprovRes.count ?? 0,
-        budgetTotal,
-        budgetUsed,
-      });
+        setCounts({
+          nfsPendentes: data.nfs_pendentes ?? 0,
+          aprovacoesPendentes: data.aprovacoes_pendentes ?? 0,
+          budgetTotal: data.budget_total ?? 0,
+          budgetUsed: data.budget_used ?? 0,
+        });
+      } catch {
+        setCounts({ nfsPendentes: 0, aprovacoesPendentes: 0, budgetTotal: 0, budgetUsed: 0 });
+      }
 
       setLoading(false);
     };

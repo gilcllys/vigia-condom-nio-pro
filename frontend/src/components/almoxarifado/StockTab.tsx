@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { supabase } from '@/lib/supabase';
+import { apiFetch } from '@/lib/api';
 import { useCondo } from '@/contexts/CondoContext';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -102,30 +102,25 @@ export default function StockTab() {
 
   const fetchCategories = async () => {
     if (!condoId) return;
-    const { data, error } = await supabase
-      .from('stock_categories')
-      .select('id, name, description')
-      .eq('condo_id', condoId)
-      .order('name');
+    try {
+      const res = await apiFetch(`/api/data/stock-categories/?condo_id=${condoId}`);
+      const data = await res.json();
+      const cats = Array.isArray(data) ? data : data?.results ?? [];
 
-    if (error) {
-      console.error('Error fetching categories:', error);
-      return;
-    }
-
-    // Seed default categories if none exist
-    if (!data || data.length === 0) {
-      const rows = DEFAULT_CATEGORIES.map(c => ({ condo_id: condoId, name: c.name, description: c.description }));
-      const { data: inserted, error: insertErr } = await supabase
-        .from('stock_categories')
-        .insert(rows)
-        .select('id, name, description');
-
-      if (!insertErr && inserted) {
-        setCategories(inserted);
+      // Seed default categories if none exist
+      if (cats.length === 0) {
+        const seedRes = await apiFetch(`/api/data/stock-categories/seed-defaults/?condo_id=${condoId}`, {
+          method: 'POST',
+          body: JSON.stringify({ condo_id: condoId }),
+        });
+        const seeded = await seedRes.json();
+        const seededList = Array.isArray(seeded) ? seeded : seeded?.results ?? [];
+        setCategories(seededList);
+      } else {
+        setCategories(cats);
       }
-    } else {
-      setCategories(data);
+    } catch (err) {
+      console.error('Error fetching categories:', err);
     }
   };
 
@@ -133,40 +128,35 @@ export default function StockTab() {
     if (!condoId) return;
     setLoading(true);
 
-    const { data: stockItems, error: itemsError } = await supabase
-      .from('stock_items')
-      .select('id, name, unit, min_qty, category_id, description')
-      .eq('condo_id', condoId)
-      .is('deleted_at', null)
-      .order('name');
+    try {
+      const res = await apiFetch(`/api/data/stock-items/?condo_id=${condoId}`);
+      const data = await res.json();
+      const stockItems = Array.isArray(data) ? data : data?.results ?? [];
 
-    if (itemsError) {
-      console.error('Error fetching stock items:', itemsError);
-      toast({ title: 'Erro ao carregar itens', description: itemsError.message, variant: 'destructive' });
-      setLoading(false);
-      return;
+      // Fetch balance from the stock-movements/balance endpoint
+      const balanceRes = await apiFetch(`/api/data/stock-movements/balance/?condo_id=${condoId}`);
+      const balances = await balanceRes.json();
+      const balanceList = Array.isArray(balances) ? balances : balances?.results ?? [];
+
+      const balanceMap: Record<string, number> = {};
+      balanceList.forEach((b: any) => {
+        balanceMap[b.id || b.item_id] = Number(b.balance_qty || b.current_qty) || 0;
+      });
+
+      const catMap: Record<string, string> = {};
+      categories.forEach(c => { catMap[c.id] = c.name; });
+
+      const merged: StockItem[] = stockItems.map((item: any) => ({
+        ...item,
+        current_qty: balanceMap[item.id] ?? Number(item.current_qty) ?? 0,
+        category_name: item.category_id ? (catMap[item.category_id] || 'Sem categoria') : 'Sem categoria',
+      }));
+
+      setItems(merged);
+    } catch (err) {
+      console.error('Error fetching stock items:', err);
+      toast({ title: 'Erro ao carregar itens', variant: 'destructive' });
     }
-
-    const { data: balances } = await supabase
-      .from('v_stock_balance')
-      .select('item_id, balance_qty')
-      .eq('condo_id', condoId);
-
-    const balanceMap: Record<string, number> = {};
-    (balances ?? []).forEach((b: any) => {
-      balanceMap[b.item_id] = Number(b.balance_qty) || 0;
-    });
-
-    const catMap: Record<string, string> = {};
-    categories.forEach(c => { catMap[c.id] = c.name; });
-
-    const merged: StockItem[] = (stockItems ?? []).map((item: any) => ({
-      ...item,
-      current_qty: balanceMap[item.id] ?? 0,
-      category_name: item.category_id ? (catMap[item.category_id] || 'Sem categoria') : 'Sem categoria',
-    }));
-
-    setItems(merged);
     setLoading(false);
   };
 
@@ -187,17 +177,28 @@ export default function StockTab() {
       return;
     }
     setSaving(true);
-    const { error } = await supabase
-      .from('stock_categories')
-      .insert({ condo_id: condoId, name: catForm.name.trim(), description: catForm.description.trim() || null });
 
-    if (error) {
-      toast({ title: 'Erro ao criar categoria', description: error.message, variant: 'destructive' });
-    } else {
-      toast({ title: 'Categoria criada!' });
-      setCatOpen(false);
-      setCatForm({ name: '', description: '' });
-      fetchCategories();
+    try {
+      const res = await apiFetch('/api/data/stock-categories/', {
+        method: 'POST',
+        body: JSON.stringify({
+          condo_id: condoId,
+          name: catForm.name.trim(),
+          description: catForm.description.trim() || null,
+        }),
+      });
+
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        toast({ title: 'Erro ao criar categoria', description: errData.error || 'Tente novamente.', variant: 'destructive' });
+      } else {
+        toast({ title: 'Categoria criada!' });
+        setCatOpen(false);
+        setCatForm({ name: '', description: '' });
+        fetchCategories();
+      }
+    } catch {
+      toast({ title: 'Erro ao criar categoria', variant: 'destructive' });
     }
     setSaving(false);
   };
@@ -210,24 +211,31 @@ export default function StockTab() {
     }
 
     setSaving(true);
-    const { error } = await supabase
-      .from('stock_items')
-      .insert({
-        condo_id: condoId,
-        name: newItemForm.name.trim(),
-        unit: newItemForm.unit,
-        min_qty: Number(newItemForm.min_qty),
-        category_id: newItemForm.category_id || null,
-        description: newItemForm.description.trim() || null,
+
+    try {
+      const res = await apiFetch('/api/data/stock-items/', {
+        method: 'POST',
+        body: JSON.stringify({
+          condo_id: condoId,
+          name: newItemForm.name.trim(),
+          unit: newItemForm.unit,
+          min_qty: Number(newItemForm.min_qty),
+          category_id: newItemForm.category_id || null,
+          description: newItemForm.description.trim() || null,
+        }),
       });
 
-    if (error) {
-      toast({ title: 'Erro ao criar item', description: error.message, variant: 'destructive' });
-    } else {
-      toast({ title: 'Item criado com sucesso' });
-      setNewItemOpen(false);
-      setNewItemForm({ name: '', unit: '', min_qty: '', category_id: '', description: '' });
-      fetchItems();
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        toast({ title: 'Erro ao criar item', description: errData.error || 'Tente novamente.', variant: 'destructive' });
+      } else {
+        toast({ title: 'Item criado com sucesso' });
+        setNewItemOpen(false);
+        setNewItemForm({ name: '', unit: '', min_qty: '', category_id: '', description: '' });
+        fetchItems();
+      }
+    } catch {
+      toast({ title: 'Erro ao criar item', variant: 'destructive' });
     }
     setSaving(false);
   };
@@ -250,22 +258,28 @@ export default function StockTab() {
       return;
     }
     setSaving(true);
-    const { error } = await supabase
-      .from('stock_items')
-      .update({
-        name: editForm.name.trim(),
-        min_qty: Number(editForm.min_qty) || 0,
-        category_id: editForm.category_id || null,
-        description: editForm.description.trim() || null,
-      })
-      .eq('id', editItem.id);
 
-    if (error) {
-      toast({ title: 'Erro ao atualizar item', description: error.message, variant: 'destructive' });
-    } else {
-      toast({ title: 'Item atualizado!' });
-      setEditOpen(false);
-      fetchItems();
+    try {
+      const res = await apiFetch(`/api/data/stock-items/${editItem.id}/`, {
+        method: 'PATCH',
+        body: JSON.stringify({
+          name: editForm.name.trim(),
+          min_qty: Number(editForm.min_qty) || 0,
+          category_id: editForm.category_id || null,
+          description: editForm.description.trim() || null,
+        }),
+      });
+
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        toast({ title: 'Erro ao atualizar item', description: errData.error || 'Tente novamente.', variant: 'destructive' });
+      } else {
+        toast({ title: 'Item atualizado!' });
+        setEditOpen(false);
+        fetchItems();
+      }
+    } catch {
+      toast({ title: 'Erro ao atualizar item', variant: 'destructive' });
     }
     setSaving(false);
   };
@@ -290,21 +304,28 @@ export default function StockTab() {
     }
 
     setSaving(true);
-    const { error } = await supabase
-      .from('stock_movements')
-      .insert({
-        condo_id: condoId,
-        item_id: moveItem.id,
-        move_type: normalizeStockMoveType(moveForm.move_type),
-        qty,
+
+    try {
+      const res = await apiFetch('/api/data/stock-movements/', {
+        method: 'POST',
+        body: JSON.stringify({
+          condo_id: condoId,
+          item_id: moveItem.id,
+          move_type: normalizeStockMoveType(moveForm.move_type),
+          qty,
+        }),
       });
 
-    if (error) {
-      toast({ title: 'Erro ao registrar movimentação', description: error.message, variant: 'destructive' });
-    } else {
-      toast({ title: 'Movimentação registrada com sucesso' });
-      setMoveOpen(false);
-      fetchItems();
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        toast({ title: 'Erro ao registrar movimentação', description: errData.error || 'Tente novamente.', variant: 'destructive' });
+      } else {
+        toast({ title: 'Movimentação registrada com sucesso' });
+        setMoveOpen(false);
+        fetchItems();
+      }
+    } catch {
+      toast({ title: 'Erro ao registrar movimentação', variant: 'destructive' });
     }
     setSaving(false);
   };

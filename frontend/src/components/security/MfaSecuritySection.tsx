@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from 'react';
-import { supabase } from '@/lib/supabase';
+import { authApi, apiFetch } from '@/lib/api';
 import { useAuth } from '@/contexts/AuthContext';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -42,25 +42,30 @@ export function MfaSecuritySection() {
   const loadState = useCallback(async () => {
     setMfaState('loading');
 
-    const [factorsRes, aalRes, critRes] = await Promise.all([
-      supabase.auth.mfa.listFactors(),
-      supabase.auth.mfa.getAuthenticatorAssuranceLevel(),
-      supabase.schema('nfe_vigia').rpc('is_current_user_sindico_aal2'),
-    ]);
+    try {
+      const [factorsData, aalRes] = await Promise.all([
+        authApi.mfaListFactors(),
+        apiFetch('/api/auth/mfa/aal-level/'),
+      ]);
 
-    const totp = (factorsRes.data?.totp as TOTPFactor[]) ?? [];
-    setFactors(totp);
-    setAalLevel(aalRes.data?.currentLevel ?? null);
-    setCanCritical(!!critRes.data);
+      const totp = (factorsData?.totp as TOTPFactor[]) ?? [];
+      setFactors(totp);
 
-    const hasVerified = totp.some((f) => f.status === 'verified');
-    const hasPending = totp.some((f) => f.status === 'unverified');
+      const aalData = await aalRes.json();
+      setAalLevel(aalData?.current_level ?? null);
+      setCanCritical(!!aalData?.is_sindico_aal2);
 
-    if (hasVerified) {
-      setMfaState('active');
-    } else if (hasPending) {
-      setMfaState('pending');
-    } else {
+      const hasVerified = totp.some((f) => f.status === 'verified');
+      const hasPending = totp.some((f) => f.status === 'unverified');
+
+      if (hasVerified) {
+        setMfaState('active');
+      } else if (hasPending) {
+        setMfaState('pending');
+      } else {
+        setMfaState('none');
+      }
+    } catch {
       setMfaState('none');
     }
   }, []);
@@ -77,30 +82,30 @@ export function MfaSecuritySection() {
     setQrCode('');
 
     // Remove ALL unverified factors to avoid conflicts
-    const { data: existing } = await supabase.auth.mfa.listFactors();
-    const unverified = existing?.totp?.filter((f) => (f.status as string) === 'unverified') ?? [];
+    const existing = await authApi.mfaListFactors();
+    const unverified = existing?.totp?.filter((f: any) => (f.status as string) === 'unverified') ?? [];
     for (const f of unverified) {
-      await supabase.auth.mfa.unenroll({ factorId: f.id });
+      await authApi.mfaUnenroll(f.id);
     }
 
-    const { data, error } = await supabase.auth.mfa.enroll({ factorType: 'totp' });
+    const data = await authApi.mfaEnroll('totp');
 
-    if (error || !data) {
+    if (data?.error || !data?.id) {
       // If "already exists" error, try to recover
-      if (error?.message?.includes('already exists')) {
+      if (data?.error?.includes?.('already exists') || data?.msg?.includes?.('already exists')) {
         toast({
           title: 'Fator já existe',
           description: 'Tentando recuperar automaticamente. Por favor, tente novamente.',
           variant: 'destructive',
         });
         // Force cleanup all unverified
-        const { data: retry } = await supabase.auth.mfa.listFactors();
-        const stale = retry?.totp?.filter((f) => (f.status as string) === 'unverified') ?? [];
+        const retry = await authApi.mfaListFactors();
+        const stale = retry?.totp?.filter((f: any) => (f.status as string) === 'unverified') ?? [];
         for (const f of stale) {
-          await supabase.auth.mfa.unenroll({ factorId: f.id });
+          await authApi.mfaUnenroll(f.id);
         }
       } else {
-        toast({ title: 'Erro', description: error?.message ?? 'Erro ao iniciar cadastro.', variant: 'destructive' });
+        toast({ title: 'Erro', description: data?.error ?? 'Erro ao iniciar cadastro.', variant: 'destructive' });
       }
       setEnrollOpen(false);
       setEnrollLoading(false);
@@ -119,17 +124,15 @@ export function MfaSecuritySection() {
     setVerifyLoading(true);
 
     try {
-      const { data: challengeData, error: challengeError } = await supabase.auth.mfa.challenge({
-        factorId: enrollFactorId,
-      });
-      if (challengeError) throw challengeError;
+      const challengeResult = await authApi.mfaChallenge(enrollFactorId);
+      if (!challengeResult.ok) throw new Error('Challenge failed');
 
-      const { error: verifyError } = await supabase.auth.mfa.verify({
-        factorId: enrollFactorId,
-        challengeId: challengeData.id,
-        code: otpCode,
-      });
-      if (verifyError) throw verifyError;
+      const verifyResult = await authApi.mfaVerify(
+        enrollFactorId,
+        challengeResult.data.id,
+        otpCode,
+      );
+      if (!verifyResult.ok) throw new Error('Verify failed');
 
       toast({ title: '2FA ativado!', description: 'Autenticação em duas etapas ativada com sucesso.' });
       setEnrollOpen(false);
@@ -151,9 +154,9 @@ export function MfaSecuritySection() {
     if (!unenrollTargetId) return;
     setUnenrollLoading(true);
 
-    const { error } = await supabase.auth.mfa.unenroll({ factorId: unenrollTargetId });
-    if (error) {
-      toast({ title: 'Erro', description: error.message, variant: 'destructive' });
+    const result = await authApi.mfaUnenroll(unenrollTargetId);
+    if (!result.ok) {
+      toast({ title: 'Erro', description: 'Não foi possível desativar 2FA.', variant: 'destructive' });
     } else {
       toast({ title: '2FA desativado', description: 'Autenticação em duas etapas foi removida.' });
     }
@@ -167,10 +170,10 @@ export function MfaSecuritySection() {
   // ── Reset pending (cancel stuck enrollment) ──
   const resetPending = async () => {
     setEnrollLoading(true);
-    const { data: existing } = await supabase.auth.mfa.listFactors();
-    const pending = existing?.totp?.filter((f) => (f.status as string) === 'unverified') ?? [];
+    const existing = await authApi.mfaListFactors();
+    const pending = existing?.totp?.filter((f: any) => (f.status as string) === 'unverified') ?? [];
     for (const f of pending) {
-      await supabase.auth.mfa.unenroll({ factorId: f.id });
+      await authApi.mfaUnenroll(f.id);
     }
     setEnrollLoading(false);
     toast({ title: 'Configuração resetada', description: 'Fatores pendentes foram removidos.' });
@@ -292,7 +295,7 @@ export function MfaSecuritySection() {
                       // Unenroll verified, then start fresh enrollment
                       const verified = factors.find((f) => f.status === 'verified');
                       if (verified) {
-                        await supabase.auth.mfa.unenroll({ factorId: verified.id });
+                        await authApi.mfaUnenroll(verified.id);
                       }
                       await cleanAndEnroll();
                     }}

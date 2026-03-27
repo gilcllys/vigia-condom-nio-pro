@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { supabase } from '@/lib/supabase';
+import { apiFetch } from '@/lib/api';
 import { useCondo } from '@/contexts/CondoContext';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -47,13 +47,10 @@ export default function FinancialConfigSection() {
   useEffect(() => {
     if (!condoId || !isSindico) { setLoading(false); return; }
     setLoading(true);
-    supabase
-      .from('condo_financial_config')
-      .select('*')
-      .eq('condo_id', condoId)
-      .maybeSingle()
-      .then(({ data }) => {
-        if (data) {
+    apiFetch(`/api/data/condos/${condoId}/financial-config/`)
+      .then((res) => res.json())
+      .then((data) => {
+        if (data && data.id) {
           setExistingId(data.id);
           setFields({
             alcada_1_limite: data.alcada_1_limite?.toString() ?? '',
@@ -69,7 +66,8 @@ export default function FinancialConfigSection() {
           });
         }
         setLoading(false);
-      });
+      })
+      .catch(() => setLoading(false));
   }, [condoId, isSindico]);
 
   if (!isSindico) return null;
@@ -92,29 +90,24 @@ export default function FinancialConfigSection() {
       monthly_limit_seguranca: num(fields.monthly_limit_seguranca),
       annual_budget: num(fields.annual_budget),
       annual_budget_alert_pct: num(fields.annual_budget_alert_pct) ?? 80,
-      updated_at: new Date().toISOString(),
     };
 
-    let error;
-    if (existingId) {
-      ({ error } = await supabase
-        .from('condo_financial_config')
-        .update(payload)
-        .eq('id', existingId));
-    } else {
-      const res = await supabase
-        .from('condo_financial_config')
-        .insert(payload)
-        .select('id')
-        .single();
-      error = res.error;
-      if (res.data) setExistingId(res.data.id);
-    }
+    try {
+      const res = await apiFetch(`/api/data/condos/${condoId}/financial-config/`, {
+        method: existingId ? 'PUT' : 'POST',
+        body: JSON.stringify(payload),
+      });
 
-    if (error) {
-      toast({ title: 'Erro ao salvar', description: error.message, variant: 'destructive' });
-    } else {
-      toast({ title: 'Configurações financeiras salvas!' });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        toast({ title: 'Erro ao salvar', description: err?.error || 'Tente novamente.', variant: 'destructive' });
+      } else {
+        const data = await res.json();
+        if (data?.id) setExistingId(data.id);
+        toast({ title: 'Configurações financeiras salvas!' });
+      }
+    } catch {
+      toast({ title: 'Erro ao salvar', description: 'Erro de conexão.', variant: 'destructive' });
     }
     setSaving(false);
   };
@@ -149,16 +142,16 @@ export default function FinancialConfigSection() {
                   <p className="text-xs font-medium text-foreground">Subsíndico</p>
                   <p className="text-[10px] text-muted-foreground">Valores menores</p>
                 </div>
-                <div className="hidden sm:flex items-center px-1 text-muted-foreground">→</div>
-                <div className="flex sm:hidden items-center justify-center text-muted-foreground">↓</div>
+                <div className="hidden sm:flex items-center px-1 text-muted-foreground">&rarr;</div>
+                <div className="flex sm:hidden items-center justify-center text-muted-foreground">&darr;</div>
                 {/* Alçada 2 */}
                 <div className="flex-1 rounded-md border border-amber-500/30 bg-amber-500/5 p-3 text-center space-y-1">
                   <span className="inline-block rounded-full bg-amber-500/15 text-amber-700 dark:text-amber-400 text-[10px] font-semibold px-2 py-0.5">Alçada 2</span>
                   <p className="text-xs font-medium text-foreground">Subsíndico + Conselho</p>
                   <p className="text-[10px] text-muted-foreground">Valores médios</p>
                 </div>
-                <div className="hidden sm:flex items-center px-1 text-muted-foreground">→</div>
-                <div className="flex sm:hidden items-center justify-center text-muted-foreground">↓</div>
+                <div className="hidden sm:flex items-center px-1 text-muted-foreground">&rarr;</div>
+                <div className="flex sm:hidden items-center justify-center text-muted-foreground">&darr;</div>
                 {/* Alçada 3 */}
                 <div className="flex-1 rounded-md border border-destructive/30 bg-destructive/5 p-3 text-center space-y-1">
                   <span className="inline-block rounded-full bg-destructive/15 text-destructive text-[10px] font-semibold px-2 py-0.5">Alçada 3</span>
@@ -167,7 +160,7 @@ export default function FinancialConfigSection() {
                 </div>
               </div>
               <p className="text-[10px] text-muted-foreground italic">
-                💡 Se um aprovador não votar dentro do prazo configurado, o próximo nível é desbloqueado automaticamente.
+                Se um aprovador não votar dentro do prazo configurado, o próximo nível é desbloqueado automaticamente.
                 Uma rejeição em qualquer nível cancela o documento.
               </p>
             </div>

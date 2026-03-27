@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { supabase } from '@/lib/supabase';
+import { apiFetch } from '@/lib/api';
 import { getPublicStorageUrl } from '@/lib/storage-url';
 import { useCondo } from '@/contexts/CondoContext';
 import { useAuth } from '@/contexts/AuthContext';
@@ -65,31 +65,27 @@ export default function AprovacaoDetalhe() {
   // The effective role: prefer direct user_condos lookup, fallback to context
   const role = userCondoRole || contextRole;
 
-  // Get internal user id AND their role from nfe_vigia.user_condos for the active condo
+  // Get internal user id AND their role from user_condos for the active condo
   useEffect(() => {
     if (!user || !condoId) return;
 
     const fetchUserInfo = async () => {
-      // Fetch internal user id from nfe_vigia.users
-      const { data: userData } = await supabase
-        .from('users')
-        .select('id')
-        .eq('auth_user_id', user.id)
-        .maybeSingle();
-
-      const userId = userData?.id ?? null;
+      // Fetch internal user id
+      const userRes = await apiFetch(`/api/data/users/?auth_user_id=${user.id}`);
+      if (!userRes.ok) return;
+      const userData = await userRes.json();
+      const userList = Array.isArray(userData) ? userData : userData.results ?? [];
+      const userId = userList[0]?.id ?? null;
       setInternalUserId(userId);
 
-      // Fetch role from nfe_vigia.user_condos scoped to the active condo
+      // Fetch role from user_condos scoped to the active condo
       if (userId) {
-        const { data: ucData } = await supabase
-          .from('user_condos')
-          .select('role')
-          .eq('user_id', userId)
-          .eq('condo_id', condoId)
-          .maybeSingle();
-
-        if (ucData?.role) setUserCondoRole(ucData.role);
+        const ucRes = await apiFetch(`/api/data/user-condos/?user_id=${userId}&condo_id=${condoId}`);
+        if (ucRes.ok) {
+          const ucData = await ucRes.json();
+          const ucList = Array.isArray(ucData) ? ucData : ucData.results ?? [];
+          if (ucList[0]?.role) setUserCondoRole(ucList[0].role);
+        }
       }
     };
 
@@ -103,17 +99,19 @@ export default function AprovacaoDetalhe() {
     const fetchAll = async () => {
       setLoading(true);
       const [docRes, votesRes] = await Promise.all([
-        supabase.from('fiscal_documents').select('*').eq('id', id).single(),
-        supabase.from('fiscal_document_approvals')
-          .select('id, approver_role, decision, voted_at, justification, approver_user_id')
-          .eq('fiscal_document_id', id)
-          .order('voted_at', { ascending: true }),
+        apiFetch(`/api/data/fiscal-documents/${id}/`),
+        apiFetch(`/api/data/approvals/?fiscal_document_id=${id}&ordering=voted_at`),
       ]);
 
-      if (docRes.data) setDoc(docRes.data as FiscalDoc);
-      if (votesRes.data) {
+      if (docRes.ok) {
+        const docData = await docRes.json();
+        setDoc(docData as FiscalDoc);
+      }
+      if (votesRes.ok) {
+        const votesData = await votesRes.json();
+        const votesList = Array.isArray(votesData) ? votesData : votesData.results ?? [];
         setVotes(
-          (votesRes.data as ApprovalVote[]).map((vote) => ({
+          (votesList as ApprovalVote[]).map((vote) => ({
             ...vote,
             decision: (!vote.decision || (vote.decision !== 'aprovado' && vote.decision !== 'rejeitado'))
               ? 'pendente'
@@ -198,74 +196,87 @@ export default function AprovacaoDetalhe() {
     };
 
     const existingPendingVote = votes.find(v => v.approver_user_id === internalUserId);
-    const { error } = existingPendingVote
-      ? await supabase.from('fiscal_document_approvals').update(votePayload).eq('id', existingPendingVote.id)
-      : await supabase.from('fiscal_document_approvals').insert(votePayload);
 
-    if (error) {
-      toast.error('Erro ao registrar decisão.');
-      setSubmitting(false);
-      return;
-    }
+    try {
+      const res = existingPendingVote
+        ? await apiFetch(`/api/data/approvals/${existingPendingVote.id}/`, { method: 'PATCH', body: JSON.stringify(votePayload) })
+        : await apiFetch('/api/data/approvals/', { method: 'POST', body: JSON.stringify(votePayload) });
 
-    // Check if all required votes are in to auto-update status
-    const { data: allVotes } = await supabase
-      .from('fiscal_document_approvals')
-      .select('approver_role, decision')
-      .eq('fiscal_document_id', id);
-
-    if (decision === 'rejeitado') {
-      await supabase.from('fiscal_documents').update({ status: 'CANCELADO' }).eq('id', id);
-
-      // Reverse any ENTRADA stock movements linked to this NF (safety net)
-      const { data: existingMovements } = await supabase
-        .from('stock_movements')
-        .select('item_id, qty')
-        .eq('fiscal_document_id', id)
-        .eq('move_type', 'ENTRADA');
-
-      if (existingMovements && existingMovements.length > 0) {
-        await supabase.from('stock_movements').insert(
-          existingMovements.map((mv: any) => ({
-            condo_id: condoId,
-            item_id: mv.item_id,
-            move_type: 'SAIDA',
-            qty: mv.qty,
-            fiscal_document_id: id,
-          }))
-        );
+      if (!res.ok) {
+        toast.error('Erro ao registrar decisão.');
+        setSubmitting(false);
+        return;
       }
 
-      toast.success('Documento rejeitado.');
-    } else {
-      const allApproved = requiredRoles.every(r =>
-        (allVotes ?? []).some(v => v.approver_role === r && v.decision === 'aprovado')
-      );
-      if (allApproved) {
-        await supabase.from('fiscal_documents').update({ status: 'PROCESSADO' }).eq('id', id);
+      // Check if all required votes are in to auto-update status
+      const allVotesRes = await apiFetch(`/api/data/approvals/?fiscal_document_id=${id}`);
+      const allVotesData = allVotesRes.ok ? await allVotesRes.json() : [];
+      const allVotes = Array.isArray(allVotesData) ? allVotesData : allVotesData.results ?? [];
 
-        // Create ENTRADA stock movements for each item linked to this NF
-        const { data: nfItems } = await supabase
-          .from('fiscal_document_items')
-          .select('stock_item_id, qty')
-          .eq('fiscal_document_id', id);
+      if (decision === 'rejeitado') {
+        await apiFetch(`/api/data/fiscal-documents/${id}/`, {
+          method: 'PATCH',
+          body: JSON.stringify({ status: 'CANCELADO' }),
+        });
 
-        if (nfItems && nfItems.length > 0) {
-          await supabase.from('stock_movements').insert(
-            nfItems.map((item: any) => ({
-              condo_id: condoId,
-              item_id: item.stock_item_id,
-              move_type: 'ENTRADA',
-              qty: item.qty,
-              fiscal_document_id: id,
-            }))
-          );
+        // Reverse any ENTRADA stock movements linked to this NF (safety net)
+        const movementsRes = await apiFetch(`/api/data/stock-movements/?fiscal_document_id=${id}&move_type=ENTRADA`);
+        const movementsData = movementsRes.ok ? await movementsRes.json() : [];
+        const existingMovements = Array.isArray(movementsData) ? movementsData : movementsData.results ?? [];
+
+        if (existingMovements.length > 0) {
+          for (const mv of existingMovements) {
+            await apiFetch('/api/data/stock-movements/', {
+              method: 'POST',
+              body: JSON.stringify({
+                condo_id: condoId,
+                item_id: mv.item_id,
+                move_type: 'SAIDA',
+                qty: mv.qty,
+                fiscal_document_id: id,
+              }),
+            });
+          }
         }
 
-        toast.success('Documento aprovado por todos os níveis.');
+        toast.success('Documento rejeitado.');
       } else {
-        toast.success('Voto registrado com sucesso.');
+        const allApproved = requiredRoles.every(r =>
+          (allVotes as any[]).some(v => v.approver_role === r && v.decision === 'aprovado')
+        );
+        if (allApproved) {
+          await apiFetch(`/api/data/fiscal-documents/${id}/`, {
+            method: 'PATCH',
+            body: JSON.stringify({ status: 'PROCESSADO' }),
+          });
+
+          // Create ENTRADA stock movements for each item linked to this NF
+          const nfItemsRes = await apiFetch(`/api/data/fiscal-documents/${id}/items/`);
+          const nfItemsData = nfItemsRes.ok ? await nfItemsRes.json() : [];
+          const nfItems = Array.isArray(nfItemsData) ? nfItemsData : nfItemsData.results ?? [];
+
+          if (nfItems.length > 0) {
+            for (const item of nfItems) {
+              await apiFetch('/api/data/stock-movements/', {
+                method: 'POST',
+                body: JSON.stringify({
+                  condo_id: condoId,
+                  item_id: item.stock_item_id,
+                  move_type: 'ENTRADA',
+                  qty: item.qty,
+                  fiscal_document_id: id,
+                }),
+              });
+            }
+          }
+
+          toast.success('Documento aprovado por todos os níveis.');
+        } else {
+          toast.success('Voto registrado com sucesso.');
+        }
       }
+    } catch {
+      toast.error('Erro ao registrar decisão.');
     }
 
     setSubmitting(false);

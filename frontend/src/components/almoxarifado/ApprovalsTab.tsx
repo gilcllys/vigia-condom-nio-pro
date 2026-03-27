@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { supabase } from '@/lib/supabase';
+import { apiFetch } from '@/lib/api';
 import { useCondo } from '@/contexts/CondoContext';
 import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -45,50 +45,55 @@ export default function ApprovalsTab() {
     }
     setLoading(true);
 
-    const { data: docs, error } = await supabase
-      .from('fiscal_documents')
-      .select('id, number, supplier, amount, issue_date, status')
-      .eq('condo_id', condoId)
-      .eq('status', 'PENDENTE')
-      .order('created_at', { ascending: false });
+    try {
+      // Fetch pending fiscal documents
+      const docsRes = await apiFetch(`/api/data/fiscal-documents/?condo_id=${condoId}&status=PENDENTE`);
+      const docsData = await docsRes.json();
+      const docs = Array.isArray(docsData) ? docsData : docsData?.results ?? [];
 
-    if (error || !docs || docs.length === 0) {
-      setNfs([]);
-      setLoading(false);
-      return;
-    }
-
-    const docIds = docs.map((d: any) => d.id);
-    const { data: approvals } = await supabase
-      .from('fiscal_document_approvals')
-      .select('id, fiscal_document_id, approver_role, decision, voted_at')
-      .in('fiscal_document_id', docIds);
-
-    const merged: PendingNF[] = docs.map((doc: any) => ({
-      ...doc,
-      approvals: (approvals ?? [])
-        .filter((a: any) => a.fiscal_document_id === doc.id)
-        .map((a: any) => ({
-          ...a,
-          decision: (!a.decision || (!a.voted_at && (a.decision !== 'aprovado' && a.decision !== 'rejeitado'))) ? 'pendente' : a.decision,
-        })),
-    }));
-
-    const filtered = merged.filter(nf => {
-      const requiredRoles = getRequiredRoles(nf.amount ?? 0, config);
-      if (role === 'SINDICO' || role === 'ADMIN') {
-        const lowerRoles = requiredRoles.filter(r => r !== 'SINDICO');
-        const allLowerDecided = lowerRoles.every(tier =>
-          nf.approvals.some(a => a.approver_role === tier && isFinalDecision(a.decision))
-        );
-        const needsSindicoByTier = requiredRoles.includes('SINDICO') && allLowerDecided;
-        const needsSindicoByRejection = nf.approvals.some(a => a.decision === 'rejeitado') && allLowerDecided;
-        return needsSindicoByTier || needsSindicoByRejection;
+      if (docs.length === 0) {
+        setNfs([]);
+        setLoading(false);
+        return;
       }
-      return requiredRoles.includes(role ?? '');
-    });
 
-    setNfs(filtered);
+      const docIds = docs.map((d: any) => d.id);
+
+      // Fetch approvals for these documents
+      const approvalsRes = await apiFetch(`/api/data/approvals/?condo_id=${condoId}`);
+      const approvalsData = await approvalsRes.json();
+      const allApprovals = Array.isArray(approvalsData) ? approvalsData : approvalsData?.results ?? [];
+
+      const merged: PendingNF[] = docs.map((doc: any) => ({
+        ...doc,
+        approvals: allApprovals
+          .filter((a: any) => a.fiscal_document_id === doc.id)
+          .map((a: any) => ({
+            ...a,
+            decision: (!a.decision || (!a.voted_at && (a.decision !== 'aprovado' && a.decision !== 'rejeitado'))) ? 'pendente' : a.decision,
+          })),
+      }));
+
+      const filtered = merged.filter(nf => {
+        const requiredRoles = getRequiredRoles(nf.amount ?? 0, config);
+        if (role === 'SINDICO' || role === 'ADMIN') {
+          const lowerRoles = requiredRoles.filter(r => r !== 'SINDICO');
+          const allLowerDecided = lowerRoles.every(tier =>
+            nf.approvals.some(a => a.approver_role === tier && isFinalDecision(a.decision))
+          );
+          const needsSindicoByTier = requiredRoles.includes('SINDICO') && allLowerDecided;
+          const needsSindicoByRejection = nf.approvals.some(a => a.decision === 'rejeitado') && allLowerDecided;
+          return needsSindicoByTier || needsSindicoByRejection;
+        }
+        return requiredRoles.includes(role ?? '');
+      });
+
+      setNfs(filtered);
+    } catch (err) {
+      console.error('Error fetching approvals:', err);
+      toast({ title: 'Erro ao carregar aprovações', variant: 'destructive' });
+      setNfs([]);
+    }
     setLoading(false);
   };
 

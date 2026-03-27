@@ -1,4 +1,4 @@
-import { supabase } from '@/lib/supabase';
+import { apiFetch } from '@/lib/api';
 
 export type SOAction =
   | 'OS_CRIADA'
@@ -40,31 +40,15 @@ interface LogSOActivityParams {
 }
 
 export async function logSOActivity({ serviceOrderId, action, description }: LogSOActivityParams) {
-  const { data: session } = await supabase.auth.getSession();
-  const authUserId = session.session?.user?.id;
-  if (!authUserId) return;
-
-  // Resolve internal user id
-  const { data: internalUser } = await supabase
-    .schema('nfe_vigia')
-    .from('users')
-    .select('id')
-    .eq('auth_user_id', authUserId)
-    .maybeSingle();
-
-  if (!internalUser) return;
-
-  const { error } = await supabase
-    .schema('nfe_vigia')
-    .from('service_order_activities')
-    .insert({
-      service_order_id: serviceOrderId,
-      user_id: internalUser.id,
-      activity_type: action,
-      description: description ?? actionDescriptions[action],
+  try {
+    await apiFetch(`/api/data/service-orders/${serviceOrderId}/activities/`, {
+      method: 'POST',
+      body: JSON.stringify({
+        activity_type: action,
+        description: description ?? actionDescriptions[action],
+      }),
     });
-
-  if (error) {
-    console.error('[SO Activity] Error logging activity:', error);
+  } catch (err) {
+    console.error('[SO Activity] Error logging activity:', err);
   }
 }

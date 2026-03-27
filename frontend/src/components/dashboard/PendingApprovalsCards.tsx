@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { supabase } from '@/lib/supabase';
+import { apiFetch } from '@/lib/api';
 import { useAuth } from '@/contexts/AuthContext';
 import { useCondo } from '@/contexts/CondoContext';
 import { useFinancialConfig, getRequiredRoles } from '@/hooks/useFinancialConfig';
@@ -28,8 +28,10 @@ export function PendingApprovalsCards() {
 
   useEffect(() => {
     if (!user) return;
-    supabase.from('users').select('id').eq('auth_user_id', user.id).maybeSingle()
-      .then(({ data }) => setInternalUserId(data?.id ?? null));
+    apiFetch(`/api/data/users/by-auth-id/?auth_user_id=${user.id}`)
+      .then(res => res.json())
+      .then(data => setInternalUserId(data?.id ?? null))
+      .catch(() => setInternalUserId(null));
   }, [user]);
 
   useEffect(() => {
@@ -41,65 +43,56 @@ export function PendingApprovalsCards() {
     const fetchPending = async () => {
       setLoading(true);
 
-      // OS approvals (existing logic)
-      const { data: myApprovals } = await supabase
-        .schema('nfe_vigia')
-        .from('approvals')
-        .select('id, expires_at')
-        .eq('condo_id', condoId)
-        .eq('approver_id', internalUserId)
-        .eq('decision', 'pendente');
+      try {
+        // OS approvals
+        const osRes = await apiFetch(`/api/data/os-approvals/?condo_id=${condoId}&approver_id=${internalUserId}&decision=pendente`);
+        const osData = await osRes.json();
+        const osRows = Array.isArray(osData) ? osData : osData?.results ?? [];
 
-      const osCount = myApprovals?.length ?? 0;
-      const osMinExp = myApprovals?.reduce((min: string | null, a: any) => {
-        if (!min || a.expires_at < min) return a.expires_at;
-        return min;
-      }, null as string | null) ?? null;
+        const osCount = osRows.length;
+        const osMinExp = osRows.reduce((min: string | null, a: any) => {
+          if (!min || a.expires_at < min) return a.expires_at;
+          return min;
+        }, null as string | null) ?? null;
 
-      setPendingMyApprovals(osCount);
-      setMinExpiry(osMinExp);
+        setPendingMyApprovals(osCount);
+        setMinExpiry(osMinExp);
 
-      // NF docs pending — filtered by tier
-      const { data: pendingDocs } = await supabase
-        .from('fiscal_documents')
-        .select('id, amount')
-        .eq('condo_id', condoId)
-        .eq('status', 'PENDENTE');
+        // NF docs pending
+        const nfRes = await apiFetch(`/api/data/fiscal-documents/?condo_id=${condoId}&status=PENDENTE`);
+        const nfData = await nfRes.json();
+        const pendingDocs = Array.isArray(nfData) ? nfData : nfData?.results ?? [];
 
-      let nfCount = 0;
-      if (pendingDocs) {
-        // Check which NFs this role should see
-        const { data: myVotes } = await supabase
-          .from('fiscal_document_approvals')
-          .select('fiscal_document_id, decision')
-          .eq('approver_user_id', internalUserId)
-          .in('decision', ['aprovado', 'rejeitado'])
-          .in('fiscal_document_id', pendingDocs.map((d: any) => d.id));
+        let nfCount = 0;
+        if (pendingDocs.length > 0) {
+          const votesRes = await apiFetch(`/api/data/approvals/?approver_user_id=${internalUserId}&decision=aprovado,rejeitado`);
+          const votesData = await votesRes.json();
+          const votesRows = Array.isArray(votesData) ? votesData : votesData?.results ?? [];
+          const votedIds = new Set(votesRows.map((v: any) => v.fiscal_document_id));
 
-        const votedIds = new Set((myVotes ?? []).map((v: any) => v.fiscal_document_id));
-
-        for (const doc of pendingDocs) {
-          if (votedIds.has(doc.id)) continue;
-          const required = getRequiredRoles(doc.amount ?? 0, config);
-          if (isSindico) {
-            if (required.includes('SINDICO')) nfCount++;
-          } else if (required.includes(role ?? '')) {
-            nfCount++;
+          for (const doc of pendingDocs) {
+            if (votedIds.has(doc.id)) continue;
+            const required = getRequiredRoles(doc.amount ?? 0, config);
+            if (isSindico) {
+              if (required.includes('SINDICO')) nfCount++;
+            } else if (required.includes(role ?? '')) {
+              nfCount++;
+            }
           }
         }
-      }
-      setPendingNFDocs(nfCount);
+        setPendingNFDocs(nfCount);
 
-      // Minerva for síndico
-      if (isSindico) {
-        const { data: minerva } = await supabase
-          .schema('nfe_vigia')
-          .from('approvals')
-          .select('id')
-          .eq('condo_id', condoId)
-          .eq('is_minerva', true)
-          .is('minerva_justification', null);
-        setMinervaCount(minerva?.length ?? 0);
+        // Minerva for síndico
+        if (isSindico) {
+          const minervaRes = await apiFetch(`/api/data/os-approvals/?condo_id=${condoId}&is_minerva=true&minerva_justification__isnull=true`);
+          const minervaData = await minervaRes.json();
+          const minervaRows = Array.isArray(minervaData) ? minervaData : minervaData?.results ?? [];
+          setMinervaCount(minervaRows.length);
+        }
+      } catch {
+        setPendingMyApprovals(0);
+        setPendingNFDocs(0);
+        setMinervaCount(0);
       }
 
       setLoading(false);

@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { ShieldAlert, AlertTriangle, CheckCircle2, ChevronRight, X } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { supabase } from '@/lib/supabase';
+import { apiFetch } from '@/lib/api';
 import { useCondo } from '@/contexts/CondoContext';
 import {
   Dialog,
@@ -62,60 +62,59 @@ export function DashboardRiskCard() {
   useEffect(() => {
     if (!condoId) { setLoading(false); return; }
 
-    const fetch = async () => {
+    const fetchData = async () => {
       setLoading(true);
 
-      const [nfRes, provRes, provListRes] = await Promise.all([
-        supabase
-          .from('fiscal_documents')
-          .select('id, number, amount, supplier')
-          .eq('condo_id', condoId)
-          .eq('status', 'PENDENTE'),
-        supabase
-          .from('providers')
-          .select('id, name, risk_level, risk_score')
-          .eq('condo_id', condoId),
-        supabase
-          .from('providers')
-          .select('id, name, risk_level, risk_score')
-          .eq('condo_id', condoId)
-          .or('risk_level.eq.ALTO,risk_score.gt.70'),
-      ]);
+      try {
+        const [nfRes, provRes] = await Promise.all([
+          apiFetch(`/api/data/fiscal-documents/?condo_id=${condoId}&status=PENDENTE`),
+          apiFetch(`/api/data/providers/?condo_id=${condoId}`),
+        ]);
 
-      const providers = (provRes.data ?? []) as { id: string; name: string }[];
-      const providerNames = new Set(providers.map(p => p.name?.toLowerCase().trim()));
+        const nfData = await nfRes.json();
+        const provData = await provRes.json();
+        const nfRows = Array.isArray(nfData) ? nfData : nfData?.results ?? [];
+        const provRows = Array.isArray(provData) ? provData : provData?.results ?? [];
 
-      const analyzed: RiskNF[] = (nfRes.data ?? []).map((nf: any) => {
-        const supplierRegistered = nf.supplier && providerNames.has(nf.supplier.toLowerCase().trim());
-        const genericDesc = hasGenericDescription(nf.supplier);
+        const providerNames = new Set(provRows.map((p: any) => p.name?.toLowerCase().trim()));
 
-        let riskLevel: 'ALTO' | 'ATENCAO' | 'OK' = 'OK';
-        let riskReason = 'Fornecedor cadastrado';
+        const analyzed: RiskNF[] = nfRows.map((nf: any) => {
+          const supplierRegistered = nf.supplier && providerNames.has(nf.supplier.toLowerCase().trim());
+          const genericDesc = hasGenericDescription(nf.supplier);
 
-        if (!supplierRegistered) {
-          riskLevel = 'ALTO';
-          riskReason = 'Fornecedor não cadastrado';
-        } else if (genericDesc) {
-          riskLevel = 'ATENCAO';
-          riskReason = 'Descrição genérica';
-        }
+          let riskLevel: 'ALTO' | 'ATENCAO' | 'OK' = 'OK';
+          let riskReason = 'Fornecedor cadastrado';
 
-        return {
-          id: nf.id,
-          number: nf.number,
-          amount: nf.amount,
-          supplier: nf.supplier,
-          riskLevel,
-          riskReason,
-        };
-      });
+          if (!supplierRegistered) {
+            riskLevel = 'ALTO';
+            riskReason = 'Fornecedor não cadastrado';
+          } else if (genericDesc) {
+            riskLevel = 'ATENCAO';
+            riskReason = 'Descrição genérica';
+          }
 
-      setRiskNFs(analyzed);
-      setRiskyProviders((provListRes.data ?? []) as RiskyProvider[]);
+          return {
+            id: nf.id,
+            number: nf.number,
+            amount: nf.amount,
+            supplier: nf.supplier,
+            riskLevel,
+            riskReason,
+          };
+        });
+
+        setRiskNFs(analyzed);
+        setRiskyProviders(
+          provRows.filter((p: any) => p.risk_level === 'ALTO' || (p.risk_score ?? 0) > 70) as RiskyProvider[]
+        );
+      } catch {
+        setRiskNFs([]);
+        setRiskyProviders([]);
+      }
       setLoading(false);
     };
 
-    fetch();
+    fetchData();
   }, [condoId]);
 
   const highCount = riskNFs.filter(n => n.riskLevel === 'ALTO').length;

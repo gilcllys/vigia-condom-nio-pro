@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Camera, ImageIcon, Upload, X } from 'lucide-react';
-import { supabase } from '@/lib/supabase';
+import { apiFetch, apiUpload } from '@/lib/api';
 import { useToast } from '@/hooks/use-toast';
 import { logSOActivity } from '@/lib/so-activity-log';
 
@@ -55,28 +55,32 @@ export function OSPhotosCard({ orderId, photos, photoUrls, canUploadFinalPhotos,
       const ext = file.name.split('.').pop() ?? 'jpg';
       const path = `service-orders/${orderId}/${crypto.randomUUID()}.${ext}`;
 
-      const { error: uploadError } = await supabase.storage
-        .from('service-order-photos')
-        .upload(path, file, { contentType: file.type });
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('bucket', 'service-order-photos');
+      formData.append('path', path);
+      const uploadRes = await apiUpload('/api/data/storage/upload/', formData);
 
-      if (uploadError) {
-        console.error('[OS upload] Final photo error:', uploadError);
-        toast({ title: 'Erro ao enviar foto', description: uploadError.message, variant: 'destructive' });
+      if (!uploadRes.ok) {
+        const errData = await uploadRes.json().catch(() => ({}));
+        console.error('[OS upload] Final photo error:', errData);
+        toast({ title: 'Erro ao enviar foto', description: errData.message ?? errData.detail ?? '', variant: 'destructive' });
         continue;
       }
 
-      const { error: dbError } = await supabase
-        .schema('nfe_vigia')
-        .from('service_order_photos')
-        .insert({
+      const dbRes = await apiFetch(`/api/data/service-orders/${orderId}/photos/`, {
+        method: 'POST',
+        body: JSON.stringify({
           service_order_id: orderId,
           photo_type: 'EXECUCAO_FINAL',
           file_url: path,
           observation: uploadObservation.trim(),
-        });
+        }),
+      });
 
-      if (dbError) {
-        console.error('[OS upload] DB error:', dbError);
+      if (!dbRes.ok) {
+        const dbErr = await dbRes.json().catch(() => ({}));
+        console.error('[OS upload] DB error:', dbErr);
       } else {
         await logSOActivity({ serviceOrderId: orderId, action: 'FOTO_ADICIONADA', description: 'Foto final adicionada' });
       }

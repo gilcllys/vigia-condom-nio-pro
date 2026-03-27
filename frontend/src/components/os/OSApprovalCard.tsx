@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { supabase } from '@/lib/supabase';
+import { apiFetch } from '@/lib/api';
 import { useAuth } from '@/contexts/AuthContext';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -62,33 +62,38 @@ export function OSApprovalCard({ orderId, condoId, approvalType, title, isSindic
 
   useEffect(() => {
     if (!user) return;
-    supabase.schema('nfe_vigia').from('users').select('id').eq('auth_user_id', user.id).maybeSingle()
-      .then(({ data }) => setInternalUserId(data?.id ?? null));
+    apiFetch(`/api/data/users/?auth_user_id=${user.id}`)
+      .then(res => res.json())
+      .then(data => {
+        const arr = data.results ?? data;
+        const u = Array.isArray(arr) ? arr[0] : null;
+        setInternalUserId(u?.id ?? null);
+      })
+      .catch(() => setInternalUserId(null));
   }, [user]);
 
   const fetchApprovals = async () => {
     setLoading(true);
-    const { data } = await supabase
-      .schema('nfe_vigia')
-      .from('approvals')
-      .select('*')
-      .eq('service_order_id', orderId)
-      .eq('approval_type', approvalType)
-      .order('created_at', { ascending: true });
+    const res = await apiFetch(`/api/data/os-approvals/?service_order_id=${orderId}&approval_type=${approvalType}&ordering=created_at`);
+    const json = await res.json();
+    const data: any[] = json.results ?? json;
 
-    if (data) {
+    if (data && data.length > 0) {
       // Fetch approver names
       const userIds = [...new Set(data.map((a: any) => a.approver_id))];
-      const { data: users } = await supabase
-        .schema('nfe_vigia')
-        .from('users')
-        .select('id, full_name')
-        .in('id', userIds);
-
       const nameMap: Record<string, string> = {};
-      (users ?? []).forEach((u: any) => { nameMap[u.id] = u.full_name; });
-
+      for (const uid of userIds) {
+        try {
+          const uRes = await apiFetch(`/api/data/users/${uid}/`);
+          if (uRes.ok) {
+            const uData = await uRes.json();
+            nameMap[uid] = uData.full_name;
+          }
+        } catch {}
+      }
       setApprovals(data.map((a: any) => ({ ...a, approver_name: nameMap[a.approver_id] ?? 'Usuário' })));
+    } else {
+      setApprovals([]);
     }
     setLoading(false);
   };
@@ -100,9 +105,10 @@ export function OSApprovalCard({ orderId, condoId, approvalType, title, isSindic
     const checkExpired = async () => {
       const expired = approvals.filter(a => a.decision === 'pendente' && new Date(a.expires_at) < new Date());
       for (const a of expired) {
-        await supabase.schema('nfe_vigia').from('approvals')
-          .update({ decision: 'neutro', is_minerva: true, responded_at: new Date().toISOString() })
-          .eq('id', a.id);
+        await apiFetch(`/api/data/os-approvals/${a.id}/`, {
+          method: 'PATCH',
+          body: JSON.stringify({ decision: 'neutro', is_minerva: true, responded_at: new Date().toISOString() }),
+        });
       }
       if (expired.length > 0) fetchApprovals();
     };
@@ -119,13 +125,16 @@ export function OSApprovalCard({ orderId, condoId, approvalType, title, isSindic
     }
     setActionLoading(true);
 
-    const { error } = await supabase.schema('nfe_vigia').from('approvals').update({
-      decision,
-      justification: justification.trim() || null,
-      responded_at: new Date().toISOString(),
-    }).eq('id', myApproval.id);
+    const res = await apiFetch(`/api/data/os-approvals/${myApproval.id}/`, {
+      method: 'PATCH',
+      body: JSON.stringify({
+        decision,
+        justification: justification.trim() || null,
+        responded_at: new Date().toISOString(),
+      }),
+    });
 
-    if (error) {
+    if (!res.ok) {
       toast({ title: 'Erro ao registrar voto', variant: 'destructive' });
     } else {
       const roleName = roleLabel[myApproval.approver_role] ?? myApproval.approver_role;
@@ -160,15 +169,21 @@ export function OSApprovalCard({ orderId, condoId, approvalType, title, isSindic
     }
     setActionLoading(true);
 
-    // Update all approvals with minerva info
-    const { error } = await supabase.schema('nfe_vigia').from('approvals')
-      .update({
-        is_minerva: true,
-        minerva_justification: `Síndico exerceu voto de minerva — ${decision === 'aprovado' ? 'Aprovado' : 'Cancelado'} — Motivo: ${minervaJustification.trim()}`,
-      })
-      .eq('service_order_id', orderId);
+    // Update all approvals for this order with minerva info
+    // We need to update each one individually since there's no bulk update by filter
+    let hasError = false;
+    for (const a of approvals) {
+      const res = await apiFetch(`/api/data/os-approvals/${a.id}/`, {
+        method: 'PATCH',
+        body: JSON.stringify({
+          is_minerva: true,
+          minerva_justification: `Síndico exerceu voto de minerva — ${decision === 'aprovado' ? 'Aprovado' : 'Cancelado'} — Motivo: ${minervaJustification.trim()}`,
+        }),
+      });
+      if (!res.ok) hasError = true;
+    }
 
-    if (!error) {
+    if (!hasError) {
       await logSOActivity({
         serviceOrderId: orderId,
         action: 'MINERVA_EXERCIDO' as any,

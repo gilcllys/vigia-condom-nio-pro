@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Bell, ChevronRight, AlertTriangle, Info } from 'lucide-react';
-import { supabase } from '@/lib/supabase';
+import { apiFetch } from '@/lib/api';
 import { useCondo } from '@/contexts/CondoContext';
 
 interface AlertItem {
@@ -25,54 +25,49 @@ export function DashboardAlerts() {
       const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
       const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
 
-      const [osRes, stockRes, nfRejRes] = await Promise.all([
-        supabase
-          .from('service_orders')
-          .select('*', { count: 'exact', head: true })
-          .eq('condo_id', condoId)
-          .eq('status', 'AGUARDANDO_APROVACAO')
-          .lt('created_at', yesterday),
-        supabase
-          .from('stock_items')
-          .select('id, current_qty, min_qty')
-          .eq('condo_id', condoId),
-        supabase
-          .from('fiscal_documents')
-          .select('*', { count: 'exact', head: true })
-          .eq('condo_id', condoId)
-          .eq('status', 'REJEITADO')
-          .gte('created_at', thirtyDaysAgo),
-      ]);
+      try {
+        const [osRes, stockRes, nfRejRes] = await Promise.all([
+          apiFetch(`/api/data/service-orders/?condo_id=${condoId}&status=AGUARDANDO_APROVACAO&created_before=${yesterday}&count_only=true`),
+          apiFetch(`/api/data/stock-items/?condo_id=${condoId}`),
+          apiFetch(`/api/data/fiscal-documents/?condo_id=${condoId}&status=REJEITADO&created_after=${thirtyDaysAgo}&count_only=true`),
+        ]);
 
-      const newAlerts: AlertItem[] = [];
+        const newAlerts: AlertItem[] = [];
 
-      const osCount = osRes.count ?? 0;
-      if (osCount > 0) {
-        newAlerts.push({
-          text: `${osCount} ${osCount === 1 ? 'ordem de serviço aguarda' : 'ordens de serviço aguardam'} aprovação há mais de 24h`,
-          type: 'warning',
-        });
+        const osData = await osRes.json();
+        const osCount = osData?.count ?? 0;
+        if (osCount > 0) {
+          newAlerts.push({
+            text: `${osCount} ${osCount === 1 ? 'ordem de serviço aguarda' : 'ordens de serviço aguardam'} aprovação há mais de 24h`,
+            type: 'warning',
+          });
+        }
+
+        const stockData = await stockRes.json();
+        const stockItems = Array.isArray(stockData) ? stockData : stockData?.results ?? [];
+        const lowStock = stockItems.filter(
+          (item: any) => (item.current_qty ?? 0) < (item.min_qty ?? 0)
+        );
+        if (lowStock.length > 0) {
+          newAlerts.push({
+            text: `${lowStock.length} ${lowStock.length === 1 ? 'item do estoque abaixo' : 'itens do estoque abaixo'} do estoque mínimo`,
+            type: 'danger',
+          });
+        }
+
+        const nfRejData = await nfRejRes.json();
+        const nfRejCount = nfRejData?.count ?? 0;
+        if (nfRejCount > 0) {
+          newAlerts.push({
+            text: `${nfRejCount} ${nfRejCount === 1 ? 'nota fiscal rejeitada' : 'notas fiscais rejeitadas'} nos últimos 30 dias`,
+            type: 'danger',
+          });
+        }
+
+        setAlerts(newAlerts);
+      } catch {
+        setAlerts([]);
       }
-
-      const lowStock = (stockRes.data ?? []).filter(
-        (item) => (item.current_qty ?? 0) < (item.min_qty ?? 0)
-      );
-      if (lowStock.length > 0) {
-        newAlerts.push({
-          text: `${lowStock.length} ${lowStock.length === 1 ? 'item do estoque abaixo' : 'itens do estoque abaixo'} do estoque mínimo`,
-          type: 'danger',
-        });
-      }
-
-      const nfRejCount = nfRejRes.count ?? 0;
-      if (nfRejCount > 0) {
-        newAlerts.push({
-          text: `${nfRejCount} ${nfRejCount === 1 ? 'nota fiscal rejeitada' : 'notas fiscais rejeitadas'} nos últimos 30 dias`,
-          type: 'danger',
-        });
-      }
-
-      setAlerts(newAlerts);
       setLoading(false);
     };
 

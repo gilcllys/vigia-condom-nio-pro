@@ -1,21 +1,23 @@
-const STORAGE_BASE = 'https://rvgrxtzqkygjxlwlmvvn.supabase.co/storage/v1/object/public';
-
-/** Default bucket for fiscal documents */
-const DEFAULT_BUCKET = 'nfe-vigia';
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL as string || 'http://localhost:8000';
 
 /**
- * Builds the full public URL for a file stored in Supabase Storage.
+ * Builds the full public URL for a file stored via the backend.
  *
  * Handles two common formats saved in `file_url`:
- *   1. "nf-uploads/condo_id/file.pdf"  → bucket is already in the path
- *   2. "condo_id/file.pdf"             → prepend the default bucket
+ *   1. "/media/bucket/path/file.pdf"  → already a full path, use as-is with API base
+ *   2. "bucket/path/file.pdf"         → prepend the API base + /media/
  */
-export function getPublicStorageUrl(fileUrl: string, bucket?: string): string {
-  // If the path already starts with a known bucket name, use it as-is
-  if (fileUrl.startsWith('nf-uploads/') || fileUrl.startsWith('nfe-vigia/')) {
-    return `${STORAGE_BASE}/${fileUrl}`;
+export function getPublicStorageUrl(fileUrl: string, _bucket?: string): string {
+  // If already an absolute URL, return as-is
+  if (fileUrl.startsWith('http://') || fileUrl.startsWith('https://')) {
+    return fileUrl;
   }
 
-  const resolvedBucket = bucket ?? DEFAULT_BUCKET;
-  return `${STORAGE_BASE}/${resolvedBucket}/${fileUrl}`;
+  // If starts with /media/, just prepend API base
+  if (fileUrl.startsWith('/media/')) {
+    return `${API_BASE_URL}${fileUrl}`;
+  }
+
+  // Otherwise, prepend API base + /media/
+  return `${API_BASE_URL}/media/${fileUrl}`;
 }

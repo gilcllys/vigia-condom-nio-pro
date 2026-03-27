@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
-import { supabase } from '@/lib/supabase';
+import { apiFetch } from '@/lib/api';
+import { getPublicStorageUrl } from '@/lib/storage-url';
 import { useCondo } from '@/contexts/CondoContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { Badge } from '@/components/ui/badge';
@@ -44,14 +45,6 @@ function getDecisionBadge(decision: string) {
   }
 }
 
-function resolveStoragePath(fileUrl: string): { bucket: string; path: string } {
-  if (fileUrl.startsWith('nf-uploads/'))
-    return { bucket: 'nf-uploads', path: fileUrl.slice('nf-uploads/'.length) };
-  if (fileUrl.startsWith('nfe-vigia/'))
-    return { bucket: 'nfe-vigia', path: fileUrl.slice('nfe-vigia/'.length) };
-  return { bucket: 'nfe-vigia', path: fileUrl };
-}
-
 export default function NotasFiscais() {
   const { condoId } = useCondo();
   const { user } = useAuth();
@@ -76,12 +69,13 @@ export default function NotasFiscais() {
   // Step 1: resolve internal user id from auth user
   useEffect(() => {
     if (!user) return;
-    supabase
-      .from('users')
-      .select('id')
-      .eq('auth_user_id', user.id)
-      .maybeSingle()
-      .then(({ data }) => setInternalUserId(data?.id ?? null));
+    apiFetch(`/api/data/users/?auth_user_id=${user.id}`)
+      .then(async (res) => {
+        if (!res.ok) return;
+        const data = await res.json();
+        const list = Array.isArray(data) ? data : data.results ?? [];
+        setInternalUserId(list[0]?.id ?? null);
+      });
   }, [user]);
 
   // Step 2: fetch only approvals assigned to this user
@@ -89,40 +83,30 @@ export default function NotasFiscais() {
     if (!condoId || !internalUserId) { setLoading(false); return; }
     setLoading(true);
 
-    supabase
-      .from('fiscal_document_approvals')
-      .select(`
-        id,
-        decision,
-        fiscal_document_id,
-        fiscal_documents (
-          id, number, amount, supplier, issue_date, document_type, status, created_at, file_url
-        )
-      `)
-      .eq('approver_user_id', internalUserId)
-      .eq('condo_id', condoId)
-      .then(({ data, error }) => {
-        if (!error && data) {
-          const mapped: ApprovalRow[] = (data as any[])
-            .filter(row => row.fiscal_documents)
-            .map(row => {
-              const fd = row.fiscal_documents;
-              return {
-                approvalId: row.id,
-                decision: row.decision ?? 'pendente',
-                docId: fd.id,
-                number: fd.number,
-                amount: fd.amount,
-                supplier: fd.supplier,
-                issue_date: fd.issue_date,
-                document_type: fd.document_type,
-                doc_status: fd.status,
-                created_at: fd.created_at,
-                file_url: fd.file_url,
-              };
-            });
-          setRows(mapped);
-        }
+    apiFetch(`/api/data/approvals/?approver_user_id=${internalUserId}&condo_id=${condoId}&expand=fiscal_documents`)
+      .then(async (res) => {
+        if (!res.ok) { setLoading(false); return; }
+        const data = await res.json();
+        const list = Array.isArray(data) ? data : data.results ?? [];
+        const mapped: ApprovalRow[] = (list as any[])
+          .filter(row => row.fiscal_documents)
+          .map(row => {
+            const fd = row.fiscal_documents;
+            return {
+              approvalId: row.id,
+              decision: row.decision ?? 'pendente',
+              docId: fd.id,
+              number: fd.number,
+              amount: fd.amount,
+              supplier: fd.supplier,
+              issue_date: fd.issue_date,
+              document_type: fd.document_type,
+              doc_status: fd.status,
+              created_at: fd.created_at,
+              file_url: fd.file_url,
+            };
+          });
+        setRows(mapped);
         setLoading(false);
       });
   }, [condoId, internalUserId, refreshKey]);
@@ -145,13 +129,8 @@ export default function NotasFiscais() {
 
   const handleOpenDoc = async (fileUrl: string, docId: string) => {
     setOpeningDoc(docId);
-    const { bucket, path } = resolveStoragePath(fileUrl);
-    const { data, error } = await supabase.storage.from(bucket).createSignedUrl(path, 3600);
-    if (error || !data?.signedUrl) {
-      toast.error('Não foi possível abrir o documento. Verifique se o arquivo existe.');
-    } else {
-      window.open(data.signedUrl, '_blank');
-    }
+    const url = getPublicStorageUrl(fileUrl);
+    window.open(url, '_blank');
     setOpeningDoc(null);
   };
 
@@ -165,21 +144,25 @@ export default function NotasFiscais() {
     if (!selectedApprovalId) return;
     setSubmitting(true);
 
-    const { error } = await supabase
-      .from('fiscal_document_approvals')
-      .update({
-        decision,
-        justification: justification.trim() || null,
-        voted_at: new Date().toISOString(),
-      })
-      .eq('id', selectedApprovalId);
+    try {
+      const res = await apiFetch(`/api/data/approvals/${selectedApprovalId}/`, {
+        method: 'PATCH',
+        body: JSON.stringify({
+          decision,
+          justification: justification.trim() || null,
+          voted_at: new Date().toISOString(),
+        }),
+      });
 
-    if (error) {
+      if (!res.ok) {
+        toast.error('Erro ao registrar decisão.');
+      } else {
+        toast.success(decision === 'aprovado' ? 'NF aprovada com sucesso.' : 'NF rejeitada.');
+        setModalOpen(false);
+        setRefreshKey(k => k + 1);
+      }
+    } catch {
       toast.error('Erro ao registrar decisão.');
-    } else {
-      toast.success(decision === 'aprovado' ? 'NF aprovada com sucesso.' : 'NF rejeitada.');
-      setModalOpen(false);
-      setRefreshKey(k => k + 1);
     }
     setSubmitting(false);
   };

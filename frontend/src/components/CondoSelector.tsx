@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Building2, Check, ChevronDown } from 'lucide-react';
-import { supabase } from '@/lib/supabase';
+import { apiFetch } from '@/lib/api';
 import { useCondo } from '@/contexts/CondoContext';
 import {
   Popover,
@@ -26,13 +26,12 @@ export function CondoSelector() {
 
   useEffect(() => {
     const fetchCondos = async () => {
-      const { data, error } = await supabase
-        .schema('nfe_vigia')
-        .rpc('get_my_condos');
-      if (error) {
-        console.error('[CondoSelector] Error fetching condos:', error);
-      } else {
+      try {
+        const res = await apiFetch('/api/data/condos/my/');
+        const data = await res.json();
         setCondos(data ?? []);
+      } catch (err) {
+        console.error('[CondoSelector] Error fetching condos:', err);
       }
       setLoading(false);
     };
